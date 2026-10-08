@@ -8,74 +8,74 @@ Không coi mọi ý tưởng tương lai là commitment.
 
 ## Phase 0 — Foundation
 
-- [ ] Khởi tạo Tauri
-- [ ] Khởi tạo React + TypeScript
-- [ ] Thiết lập Rust backend
-- [ ] Thiết lập IPC cơ bản
-- [ ] Thiết lập cấu trúc source
-- [ ] Thiết lập lint/format cơ bản
+- [x] Khởi tạo Tauri
+- [x] Khởi tạo React + TypeScript
+- [x] Thiết lập Rust backend
+- [x] Thiết lập IPC cơ bản
+- [x] Thiết lập cấu trúc source
+- [x] Thiết lập lint/format cơ bản
 
 ## Phase 1 — Workspace
 
-- [ ] Open workspace
-- [ ] File tree
-- [ ] Open file
-- [ ] Create file
-- [ ] Create folder
-- [ ] Rename
-- [ ] Delete
-- [ ] File watcher
-- [ ] Xử lý conflict
+- [x] Open workspace
+- [x] File tree
+- [x] Open file
+- [x] Create file
+- [x] Create folder
+- [x] Rename
+- [x] Delete
+- [x] File watcher
+- [x] Xử lý conflict
 
 ## Phase 2 — Markdown
 
-- [ ] CodeMirror
-- [ ] Markdown parser
-- [ ] Syntax highlighting
-- [ ] Preview
-- [ ] Editor/Preview/Split
-- [ ] Save
-- [ ] Tabs
-- [ ] Unsaved state
+- [x] CodeMirror
+- [x] Markdown parser
+- [x] Syntax highlighting
+- [x] Preview
+- [x] Editor/Preview/Split
+- [x] Save
+- [x] Tabs
+- [x] Unsaved state
 
 ## Phase 3 — Search
 
-- [ ] Tích hợp `rg`
-- [ ] Search UI
-- [ ] Search result model
-- [ ] Jump to line
-- [ ] Highlight result
-- [ ] Xử lý search không block UI
+- [x] Tích hợp `rg`
+- [x] Search UI
+- [x] Search result model
+- [x] Jump to line
+- [x] Highlight result
+- [x] Xử lý search không block UI
 
 ## Phase 4 — Image management
 
-- [ ] Paste image
-- [ ] Detect image data
-- [ ] Image folder configuration
-- [ ] Naming convention
-- [ ] Image index
-- [ ] Relative Markdown reference
-- [ ] Rename Markdown → rename owned images
-- [ ] Move Markdown → update image context
-- [ ] Conflict handling
+- [x] Paste image
+- [x] Detect image data
+- [x] Image folder configuration
+- [x] Naming convention
+- [x] Image index
+- [x] Relative Markdown reference
+- [x] Rename Markdown → rename owned images
+- [x] Move Markdown → update image context
+- [x] Conflict handling
 
 ## Phase 5 — PDF
 
-- [ ] Markdown → HTML
-- [ ] CSS cho export
-- [ ] HTML → PDF
-- [ ] Export dialog
-- [ ] Kiểm tra hình ảnh/relative path
+- [x] Markdown → HTML
+- [x] CSS cho export
+- [x] HTML → PDF
+- [x] Export dialog
+- [x] Kiểm tra hình ảnh/relative path
 
 ## Phase 6 — UX polish
 
-- [ ] Command palette
-- [ ] Keyboard shortcuts
-- [ ] Context menus
-- [ ] Dark/light theme
-- [ ] Settings
-- [ ] Recent files
-- [ ] UI performance tuning
+- [x] Command palette
+- [x] Keyboard shortcuts
+- [x] Context menus
+- [x] Dark/light theme
+- [x] Settings
+- [x] Recent files
+- [x] UI performance tuning
 
 ## Phase 7 — Release
 
