@@ -79,13 +79,13 @@ Không coi mọi ý tưởng tương lai là commitment.
 
 ## Phase 7 — Release
 
-- [ ] Windows packaging
-- [ ] Linux packaging nếu phù hợp
-- [ ] macOS packaging nếu phù hợp
-- [ ] README hoàn chỉnh
-- [ ] Screenshots
-- [ ] Demo GIF/video
-- [ ] Release notes
+- [x] Windows packaging
+- [x] Linux packaging nếu phù hợp
+- [x] macOS packaging nếu phù hợp
+- [x] README hoàn chỉnh
+- [x] Screenshots
+- [x] Demo GIF/video
+- [x] Release notes
 
 ## Ngoài roadmap ban đầu
 
