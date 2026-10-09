@@ -28,6 +28,19 @@ function getMockTree(): FileEntry[] {
       kind: 'file',
     },
     {
+      name: 'assets',
+      relativePath: 'assets',
+      kind: 'directory',
+      children: [
+        {
+          name: 'images',
+          relativePath: 'assets/images',
+          kind: 'directory',
+          children: [],
+        },
+      ],
+    },
+    {
       name: 'TryHackMe',
       relativePath: 'TryHackMe',
       kind: 'directory',
@@ -37,6 +50,12 @@ function getMockTree(): FileEntry[] {
           relativePath: 'TryHackMe/Docker',
           kind: 'directory',
           children: [
+            {
+              name: 'img',
+              relativePath: 'TryHackMe/Docker/img',
+              kind: 'directory',
+              children: [],
+            },
             {
               name: 'image.md',
               relativePath: 'TryHackMe/Docker/image.md',

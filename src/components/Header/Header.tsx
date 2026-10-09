@@ -7,11 +7,14 @@ import {
   MoonIcon,
   PdfIcon,
   SettingsIcon,
+  SidebarToggleIcon,
 } from '../common/Icons';
 
 interface HeaderProps {
   workspaceName?: string;
   theme: Theme;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
   onOpenWorkspace: () => void;
   onToggleSearch: () => void;
   onToggleCommandPalette: () => void;
@@ -23,6 +26,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   workspaceName,
   theme,
+  isSidebarCollapsed = false,
+  onToggleSidebar,
   onOpenWorkspace,
   onToggleSearch,
   onToggleCommandPalette,
@@ -32,23 +37,36 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header className="titlebar">
-      <div className="titlebar-brand" onClick={onOpenWorkspace} style={{ cursor: 'pointer' }}>
-        <BookIcon size={18} />
-        <span>BookMD</span>
-        {workspaceName && (
-          <span
-            style={{
-              fontSize: '11px',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              backgroundColor: 'var(--bg-tertiary)',
-              color: 'var(--text-secondary)',
-              marginLeft: '6px',
-            }}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {onToggleSidebar && (
+          <button
+            className={`btn btn-icon ${isSidebarCollapsed ? 'active' : ''}`}
+            onClick={onToggleSidebar}
+            title={isSidebarCollapsed ? "Mở thanh thư mục / Sidebar (Ctrl+B)" : "Thu gọn thanh thư mục / Sidebar (Ctrl+B)"}
+            style={{ marginRight: '2px' }}
           >
-            {workspaceName}
-          </span>
+            <SidebarToggleIcon size={16} />
+          </button>
         )}
+
+        <div className="titlebar-brand" onClick={onOpenWorkspace} style={{ cursor: 'pointer' }}>
+          <BookIcon size={18} />
+          <span>BookMD</span>
+          {workspaceName && (
+            <span
+              style={{
+                fontSize: '11px',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--bg-tertiary)',
+                color: 'var(--text-secondary)',
+                marginLeft: '6px',
+              }}
+            >
+              {workspaceName}
+            </span>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

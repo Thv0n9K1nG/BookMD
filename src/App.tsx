@@ -479,6 +479,11 @@ export const App: React.FC = () => {
         shortcut: 'Ctrl+,',
         action: () => setIsSettingsOpen(true),
       },
+      {
+        id: 'pick-image-dir',
+        title: 'Cài đặt: Chọn thư mục lưu hình ảnh (Image Directory)...',
+        action: () => setIsSettingsOpen(true),
+      },
     ],
     [handleOpenWorkspace, handleCreateNew, handleSaveActiveFile, handleExportPdf, settings.theme]
   );
@@ -500,6 +505,8 @@ export const App: React.FC = () => {
       <Header
         workspaceName={workspace?.name}
         theme={settings.theme}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
         onOpenWorkspace={() => handleOpenWorkspace()}
         onToggleSearch={() => setIsSearchOpen(true)}
         onToggleCommandPalette={() => setIsCommandPaletteOpen(true)}
@@ -625,8 +632,24 @@ export const App: React.FC = () => {
       <SettingsModal
         isOpen={isSettingsOpen}
         settings={settings}
+        fileTree={fileTree}
+        workspaceName={workspace?.name}
         onClose={() => setIsSettingsOpen(false)}
-        onUpdateSettings={(newSettings) => setSettings((prev) => ({ ...prev, ...newSettings }))}
+        onUpdateSettings={(newSettings) => {
+          setSettings((prev) => ({ ...prev, ...newSettings }));
+          if (newSettings.imageDir) {
+            addToast(`Thư mục lưu ảnh: ${newSettings.imageDir}`, 'success');
+          }
+        }}
+        onCreateFolder={async (folderPath) => {
+          try {
+            await createFile(folderPath, 'directory');
+            await handleRefreshTree();
+            addToast(`Đã tạo thư mục: ${folderPath}`, 'success');
+          } catch (err: any) {
+            addToast(`Lỗi tạo thư mục: ${err.message || err}`, 'error');
+          }
+        }}
       />
 
       <ContextMenu

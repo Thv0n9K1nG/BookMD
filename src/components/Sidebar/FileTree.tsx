@@ -145,10 +145,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
     return (
       <div className="sidebar collapsed">
         <button
-          className="btn btn-icon"
+          className="btn btn-icon sidebar-expand-btn"
           onClick={onToggleCollapse}
-          title="Mở thanh Sidebar"
-          style={{ margin: '8px' }}
+          title="Mở thanh Sidebar (Ctrl+B)"
         >
           <SidebarToggleIcon size={16} />
         </button>
