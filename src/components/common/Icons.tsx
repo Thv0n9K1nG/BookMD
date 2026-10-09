@@ -284,3 +284,41 @@ export const ImageIcon = ({ size = 16, ...props }: IconProps) => (
   </svg>
 );
 
+export const TocIcon = ({ size = 16, ...props }: IconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <line x1="21" x2="8" y1="6" y2="6" />
+    <line x1="21" x2="8" y1="12" y2="12" />
+    <line x1="21" x2="8" y1="18" y2="18" />
+    <circle cx="4" cy="6" r="1.5" fill="currentColor" />
+    <circle cx="4" cy="12" r="1.5" fill="currentColor" />
+    <circle cx="4" cy="18" r="1.5" fill="currentColor" />
+  </svg>
+);
+
+export const FilesIcon = ({ size = 16, ...props }: IconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 8 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+  </svg>
+);
+
+

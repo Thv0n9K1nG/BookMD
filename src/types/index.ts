@@ -71,3 +71,13 @@ export interface ContextMenuState {
   entry?: FileEntry;
   targetFolder?: string;
 }
+
+export type SidebarTab = 'files' | 'toc';
+
+export interface TocItem {
+  id: string;
+  level: number;
+  text: string;
+  line: number;
+}
+

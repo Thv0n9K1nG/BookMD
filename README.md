@@ -34,6 +34,7 @@ Không cơ sở dữ liệu bí mật. Không định dạng độc quyền. Kh�
 - 🖼️ **Quản lý hình ảnh tự động:** Dán ảnh trực tiếp từ clipboard (`Ctrl + V`). Ứng dụng tự động lưu vào `assets/images/`, đặt tên theo slug tài liệu, băm SHA-256 chống trùng lặp và chèn link Markdown tương đối.
 - 🔄 **Đồng bộ liên kết ảnh:** Tự động phát hiện và cập nhật đường dẫn ảnh trong Markdown khi bạn đổi tên file ghi chú.
 - 📄 **Xuất PDF chuẩn kỹ thuật:** Xuất bản ghi chú sang định dạng PDF đẹp mắt, căn chỉnh trang và font chữ code chuẩn xác.
+- 📑 **Mục lục tiêu đề (Table of Contents):** Chuyển đổi linh hoạt giữa cây thư mục Workspace và Mục lục (Outline) của tài liệu Markdown đang mở. Tự động bóc tách các cấp độ tiêu đề H1-H6, nhấp chuột để nhảy tức thì đến đúng dòng nội dung.
 - 🎨 **Giao diện hiện đại & Command Palette:**
   - `Ctrl + P` / `Ctrl + Shift + P`: Command Palette truy cập nhanh mọi chức năng.
   - `Ctrl + K`: Hộp thoại tìm kiếm workspace.
@@ -47,10 +48,12 @@ Không cơ sở dữ liệu bí mật. Không định dạng độc quyền. Kh�
 | Phím tắt | Chức năng |
 |---|---|
 | `Ctrl + S` | Lưu tài liệu đang mở |
+| `Ctrl + B` | Ẩn / Hiện thanh Sidebar |
+| `Ctrl + Shift + O` | Chuyển đổi xem Thư mục / Mục lục (Table of Contents) |
 | `Ctrl + K` | Mở hộp thoại tìm kiếm Workspace |
 | `Ctrl + P` / `Ctrl + Shift + P` | Mở Command Palette |
 | `Ctrl + W` | Đóng tab hiện tại |
-| `Ctrl + E` | Chuyển chế độ xem (Editor / Split / Preview) |
+| `Ctrl + \` | Chuyển chế độ xem (Editor / Split / Preview) |
 | `Ctrl + V` (trong Editor) | Dán ảnh từ clipboard và tự động lưu |
 
 ---

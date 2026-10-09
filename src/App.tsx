@@ -5,6 +5,7 @@ import {
   FileEntry,
   OpenTab,
   ViewMode,
+  SidebarTab,
   Settings,
   ContextMenuState,
   ToastMessage,
@@ -61,6 +62,7 @@ export const App: React.FC = () => {
   const [fileTree, setFileTree] = useState<FileEntry[]>([]);
   const [sidebarWidth, setSidebarWidth] = useState(250);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('files');
 
   // Tabs & Editor
   const [tabs, setTabs] = useState<OpenTab[]>([]);
@@ -385,6 +387,10 @@ export const App: React.FC = () => {
       } else if (isMod && e.key.toLowerCase() === 'b') {
         e.preventDefault();
         setIsSidebarCollapsed((prev) => !prev);
+      } else if (isMod && e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        setIsSidebarCollapsed(false);
+        setSidebarTab((prev) => (prev === 'files' ? 'toc' : 'files'));
       } else if (isMod && e.key === '\\') {
         e.preventDefault();
         setViewMode((prev) => (prev === 'editor' ? 'split' : prev === 'split' ? 'preview' : 'editor'));
@@ -442,6 +448,15 @@ export const App: React.FC = () => {
         title: 'Ẩn / Hiện Sidebar',
         shortcut: 'Ctrl+B',
         action: () => setIsSidebarCollapsed((prev) => !prev),
+      },
+      {
+        id: 'toggle-sidebar-toc',
+        title: 'Sidebar: Chuyển đổi Thư mục / Mục lục (Table of Contents)',
+        shortcut: 'Ctrl+Shift+O',
+        action: () => {
+          setIsSidebarCollapsed(false);
+          setSidebarTab((prev) => (prev === 'files' ? 'toc' : 'files'));
+        },
       },
       {
         id: 'view-editor',
@@ -524,11 +539,20 @@ export const App: React.FC = () => {
         <FileTree
           tree={fileTree}
           activeFile={activePath || undefined}
+          activeContent={activeTab?.content}
           isCollapsed={isSidebarCollapsed}
           width={sidebarWidth}
+          sidebarTab={sidebarTab}
+          onSelectSidebarTab={setSidebarTab}
           onSelectFile={handleOpenFile}
           onRefresh={handleRefreshTree}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onNavigateToLine={(line) => {
+            setTargetLine(line);
+            if (viewMode === 'preview') {
+              setViewMode('split');
+            }
+          }}
           onContextMenu={handleContextMenu}
           onCreateNew={handleCreateNew}
         />

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileEntry } from '../../types';
+import { FileEntry, SidebarTab } from '../../types';
 import {
   FolderIcon,
   FolderOpenIcon,
@@ -8,16 +8,23 @@ import {
   PlusIcon,
   RefreshIcon,
   SidebarToggleIcon,
+  TocIcon,
+  FilesIcon,
 } from '../common/Icons';
+import { TableOfContents } from './TableOfContents';
 
 interface FileTreeProps {
   tree: FileEntry[];
   activeFile?: string;
+  activeContent?: string;
   isCollapsed: boolean;
   width: number;
+  sidebarTab?: SidebarTab;
+  onSelectSidebarTab?: (tab: SidebarTab) => void;
   onSelectFile: (file: FileEntry) => void;
   onRefresh: () => void;
   onToggleCollapse: () => void;
+  onNavigateToLine?: (line: number) => void;
   onContextMenu: (e: React.MouseEvent, entry?: FileEntry, folderPath?: string) => void;
   onCreateNew: (folderPath: string, kind: 'file' | 'directory') => void;
 }
@@ -117,14 +124,26 @@ const TreeItem: React.FC<TreeItemProps> = ({
 export const FileTree: React.FC<FileTreeProps> = ({
   tree,
   activeFile,
+  activeContent,
   isCollapsed,
   width,
+  sidebarTab,
+  onSelectSidebarTab,
   onSelectFile,
   onRefresh,
   onToggleCollapse,
+  onNavigateToLine,
   onContextMenu,
   onCreateNew,
 }) => {
+  const [internalTab, setInternalTab] = useState<SidebarTab>('files');
+  const currentTab = sidebarTab !== undefined ? sidebarTab : internalTab;
+
+  const handleTabChange = (tab: SidebarTab) => {
+    setInternalTab(tab);
+    onSelectSidebarTab?.(tab);
+  };
+
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(['TryHackMe', 'assets'])
   );
@@ -151,6 +170,30 @@ export const FileTree: React.FC<FileTreeProps> = ({
         >
           <SidebarToggleIcon size={16} />
         </button>
+
+        <button
+          className={`btn btn-icon sidebar-expand-btn ${currentTab === 'files' ? 'active' : ''}`}
+          onClick={() => {
+            handleTabChange('files');
+            onToggleCollapse();
+          }}
+          title="Mở Thư mục Workspace"
+          style={{ marginTop: '6px' }}
+        >
+          <FilesIcon size={15} />
+        </button>
+
+        <button
+          className={`btn btn-icon sidebar-expand-btn ${currentTab === 'toc' ? 'active' : ''}`}
+          onClick={() => {
+            handleTabChange('toc');
+            onToggleCollapse();
+          }}
+          title="Mở Mục lục (Table of Contents)"
+          style={{ marginTop: '4px' }}
+        >
+          <TocIcon size={15} />
+        </button>
       </div>
     );
   }
@@ -158,22 +201,46 @@ export const FileTree: React.FC<FileTreeProps> = ({
   return (
     <aside className="sidebar" style={{ width: `${width}px` }}>
       <div className="sidebar-header">
-        <span className="sidebar-title">Thư mục</span>
-        <div style={{ display: 'flex', gap: '2px' }}>
+        <div className="sidebar-tab-switcher">
           <button
-            className="btn btn-icon"
-            onClick={() => onCreateNew('', 'file')}
-            title="Tạo file mới"
+            type="button"
+            className={`sidebar-tab-btn ${currentTab === 'files' ? 'active' : ''}`}
+            onClick={() => handleTabChange('files')}
+            title="Duyệt cây thư mục Workspace"
           >
-            <PlusIcon size={14} />
+            <FilesIcon size={13} />
+            <span>Thư mục</span>
           </button>
           <button
-            className="btn btn-icon"
-            onClick={onRefresh}
-            title="Làm mới thư mục"
+            type="button"
+            className={`sidebar-tab-btn ${currentTab === 'toc' ? 'active' : ''}`}
+            onClick={() => handleTabChange('toc')}
+            title="Mục lục tiêu đề tài liệu Markdown hiện tại"
           >
-            <RefreshIcon size={14} />
+            <TocIcon size={13} />
+            <span>Mục lục</span>
           </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+          {currentTab === 'files' && (
+            <>
+              <button
+                className="btn btn-icon"
+                onClick={() => onCreateNew('', 'file')}
+                title="Tạo file mới"
+              >
+                <PlusIcon size={14} />
+              </button>
+              <button
+                className="btn btn-icon"
+                onClick={onRefresh}
+                title="Làm mới thư mục"
+              >
+                <RefreshIcon size={14} />
+              </button>
+            </>
+          )}
           <button
             className="btn btn-icon"
             onClick={onToggleCollapse}
@@ -187,29 +254,40 @@ export const FileTree: React.FC<FileTreeProps> = ({
       <div
         className="sidebar-content"
         onContextMenu={(e) => {
-          e.preventDefault();
-          onContextMenu(e, undefined, '');
+          if (currentTab === 'files') {
+            e.preventDefault();
+            onContextMenu(e, undefined, '');
+          }
         }}
       >
-        {tree.length === 0 ? (
-          <div style={{ padding: '16px', color: 'var(--text-tertiary)', fontSize: '12px' }}>
-            Không có file trong workspace
-          </div>
+        {currentTab === 'files' ? (
+          tree.length === 0 ? (
+            <div style={{ padding: '16px', color: 'var(--text-tertiary)', fontSize: '12px' }}>
+              Không có file trong workspace
+            </div>
+          ) : (
+            tree.map((entry) => (
+              <TreeItem
+                key={entry.relativePath}
+                entry={entry}
+                depth={0}
+                activeFile={activeFile}
+                expandedFolders={expandedFolders}
+                toggleFolder={toggleFolder}
+                onSelectFile={onSelectFile}
+                onContextMenu={(e, itm) => onContextMenu(e, itm, itm.relativePath)}
+              />
+            ))
+          )
         ) : (
-          tree.map((entry) => (
-            <TreeItem
-              key={entry.relativePath}
-              entry={entry}
-              depth={0}
-              activeFile={activeFile}
-              expandedFolders={expandedFolders}
-              toggleFolder={toggleFolder}
-              onSelectFile={onSelectFile}
-              onContextMenu={(e, itm) => onContextMenu(e, itm, itm.relativePath)}
-            />
-          ))
+          <TableOfContents
+            content={activeContent}
+            activePath={activeFile}
+            onNavigateToLine={onNavigateToLine || (() => {})}
+          />
         )}
       </div>
     </aside>
   );
 };
+
