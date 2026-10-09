@@ -35,7 +35,6 @@ struct RgData {
     path: Option<RgPath>,
     lines: Option<RgText>,
     line_number: Option<u32>,
-    absolute_offset: Option<u64>,
     submatches: Option<Vec<RgSubmatch>>,
 }
 
@@ -54,7 +53,6 @@ struct RgSubmatch {
     #[serde(rename = "match")]
     match_text: RgText,
     start: usize,
-    end: usize,
 }
 
 /// Search workspace using ripgrep

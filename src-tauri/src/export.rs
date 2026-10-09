@@ -16,7 +16,7 @@ pub fn export_pdf(
     }
 
     // Build a standalone HTML document with embedded CSS for export
-    let full_html = build_export_html(html_content);
+    let full_html = build_export_html(html_content, markdown_file);
     
     // Write HTML to temp file, then we'll use the frontend to trigger print
     let temp_html_path = std::path::Path::new(workspace_path)
@@ -27,6 +27,7 @@ pub fn export_pdf(
 }
 
 /// Clean up temporary export files
+#[allow(dead_code)]
 pub fn cleanup_export(workspace_path: &str) -> Result<(), AppError> {
     let temp_path = std::path::Path::new(workspace_path)
         .join(".bookmd_export_temp.html");
@@ -36,12 +37,13 @@ pub fn cleanup_export(workspace_path: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-fn build_export_html(content: &str) -> String {
+fn build_export_html(content: &str, title: &str) -> String {
     format!(
         r#"<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<title>{title}</title>
 <style>
 body {{
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

@@ -29,4 +29,24 @@ export default defineConfig(() => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("@codemirror") || id.includes("@lezer")) {
+            return "codemirror";
+          }
+          if (id.includes("markdown-it")) {
+            return "markdown-it";
+          }
+          if (id.includes("react")) {
+            return "react-vendor";
+          }
+        },
+      },
+    },
+  },
 }));
+
+
