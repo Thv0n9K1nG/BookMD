@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { EditorState } from '@codemirror/state';
+import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
@@ -17,6 +17,7 @@ interface EditorProps {
   onSave: () => void;
   onCursorChange?: (line: number, col: number) => void;
   onToast?: (msg: string, type?: 'info' | 'success' | 'error') => void;
+  onImagePasted?: (imageRelativePath: string) => void;
 }
 
 export const Editor: React.FC<EditorProps> = ({
@@ -29,11 +30,30 @@ export const Editor: React.FC<EditorProps> = ({
   onSave,
   onCursorChange,
   onToast,
+  onImagePasted,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const contentRef = useRef(content);
   contentRef.current = content;
+
+  // Use refs for settings and callbacks so event handlers always have fresh values without re-creating EditorView
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
+  const onToastRef = useRef(onToast);
+  onToastRef.current = onToast;
+
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
+
+  const onImagePastedRef = useRef(onImagePasted);
+  onImagePastedRef.current = onImagePasted;
+
+  // CodeMirror Compartments for dynamic reconfiguration of theme, line numbers, word wrap
+  const themeCompartment = useRef(new Compartment());
+  const lineNumbersCompartment = useRef(new Compartment());
+  const wordWrapCompartment = useRef(new Compartment());
 
   // Custom Dark / Light CodeMirror Theme
   const getThemeExtension = (currentTheme: Theme, fontSize: number) => {
@@ -109,8 +129,10 @@ export const Editor: React.FC<EditorProps> = ({
             event.preventDefault();
             fileToBase64(file).then(async (base64) => {
               try {
+                // Read the latest imageDir directly from settingsRef to avoid stale closures
+                const currentImageDir = settingsRef.current.imageDir;
                 const res = await saveImage(relativePath, base64, {
-                  imageDir: settings.imageDir,
+                  imageDir: currentImageDir,
                 });
 
                 // Insert markdown image reference at cursor
@@ -126,10 +148,13 @@ export const Editor: React.FC<EditorProps> = ({
                   selection: { anchor: selection.from + refText.length },
                 });
 
-                onToast?.(`Đã lưu ảnh: ${res.filename}`, 'success');
+                onToastRef.current?.(`Đã lưu ảnh: ${res.filename}`, 'success');
+
+                // Notify parent to refresh the workspace file tree and auto-expand the image folder
+                onImagePastedRef.current?.(res.relativePath);
               } catch (err: any) {
                 console.error('Save image error:', err);
-                onToast?.(`Lỗi lưu ảnh: ${err?.message || err}`, 'error');
+                onToastRef.current?.(`Lỗi lưu ảnh: ${err?.message || err}`, 'error');
               }
             });
             return true;
@@ -142,14 +167,14 @@ export const Editor: React.FC<EditorProps> = ({
     const startState = EditorState.create({
       doc: content,
       extensions: [
-        settings.lineNumbers ? lineNumbers() : [],
+        lineNumbersCompartment.current.of(settings.lineNumbers ? lineNumbers() : []),
         highlightActiveLineGutter(),
         highlightActiveLine(),
         history(),
         markdown(),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        getThemeExtension(theme, settings.fontSize),
-        settings.wordWrap ? EditorView.lineWrapping : [],
+        themeCompartment.current.of(getThemeExtension(theme, settings.fontSize)),
+        wordWrapCompartment.current.of(settings.wordWrap ? EditorView.lineWrapping : []),
         pasteHandler,
         keymap.of([
           ...defaultKeymap,
@@ -157,7 +182,7 @@ export const Editor: React.FC<EditorProps> = ({
           {
             key: 'Mod-s',
             run: () => {
-              onSave();
+              onSaveRef.current();
               return true;
             },
           },
@@ -189,6 +214,27 @@ export const Editor: React.FC<EditorProps> = ({
       viewRef.current = null;
     };
   }, [relativePath]);
+
+  // Dynamically reconfigure theme and font size without recreating EditorView
+  useEffect(() => {
+    if (viewRef.current) {
+      viewRef.current.dispatch({
+        effects: themeCompartment.current.reconfigure(getThemeExtension(theme, settings.fontSize)),
+      });
+    }
+  }, [theme, settings.fontSize]);
+
+  // Dynamically reconfigure line numbers and word wrap
+  useEffect(() => {
+    if (viewRef.current) {
+      viewRef.current.dispatch({
+        effects: [
+          lineNumbersCompartment.current.reconfigure(settings.lineNumbers ? lineNumbers() : []),
+          wordWrapCompartment.current.reconfigure(settings.wordWrap ? EditorView.lineWrapping : []),
+        ],
+      });
+    }
+  }, [settings.lineNumbers, settings.wordWrap]);
 
   // Sync external content update if doc changed from outside (e.g. file switched)
   useEffect(() => {

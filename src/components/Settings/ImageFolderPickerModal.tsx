@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { FileEntry } from '../../types';
 import {
   FolderIcon,
@@ -60,6 +60,16 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
   const [selectedFolder, setSelectedFolder] = useState<string>(currentImageDir || 'assets/images');
   const [isCreatingCustom, setIsCreatingCustom] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+
+  // Keep selectedFolder and search query in sync when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedFolder(currentImageDir || 'assets/images');
+      setSearchQuery('img');
+      setIsCreatingCustom(false);
+      setNewFolderName('');
+    }
+  }, [isOpen, currentImageDir]);
 
   // Extract all folders from the workspace tree
   const allFolders = useMemo(() => {

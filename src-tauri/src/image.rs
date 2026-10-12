@@ -41,7 +41,12 @@ pub fn save_image(
     // Determine image directory
     let image_dir = if let Some(ref opts) = options {
         if let Some(ref dir) = opts.image_dir {
-            workspace.join(dir)
+            let trimmed = dir.trim();
+            if trimmed.is_empty() {
+                default_image_dir(workspace, md_path)
+            } else {
+                workspace.join(trimmed)
+            }
         } else {
             default_image_dir(workspace, md_path)
         }
@@ -111,7 +116,12 @@ pub fn rename_images_for_document(
     let new_stem = new_md.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
 
     let img_dir = if let Some(dir) = image_dir {
-        workspace.join(dir)
+        let trimmed = dir.trim();
+        if trimmed.is_empty() {
+            default_image_dir(workspace, old_md)
+        } else {
+            workspace.join(trimmed)
+        }
     } else {
         default_image_dir(workspace, old_md)
     };
@@ -261,4 +271,63 @@ fn pathdiff_relative(from_dir: &Path, to_path: &Path) -> String {
 
 fn normalize_path(p: &Path) -> String {
     p.to_string_lossy().replace('\\', "/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_pathdiff_relative() {
+        let from = Path::new("C:/PROJECT/BookMD/TryHackMe/Docker");
+        let to = Path::new("C:/PROJECT/BookMD/img/TryHackMe_Docker_image_1.png");
+        let rel = pathdiff_relative(from, to);
+        assert_eq!(rel, "../../img/TryHackMe_Docker_image_1.png");
+
+        let from_root = Path::new("C:/PROJECT/BookMD");
+        let to_img = Path::new("C:/PROJECT/BookMD/img/Notes_1.png");
+        let rel_root = pathdiff_relative(from_root, to_img);
+        assert_eq!(rel_root, "img/Notes_1.png");
+    }
+
+    #[test]
+    fn test_save_image_with_custom_dir() {
+        let temp_dir = std::env::temp_dir().join(format!("bookmd_test_{}", uuid::Uuid::new_v4()));
+        let ws_str = temp_dir.to_str().unwrap();
+
+        let base64_1px_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+        let res = save_image(
+            ws_str,
+            "TryHackMe/Docker/image.md",
+            base64_1px_png,
+            Some(ImageSaveOptions {
+                image_dir: Some("img".to_string()),
+            }),
+        )
+        .expect("save_image should succeed with custom image_dir");
+
+        assert_eq!(res.filename, "TryHackMe_Docker_image_1.png");
+        assert_eq!(res.relative_path, "img/TryHackMe_Docker_image_1.png");
+        assert_eq!(res.markdown_reference, "![](../../img/TryHackMe_Docker_image_1.png)");
+
+        assert!(Path::new(&res.path).exists());
+
+        // Cleanup
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_decode_image_data() {
+        let raw = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+        let (bytes, ext) = decode_image_data(raw).unwrap();
+        assert_eq!(ext, "png");
+        assert!(!bytes.is_empty());
+
+        let data_uri = format!("data:image/png;base64,{}", raw);
+        let (bytes2, ext2) = decode_image_data(&data_uri).unwrap();
+        assert_eq!(ext2, "png");
+        assert_eq!(bytes, bytes2);
+    }
 }
