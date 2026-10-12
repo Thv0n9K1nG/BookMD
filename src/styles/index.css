@@ -565,6 +565,28 @@ body {
   min-width: 0;
 }
 
+/* Split mode auto-focus & zoom highlight on active section being edited */
+.preview-pane [data-source-line] {
+  scroll-margin-top: 50px;
+  scroll-margin-bottom: 50px;
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), padding-left 0.2s ease;
+}
+
+.preview-pane .preview-active-focus {
+  background: rgba(99, 102, 241, 0.08);
+  border-left: 3.5px solid var(--accent) !important;
+  padding-left: 10px;
+  border-radius: 4px;
+  transform: scale(1.006);
+  transform-origin: left center;
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.12);
+}
+
+[data-theme='dark'] .preview-pane .preview-active-focus {
+  background: rgba(99, 102, 241, 0.14);
+  box-shadow: 0 2px 16px rgba(99, 102, 241, 0.22);
+}
+
 .preview-pane h1, .preview-pane h2, .preview-pane h3,
 .preview-pane h4, .preview-pane h5, .preview-pane h6 {
   color: var(--text-heading);

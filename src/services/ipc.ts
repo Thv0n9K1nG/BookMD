@@ -113,7 +113,7 @@ export async function selectWorkspaceFolder(): Promise<string | null> {
       console.warn('Dialog open failed, falling back to prompt:', err);
     }
   }
-  return prompt('Nhập đường dẫn thư mục Workspace:', 'C:\\PROJECT\\BookMD');
+  return prompt('Nhập đường dẫn thư mục Workspace:', '');
 }
 
 export async function openWorkspace(path: string): Promise<WorkspaceInfo> {

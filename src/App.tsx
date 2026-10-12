@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import './styles/index.css';
 import {
   WorkspaceInfo,
@@ -25,7 +26,7 @@ import {
   selectWorkspaceFolder,
   isTauri,
 } from './services/ipc';
-import { resolveImageSource } from './utils/imagePath';
+import { resolveImageSource, normalizePathSegments } from './utils/imagePath';
 import { Header } from './components/Header/Header';
 import { FileTree } from './components/Sidebar/FileTree';
 import { TabBar } from './components/Tabs/TabBar';
@@ -99,14 +100,18 @@ export const App: React.FC = () => {
     }, 3500);
   }, []);
 
+  // Ref to handleOpenFile to avoid circular dependency in handleOpenWorkspace
+  const handleOpenFileRef = useRef<((entry: FileEntry, line?: number) => Promise<void>) | null>(null);
+
   // Open Workspace Action
-  const handleOpenWorkspace = useCallback(async (path?: string) => {
+  const handleOpenWorkspace = useCallback(async (path?: string, isInitialAutoOpen = false) => {
     try {
       const selectedPath = path || (await selectWorkspaceFolder());
       if (!selectedPath) return;
 
       const wsInfo = await openWorkspace(selectedPath);
       setWorkspace(wsInfo);
+      localStorage.setItem('bookmd_last_workspace', selectedPath);
       const tree = await getWorkspaceTree();
       setFileTree(tree);
       addToast(`Đã mở workspace: ${wsInfo.name}`, 'success');
@@ -124,11 +129,16 @@ export const App: React.FC = () => {
       };
       const readme = findReadme(tree);
       if (readme) {
-        handleOpenFile(readme);
+        handleOpenFileRef.current?.(readme);
       }
     } catch (err: any) {
       console.error('Open workspace error:', err);
-      addToast(`Lỗi mở workspace: ${err?.message || err}`, 'error');
+      if (isInitialAutoOpen) {
+        // Silently clear previous workspace from localStorage if missing or moved
+        localStorage.removeItem('bookmd_last_workspace');
+      } else {
+        addToast(`Lỗi mở workspace: ${err?.message || err}`, 'error');
+      }
     }
   }, [addToast]);
 
@@ -237,6 +247,28 @@ export const App: React.FC = () => {
       addToast(`Không thể đọc file: ${err?.message || err}`, 'error');
     }
   }, [tabs, addToast]);
+  handleOpenFileRef.current = handleOpenFile;
+
+  // Navigate to relative file (e.g. from markdown link in Preview)
+  const handleNavigateToFile = useCallback(
+    (href: string) => {
+      const cleanHref = href.split('#')[0].split('?')[0];
+      if (!cleanHref) return;
+      const currentDir =
+        activePath && activePath.includes('/')
+          ? activePath.substring(0, activePath.lastIndexOf('/'))
+          : '';
+      const combined = currentDir ? `${currentDir}/${cleanHref}` : cleanHref;
+      const targetRelPath = normalizePathSegments(combined);
+      const fileName = targetRelPath.split('/').pop() || targetRelPath;
+      handleOpenFile({
+        name: fileName,
+        relativePath: targetRelPath,
+        kind: 'file',
+      });
+    },
+    [activePath, handleOpenFile]
+  );
 
   // Select Tab
   const handleSelectTab = useCallback((path: string) => {
@@ -622,9 +654,34 @@ export const App: React.FC = () => {
     return activeTab.content.trim().split(/\s+/).filter(Boolean).length;
   }, [activeTab?.content]);
 
-  // Initial load
+  // Initial load: restore last workspace if stored, or stay on Welcome screen
   useEffect(() => {
-    handleOpenWorkspace('c:\\PROJECT\\BookMD');
+    const savedWs = localStorage.getItem('bookmd_last_workspace');
+    if (savedWs && savedWs.trim()) {
+      handleOpenWorkspace(savedWs.trim(), true);
+    }
+  }, [handleOpenWorkspace]);
+
+  // Intercept global link clicks so external URLs never navigate the WebView
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement)?.closest('a');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (href && /^(https?:\/\/|mailto:|tel:)/i.test(href)) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isTauri) {
+          openUrl(href).catch((err) => console.error('Failed to open URL via plugin-opener:', err));
+        } else {
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }
+      }
+    };
+    document.addEventListener('click', handleGlobalClick, true);
+    return () => {
+      document.removeEventListener('click', handleGlobalClick, true);
+    };
   }, []);
 
   return (
@@ -726,6 +783,9 @@ export const App: React.FC = () => {
                   content={activeTab.content}
                   relativePath={activeTab.relativePath}
                   workspacePath={workspace?.path}
+                  activeLine={cursorPos.line}
+                  viewMode={viewMode}
+                  onNavigateToFile={handleNavigateToFile}
                 />
               )}
             </div>
