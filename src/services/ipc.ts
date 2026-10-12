@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc as tauriConvertFileSrc } from '@tauri-apps/api/core';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 import {
   WorkspaceInfo,
@@ -10,6 +10,18 @@ import {
 } from '../types';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+export function convertFileSrc(filePath: string): string {
+  if (isTauri) {
+    try {
+      return tauriConvertFileSrc(filePath);
+    } catch (e) {
+      console.warn('convertFileSrc warning:', e);
+      return filePath;
+    }
+  }
+  return filePath;
+}
 
 // Fallback in-memory state for pure web development/preview
 let mockWorkspace: WorkspaceInfo | null = null;
@@ -220,12 +232,13 @@ export async function saveImage(
   const docName = parts.pop() || 'Doc';
   const folder = parts.join('_') || 'root';
   const filename = `${folder}_${docName}_1.png`;
-  const relativePath = `assets/images/${filename}`;
+  const imgDir = (options?.imageDir || 'assets/images').replace(/\\/g, '/');
+  const relativePath = `${imgDir}/${filename}`;
   return {
     path: `C:/MockWorkspace/${relativePath}`,
     relativePath,
     filename,
-    markdownReference: `![${docName}](../${relativePath})`,
+    markdownReference: `![${docName}](${relativePath})`,
   };
 }
 
