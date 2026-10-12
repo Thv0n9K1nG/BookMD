@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![BookMD Logo](src-tauri/icons/128x128.png)
+<img src="logo.png" alt="BookMD Logo" width="140" />
 
 ### Không gian ghi chú Markdown nhẹ, nhanh và ưu tiên filesystem dành cho dân kỹ thuật.
 
@@ -12,6 +12,10 @@
 [![React 19](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
 
 </div>
+
+---
+
+![BookMD Overview](overview.png)
 
 ---
 
