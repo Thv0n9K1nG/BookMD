@@ -1,3 +1,28 @@
+# Release Notes — BookMD v0.1.1
+
+Bản cập nhật **v0.1.1** tập trung sửa chữa triệt để hệ thống xử lý hình ảnh (Image Handling), tối ưu hóa trải nghiệm dán ảnh (clipboard paste), tự động đồng bộ cây thư mục theo thời gian thực và bổ sung tính năng Mục lục (Table of Contents).
+
+---
+
+## 🚀 Điểm mới & Sửa lỗi quan trọng (Changelog)
+
+### 🖼️ Khắc phục toàn diện xử lý hình ảnh (Image Handling & Rendering)
+- **Render ảnh mượt mà trên Preview**: Kích hoạt giao thức Tauri Asset Protocol (`protocol-asset`) và giải quyết chính xác đường dẫn tương đối của ảnh theo thư mục tài liệu hiện hành hoặc root workspace.
+- **Áp dụng tức thì cài đặt thư mục ảnh (Zero-delay Settings)**: Khắc phục lỗi closure trong CodeMirror khiến ảnh paste bị gán nhầm vào thư mục mặc định cũ. Giờ đây thay đổi cài đặt thư mục ảnh (ví dụ: `img` thay vì `assets/images`) được áp dụng ngay lập tức mà không cần khởi động lại ứng dụng.
+- **Tự động mở rộng & Cập nhật cây thư mục (Auto-expand & Tree Refresh)**: Khi dán ảnh vào tài liệu, thư mục chứa ảnh sẽ tự động được làm mới và bung mở ngay lập tức trong thanh sidebar, giúp người dùng nhìn thấy ảnh mới tạo mà không còn bỡ ngỡ.
+- **Lắng nghe Filesystem Watcher thời gian thực**: Tích hợp sự kiện `fs-change` từ Rust backend giúp cây thư mục tự động cập nhật mọi thay đổi từ bên ngoài (File Explorer) với bộ đệm khử rung (debounce).
+
+### 📑 Mục lục tiêu đề (Table of Contents — TOC)
+- Hỗ trợ chuyển đổi nhanh giữa tab **Thư mục (Files)** và tab **Mục lục (TOC)** trong sidebar (`Ctrl + Shift + O`).
+- Tự động bóc tách phân cấp tiêu đề H1–H6 từ tài liệu Markdown hiện hành, cho phép nhấp để cuộn và nhảy tức thì tới dòng nội dung tương ứng.
+
+### 🎨 Tinh chỉnh giao diện & Cấu hình
+- Sử dụng CodeMirror Compartments giúp thay đổi Theme, Font Size, Line Numbers, Word Wrap mượt mà mà không làm mất trạng thái soạn thảo.
+- Cập nhật bộ icon ứng dụng độ phân giải cao (`.ico`, `.icns`, `.png`).
+- Bổ sung bộ kiểm thử tự động (Unit Test suite) cho cả Frontend (Vitest) và Backend (Rust cargo test).
+
+---
+
 # Release Notes — BookMD v0.1.0
 
 Chào mừng bạn đến với bản phát hành đầu tiên của **BookMD (v0.1.0)**!
