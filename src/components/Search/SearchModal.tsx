@@ -108,18 +108,18 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
   return (
     <div
-      className="command-palette-overlay search-modal-overlay"
+      className="search-modal-overlay"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="command-palette search-modal-dialog">
+      <div className="search-modal-dialog">
         {/* Search Input Bar */}
         <div className="search-input-header">
           <SearchIcon size={18} className="search-input-icon" />
           <input
             ref={inputRef}
-            className="command-palette-input search-text-input"
+            className="search-text-input"
             placeholder="Tìm kiếm nội dung trong toàn bộ workspace... (Ctrl+Shift+F)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -173,7 +173,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         )}
 
         {/* Search Results List */}
-        <div className="search-results search-results-scrollable">
+        <div className="search-results-scrollable">
           {!isLoading && !query.trim() && (
             <div className="search-empty-prompt">
               <SearchIcon size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
