@@ -108,7 +108,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
   return (
     <div
-      className="command-palette-overlay"
+      className="command-palette-overlay search-modal-overlay"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
