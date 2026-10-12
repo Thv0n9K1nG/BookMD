@@ -21,6 +21,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -113,7 +114,17 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="search-modal-dialog">
+      <div
+        className="search-modal-dialog"
+        onWheel={(e) => {
+          if (
+            resultsContainerRef.current &&
+            !resultsContainerRef.current.contains(e.target as Node)
+          ) {
+            resultsContainerRef.current.scrollTop += e.deltaY;
+          }
+        }}
+      >
         {/* Search Input Bar */}
         <div className="search-input-header">
           <SearchIcon size={18} className="search-input-icon" />
@@ -124,7 +135,21 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') onClose();
+              if (e.key === 'Escape') {
+                onClose();
+              } else if (e.key === 'PageDown') {
+                e.preventDefault();
+                resultsContainerRef.current?.scrollBy({ top: 320, behavior: 'smooth' });
+              } else if (e.key === 'PageUp') {
+                e.preventDefault();
+                resultsContainerRef.current?.scrollBy({ top: -320, behavior: 'smooth' });
+              } else if (e.key === 'ArrowDown' && (e.altKey || e.ctrlKey)) {
+                e.preventDefault();
+                resultsContainerRef.current?.scrollBy({ top: 90, behavior: 'smooth' });
+              } else if (e.key === 'ArrowUp' && (e.altKey || e.ctrlKey)) {
+                e.preventDefault();
+                resultsContainerRef.current?.scrollBy({ top: -90, behavior: 'smooth' });
+              }
             }}
           />
           <div className="search-options-group">
@@ -173,7 +198,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         )}
 
         {/* Search Results List */}
-        <div className="search-results-scrollable">
+        <div
+          ref={resultsContainerRef}
+          tabIndex={0}
+          className="search-results-scrollable"
+        >
           {!isLoading && !query.trim() && (
             <div className="search-empty-prompt">
               <SearchIcon size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
