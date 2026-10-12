@@ -20,6 +20,8 @@ interface FileTreeProps {
   isCollapsed: boolean;
   width: number;
   sidebarTab?: SidebarTab;
+  expandedFolders?: Set<string>;
+  onToggleFolder?: (folderPath: string) => void;
   onSelectSidebarTab?: (tab: SidebarTab) => void;
   onSelectFile: (file: FileEntry) => void;
   onRefresh: () => void;
@@ -128,6 +130,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
   isCollapsed,
   width,
   sidebarTab,
+  expandedFolders,
+  onToggleFolder,
   onSelectSidebarTab,
   onSelectFile,
   onRefresh,
@@ -144,20 +148,25 @@ export const FileTree: React.FC<FileTreeProps> = ({
     onSelectSidebarTab?.(tab);
   };
 
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set(['TryHackMe', 'assets'])
+  const [internalExpanded, setInternalExpanded] = useState<Set<string>>(
+    new Set(['TryHackMe', 'assets', 'assets/images', 'img'])
   );
+  const activeExpanded = expandedFolders !== undefined ? expandedFolders : internalExpanded;
 
   const toggleFolder = (folderPath: string) => {
-    setExpandedFolders((prev) => {
-      const next = new Set(prev);
-      if (next.has(folderPath)) {
-        next.delete(folderPath);
-      } else {
-        next.add(folderPath);
-      }
-      return next;
-    });
+    if (onToggleFolder) {
+      onToggleFolder(folderPath);
+    } else {
+      setInternalExpanded((prev) => {
+        const next = new Set(prev);
+        if (next.has(folderPath)) {
+          next.delete(folderPath);
+        } else {
+          next.add(folderPath);
+        }
+        return next;
+      });
+    }
   };
 
   if (isCollapsed) {
@@ -272,7 +281,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 entry={entry}
                 depth={0}
                 activeFile={activeFile}
-                expandedFolders={expandedFolders}
+                expandedFolders={activeExpanded}
                 toggleFolder={toggleFolder}
                 onSelectFile={onSelectFile}
                 onContextMenu={(e, itm) => onContextMenu(e, itm, itm.relativePath)}

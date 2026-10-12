@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import './styles/index.css';
 import {
   WorkspaceInfo,
@@ -22,7 +23,9 @@ import {
   exportPdf,
   promptSavePdfPath,
   selectWorkspaceFolder,
+  isTauri,
 } from './services/ipc';
+import { resolveImageSource } from './utils/imagePath';
 import { Header } from './components/Header/Header';
 import { FileTree } from './components/Sidebar/FileTree';
 import { TabBar } from './components/Tabs/TabBar';
@@ -60,6 +63,9 @@ export const App: React.FC = () => {
   // Workspace & Files
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const [fileTree, setFileTree] = useState<FileEntry[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    () => new Set(['TryHackMe', 'assets', 'assets/images', 'img'])
+  );
   const [sidebarWidth, setSidebarWidth] = useState(250);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('files');
@@ -137,6 +143,70 @@ export const App: React.FC = () => {
       console.error('Refresh tree error:', err);
     }
   }, [workspace, addToast]);
+
+  // Toggle folder expansion in tree
+  const handleToggleFolder = useCallback((folderPath: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderPath)) {
+        next.delete(folderPath);
+      } else {
+        next.add(folderPath);
+      }
+      return next;
+    });
+  }, []);
+
+  // Handle image pasted in editor: refresh file tree and expand image directory
+  const handleImagePasted = useCallback(async (imageRelPath: string) => {
+    try {
+      const tree = await getWorkspaceTree();
+      setFileTree(tree);
+
+      const norm = imageRelPath.replace(/\\/g, '/');
+      const lastSlash = norm.lastIndexOf('/');
+      if (lastSlash > 0) {
+        const folder = norm.substring(0, lastSlash);
+        const parts = folder.split('/');
+        const toExpand: string[] = [];
+        let cur = '';
+        for (const p of parts) {
+          cur = cur ? `${cur}/${p}` : p;
+          toExpand.push(cur);
+        }
+        setExpandedFolders((prev) => {
+          const next = new Set(prev);
+          toExpand.forEach((f) => next.add(f));
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update tree after image paste:', err);
+    }
+  }, []);
+
+  // Listen to background filesystem change events (watcher)
+  useEffect(() => {
+    if (!isTauri) return;
+
+    let timer: any = null;
+    const unlistenPromise = listen('fs-change', () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(async () => {
+        try {
+          const tree = await getWorkspaceTree();
+          setFileTree(tree);
+        } catch (err) {
+          console.error('Error refreshing tree from fs-change:', err);
+        }
+      }, 300);
+    });
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, []);
 
   // Open File into Tabs
   const handleOpenFile = useCallback(async (entry: FileEntry, line?: number) => {
@@ -241,6 +311,23 @@ export const App: React.FC = () => {
       try {
         const created = await createFile(relativePath, kind);
         await handleRefreshTree();
+
+        // Auto-expand parent folder if created inside one
+        if (parentFolder) {
+          const parts = parentFolder.replace(/\\/g, '/').split('/');
+          const toExpand: string[] = [];
+          let cur = '';
+          for (const p of parts) {
+            cur = cur ? `${cur}/${p}` : p;
+            toExpand.push(cur);
+          }
+          setExpandedFolders((prev) => {
+            const next = new Set(prev);
+            toExpand.forEach((f) => next.add(f));
+            return next;
+          });
+        }
+
         addToast(`Đã tạo: ${created.name}`, 'success');
         if (kind === 'file') {
           handleOpenFile(created);
@@ -331,7 +418,32 @@ export const App: React.FC = () => {
 
     try {
       const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
-      const bodyHtml = md.render(currentTab.content);
+      const defaultImgRule =
+        md.renderer.rules.image ||
+        function (tokens, idx, options, _env, self) {
+          return self.renderToken(tokens, idx, options);
+        };
+      md.renderer.rules.image = function (tokens, idx, options, env, self) {
+        const token = tokens[idx];
+        const srcIndex = token.attrIndex('src');
+        if (srcIndex >= 0 && token.attrs) {
+          token.attrs[srcIndex][1] = resolveImageSource(
+            String(token.attrs[srcIndex][1]),
+            currentTab.relativePath,
+            workspace?.path
+          );
+        }
+        return defaultImgRule(tokens, idx, options, env, self);
+      };
+
+      let bodyHtml = md.render(currentTab.content);
+      bodyHtml = bodyHtml.replace(
+        /<img\b([^>]*\bsrc=["'])([^"']+)(["'][^>]*)>/gi,
+        (_, before, srcVal, after) => {
+          const resolved = resolveImageSource(srcVal, currentTab.relativePath, workspace?.path);
+          return `<img${before}${resolved}${after}>`;
+        }
+      );
       const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -543,6 +655,8 @@ export const App: React.FC = () => {
           isCollapsed={isSidebarCollapsed}
           width={sidebarWidth}
           sidebarTab={sidebarTab}
+          expandedFolders={expandedFolders}
+          onToggleFolder={handleToggleFolder}
           onSelectSidebarTab={setSidebarTab}
           onSelectFile={handleOpenFile}
           onRefresh={handleRefreshTree}
@@ -601,6 +715,7 @@ export const App: React.FC = () => {
                   onSave={handleSaveActiveFile}
                   onCursorChange={(line, col) => setCursorPos({ line, col })}
                   onToast={addToast}
+                  onImagePasted={handleImagePasted}
                 />
               )}
 
