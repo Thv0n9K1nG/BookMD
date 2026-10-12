@@ -1,3 +1,33 @@
+# Release Notes — BookMD v0.1.2
+
+**BookMD v0.1.2** introduces synchronized split-mode zoom & focus, secure external link handling via the OS default browser, and eliminates initial workspace load errors on fresh installations.
+
+---
+
+## 🚀 What's New & Bug Fixes (Changelog)
+
+### 🧭 Resilient Workspace Startup & Clean Onboarding
+- **Zero-Error First Launch**: Removed hardcoded developer workspace paths that previously triggered `FILE NOT FOUND (os error 2)` alerts on machines without `c:\PROJECT\BookMD`.
+- **Smart Workspace Persistence**: Persists the active workspace path in `localStorage` and smoothly restores it on startup. If a previously opened folder was moved or deleted, BookMD gracefully resets and shows the Welcome screen without popping up alarming error toasts.
+- **Clean Fallback Prompts**: Cleaned up internal dialog fallbacks to prevent pre-filling local paths.
+
+### 🌐 Secure External Link Delegation (No WebView Hijacking)
+- **Default OS Browser Delegation**: Fixed a critical WebView behavior where clicking markdown or HTML links (`http://`, `https://`, `mailto:`, `tel:`) would navigate the app WebView itself away to that website. External links now open seamlessly in your system's default browser (Chrome, Edge, Firefox, etc.) via `@tauri-apps/plugin-opener`.
+- **In-Document Heading Jump**: Clicking anchor links (`#section-anchor`) smoothly scrolls to the exact heading within the preview pane. Headings automatically receive normalized anchor slug IDs.
+- **Relative Document Navigation**: Clicking relative links pointing to other markdown files (e.g., `[Overview](guide.md)`) automatically opens them into an active editor tab.
+
+### 🔍 Split-Mode Synchronized Focus & Section Zoom
+- **Source-Line Mapping**: Markdown block tokens (paragraphs, headings, lists, code fences) are mapped in real time to their corresponding line numbers in CodeMirror.
+- **Active Section Auto-Focus & Smooth Scroll**: In Split View (`Editor + Preview`), as you type or navigate lines in the editor, the Preview pane automatically centers on the active section being written.
+- **Visual Zoom Feedback**: The active section in the Preview is highlighted with a subtle magnification (`transform: scale(1.006)`), an accent indicator bar, and ambient illumination, making it immediately clear where you are editing.
+- **Jitter Prevention**: Smart viewport detection avoids unnecessary scroll jumps while typing continuously within the same paragraph.
+
+### 🧪 Automated Testing & Reliability
+- Added automated unit tests for preview line-mapping, heading ID slug generation, and relative document path resolution (`test/previewFeatures.test.ts`).
+- Passed all Frontend (`7/7` Vitest) and Backend (`4/4` Cargo) test suites.
+
+---
+
 # Release Notes — BookMD v0.1.1
 
 Bản cập nhật **v0.1.1** tập trung sửa chữa triệt để hệ thống xử lý hình ảnh (Image Handling), tối ưu hóa trải nghiệm dán ảnh (clipboard paste), tự động đồng bộ cây thư mục theo thời gian thực và bổ sung tính năng Mục lục (Table of Contents).
