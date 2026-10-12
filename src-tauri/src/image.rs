@@ -273,6 +273,64 @@ fn normalize_path(p: &Path) -> String {
     p.to_string_lossy().replace('\\', "/")
 }
 
+/// Read an image from disk and return as a data URI (data:image/...;base64,...)
+pub fn read_image_data_uri(
+    workspace_path: &str,
+    markdown_file: &str,
+    image_src: &str,
+) -> Result<String, AppError> {
+    let workspace = Path::new(workspace_path);
+    let md_path = Path::new(markdown_file);
+    let src_clean = image_src.trim();
+
+    // Check if image_src is absolute
+    let image_path = if Path::new(src_clean).is_absolute() {
+        PathBuf::from(src_clean)
+    } else {
+        let md_abs = workspace.join(md_path);
+        let md_dir = md_abs.parent().unwrap_or(workspace);
+        if src_clean.starts_with('/') || src_clean.starts_with('\\') {
+            workspace.join(src_clean.trim_start_matches(|c| c == '/' || c == '\\'))
+        } else {
+            md_dir.join(src_clean)
+        }
+    };
+
+    if !image_path.exists() {
+        // Also try relative to workspace root if not found in doc dir
+        let root_try = workspace.join(src_clean.trim_start_matches(|c| c == '/' || c == '\\'));
+        if root_try.exists() {
+            return read_file_as_data_uri(&root_try);
+        }
+        return Err(AppError::InvalidPath(format!("Image not found: {:?}", image_path)));
+    }
+
+    read_file_as_data_uri(&image_path)
+}
+
+fn read_file_as_data_uri(path: &Path) -> Result<String, AppError> {
+    let bytes = fs::read(path)?;
+    let ext = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("png")
+        .to_lowercase();
+
+    let mime = match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "svg" => "image/svg+xml",
+        "ico" => "image/x-icon",
+        "bmp" => "image/bmp",
+        _ => "image/png",
+    };
+
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{};base64,{}", mime, b64))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -329,5 +387,33 @@ mod tests {
         let (bytes2, ext2) = decode_image_data(&data_uri).unwrap();
         assert_eq!(ext2, "png");
         assert_eq!(bytes, bytes2);
+    }
+
+    #[test]
+    fn test_read_image_data_uri() {
+        let temp_dir = std::env::temp_dir().join(format!("bookmd_test_{}", uuid::Uuid::new_v4()));
+        let ws_str = temp_dir.to_str().unwrap();
+
+        let base64_1px_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+        let res = save_image(
+            ws_str,
+            "docs/test.md",
+            base64_1px_png,
+            Some(ImageSaveOptions {
+                image_dir: Some("img".to_string()),
+            }),
+        )
+        .unwrap();
+
+        // Read via relative path from doc
+        let data_uri = read_image_data_uri(ws_str, "docs/test.md", &format!("../img/{}", res.filename)).unwrap();
+        assert!(data_uri.starts_with("data:image/png;base64,"));
+
+        // Read via workspace-relative path
+        let data_uri2 = read_image_data_uri(ws_str, "docs/test.md", &format!("img/{}", res.filename)).unwrap();
+        assert!(data_uri2.starts_with("data:image/png;base64,"));
+
+        let _ = fs::remove_dir_all(&temp_dir);
     }
 }

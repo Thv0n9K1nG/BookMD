@@ -24,9 +24,22 @@
     "security": {
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**/*",
+          "*/**",
+          "**",
+          "C:/**/*",
+          "C:/*",
+          "D:/**/*",
+          "D:/*",
+          "E:/**/*",
+          "E:/*",
+          "$APPDATA/**/*",
+          "$RESOURCE/**/*",
+          "$HOME/**/*"
+        ]
       },
-      "csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src * 'self' asset: https://asset.localhost http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"
     }
   },
   "bundle": {

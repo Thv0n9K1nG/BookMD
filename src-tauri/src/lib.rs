@@ -46,6 +46,10 @@ fn workspace_open(
     // Store workspace path
     *state.workspace_path.lock().unwrap() = Some(info.path.clone());
 
+    // Allow workspace directory in asset protocol scope
+    use tauri::Manager;
+    let _ = app_handle.asset_protocol_scope().allow_directory(&info.path, true);
+
     // Start file watcher
     match watcher::start_watcher(app_handle, info.path.clone()) {
         Ok(w) => {
@@ -127,9 +131,23 @@ fn image_save(
     image_data: String,
     options: Option<ImageSaveOptions>,
     state: State<AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<image::ImageResult, String> {
     let ws = get_workspace(&state)?;
-    image::save_image(&ws, &markdown_file, &image_data, options).map_err(String::from)
+    let res = image::save_image(&ws, &markdown_file, &image_data, options).map_err(String::from)?;
+    use tauri::Manager;
+    let _ = app_handle.asset_protocol_scope().allow_file(&res.path);
+    Ok(res)
+}
+
+#[tauri::command]
+fn image_read_data(
+    image_src: String,
+    markdown_file: String,
+    state: State<AppState>,
+) -> Result<String, String> {
+    let ws = get_workspace(&state)?;
+    image::read_image_data_uri(&ws, &markdown_file, &image_src).map_err(String::from)
 }
 
 #[tauri::command]
@@ -178,6 +196,7 @@ pub fn run() {
             file_delete,
             search_query,
             image_save,
+            image_read_data,
             image_rename_for_document,
             export_pdf,
         ])

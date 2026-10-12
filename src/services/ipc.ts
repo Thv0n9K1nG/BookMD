@@ -260,6 +260,21 @@ export async function renameImagesForDocument(
   return [];
 }
 
+export async function readImageData(
+  imageSrc: string,
+  markdownFile: string
+): Promise<string> {
+  if (isTauri) {
+    return await invoke<string>('image_read_data', {
+      imageSrc,
+      image_src: imageSrc,
+      markdownFile,
+      markdown_file: markdownFile,
+    });
+  }
+  return '';
+}
+
 export async function exportPdf(
   markdownFile: string,
   htmlContent: string,
