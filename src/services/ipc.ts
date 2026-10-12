@@ -191,7 +191,15 @@ export async function searchWorkspace(
   options?: SearchOptions
 ): Promise<SearchResult[]> {
   if (isTauri) {
-    return await invoke<SearchResult[]>('search_query', { pattern, options });
+    const opts = options
+      ? {
+          caseSensitive: options.caseSensitive,
+          wholeWord: options.wholeWord,
+          regex: options.isRegex ?? options.regex,
+          filePattern: options.filePattern,
+        }
+      : undefined;
+    return await invoke<SearchResult[]>('search_query', { pattern, options: opts });
   }
   const results: SearchResult[] = [];
   const query = options?.caseSensitive ? pattern : pattern.toLowerCase();
@@ -204,7 +212,11 @@ export async function searchWorkspace(
           file,
           line: index + 1,
           column: matchIndex + 1,
+          matchLength: pattern.length,
           matchedText: line.substring(matchIndex, matchIndex + pattern.length),
+          lineContent: line,
+          lineBefore: index > 0 ? lines[index - 1] : null,
+          lineAfter: index + 1 < lines.length ? lines[index + 1] : null,
           context: line.trim(),
         });
       }

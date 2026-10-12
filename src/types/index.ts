@@ -15,14 +15,21 @@ export interface FileEntry {
 export interface SearchResult {
   file: string;
   line: number;
-  column: number;
+  column?: number;
+  matchLength?: number;
   matchedText: string;
+  lineContent?: string;
+  lineBefore?: string | null;
+  lineAfter?: string | null;
   context: string;
 }
 
 export interface SearchOptions {
   caseSensitive?: boolean;
+  wholeWord?: boolean;
   isRegex?: boolean;
+  regex?: boolean;
+  filePattern?: string;
 }
 
 export interface ImageResult {

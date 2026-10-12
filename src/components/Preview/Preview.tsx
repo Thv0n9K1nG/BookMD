@@ -252,6 +252,7 @@ export const Preview: React.FC<PreviewProps> = ({
       if (candidates.length === 0) return;
 
       let bestEl: HTMLElement | null = null;
+      let minSpan = Infinity;
       let bestStartLine = -1;
 
       for (const el of candidates) {
@@ -259,11 +260,13 @@ export const Preview: React.FC<PreviewProps> = ({
         const end = parseInt(el.getAttribute('data-source-end-line') || String(start), 10);
 
         if (start <= activeLine && activeLine <= end) {
-          bestEl = el;
-          break;
-        }
-
-        if (start <= activeLine && start > bestStartLine) {
+          const span = end - start;
+          // Prefer more specific element (e.g. li over parent ul/ol)
+          if (span < minSpan) {
+            minSpan = span;
+            bestEl = el;
+          }
+        } else if (minSpan === Infinity && start <= activeLine && start > bestStartLine) {
           bestStartLine = start;
           bestEl = el;
         }
