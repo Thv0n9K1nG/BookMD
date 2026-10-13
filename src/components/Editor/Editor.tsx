@@ -5,11 +5,19 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { saveImage } from '../../services/ipc';
+import {
+  buildImageHtmlTag,
+  cacheImageWidth,
+  detectImageWidth,
+  getCachedImageWidth,
+  getImageNaturalWidth,
+} from '../../utils/imagePath';
 import { Theme, Settings } from '../../types';
 
 interface EditorProps {
   content: string;
   relativePath: string;
+  workspacePath?: string;
   theme: Theme;
   settings: Settings;
   targetLine?: number;
@@ -23,6 +31,7 @@ interface EditorProps {
 export const Editor: React.FC<EditorProps> = ({
   content,
   relativePath,
+  workspacePath,
   theme,
   settings,
   targetLine,
@@ -40,6 +49,9 @@ export const Editor: React.FC<EditorProps> = ({
   // Use refs for settings and callbacks so event handlers always have fresh values without re-creating EditorView
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+
+  const workspacePathRef = useRef(workspacePath);
+  workspacePathRef.current = workspacePath;
 
   const onToastRef = useRef(onToast);
   onToastRef.current = onToast;
@@ -127,17 +139,24 @@ export const Editor: React.FC<EditorProps> = ({
             if (!file) continue;
 
             event.preventDefault();
-            fileToBase64(file).then(async (base64) => {
+            const blobUrl = URL.createObjectURL(file);
+            getImageNaturalWidth(blobUrl).then(async (naturalWidth) => {
+              URL.revokeObjectURL(blobUrl);
               try {
                 // Read the latest imageDir directly from settingsRef to avoid stale closures
                 const currentImageDir = settingsRef.current.imageDir;
+                const base64 = await fileToBase64(file);
                 const res = await saveImage(relativePath, base64, {
                   imageDir: currentImageDir,
                 });
 
-                // Insert markdown image reference at cursor
+                if (naturalWidth) {
+                  cacheImageWidth(res.relativePath, naturalWidth);
+                }
+
+                // Insert HTML <img> tag with exact natural width: <img src="<image>" title="" alt="" width="n"/>
                 const selection = view.state.selection.main;
-                const refText = res.markdownReference || `![${res.filename}](${res.relativePath})`;
+                const refText = buildImageHtmlTag(res.relativePath, '', '', naturalWidth);
 
                 view.dispatch({
                   changes: {
@@ -164,6 +183,64 @@ export const Editor: React.FC<EditorProps> = ({
       },
     });
 
+    // Auto-transform ![<text>](<image>) right before cursor when typing ')' into <img src="<image>" title="" alt="<text>" width="n"/>
+    const tryTransformMarkdownImage = (view: EditorView, from: number, to: number): boolean => {
+      const line = view.state.doc.lineAt(from);
+      const textBefore = line.text.slice(0, from - line.from);
+      const match = textBefore.match(/!\[([^\]]*)\]\(([^)]*)$/);
+      if (!match) return false;
+
+      const fullMatch = match[0];
+      const altText = match[1];
+      const rawSrc = match[2].trim().replace(/^<|>$/g, '');
+      if (!rawSrc) return false;
+
+      const matchStart = from - fullMatch.length;
+      const cachedWidth = getCachedImageWidth(rawSrc);
+
+      const tag = buildImageHtmlTag(rawSrc, altText, '', cachedWidth);
+
+      view.dispatch({
+        changes: {
+          from: matchStart,
+          to: to,
+          insert: tag,
+        },
+        selection: { anchor: matchStart + tag.length },
+      });
+
+      // If width was not cached yet, asynchronously detect and inject width="n"
+      if (!cachedWidth) {
+        detectImageWidth(rawSrc, relativePath, workspacePathRef.current).then((detectedWidth) => {
+          if (detectedWidth && viewRef.current) {
+            const currentView = viewRef.current;
+            const docText = currentView.state.doc.toString();
+            const tagWithoutWidth = buildImageHtmlTag(rawSrc, altText, '', null);
+            const tagWithWidth = buildImageHtmlTag(rawSrc, altText, '', detectedWidth);
+            const idx = docText.indexOf(tagWithoutWidth);
+            if (idx !== -1) {
+              currentView.dispatch({
+                changes: {
+                  from: idx,
+                  to: idx + tagWithoutWidth.length,
+                  insert: tagWithWidth,
+                },
+              });
+            }
+          }
+        });
+      }
+
+      return true;
+    };
+
+    const imageTransformHandler = EditorView.inputHandler.of((view, from, to, text) => {
+      if (text === ')') {
+        return tryTransformMarkdownImage(view, from, to);
+      }
+      return false;
+    });
+
     const startState = EditorState.create({
       doc: content,
       extensions: [
@@ -176,9 +253,20 @@ export const Editor: React.FC<EditorProps> = ({
         themeCompartment.current.of(getThemeExtension(theme, settings.fontSize)),
         wordWrapCompartment.current.of(settings.wordWrap ? EditorView.lineWrapping : []),
         pasteHandler,
+        imageTransformHandler,
         keymap.of([
           ...defaultKeymap,
           ...historyKeymap,
+          {
+            key: ')',
+            run: (view) => {
+              const selection = view.state.selection.main;
+              if (selection.empty) {
+                return tryTransformMarkdownImage(view, selection.from, selection.to);
+              }
+              return false;
+            },
+          },
           {
             key: 'Mod-s',
             run: () => {

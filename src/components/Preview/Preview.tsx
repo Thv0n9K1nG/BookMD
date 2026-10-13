@@ -120,9 +120,12 @@ export const Preview: React.FC<PreviewProps> = ({
     try {
       let html = md.render(content);
       // Rewrite any raw HTML <img> tags with relative or local src
-      html = html.replace(/<img\b([^>]*\bsrc=["'])([^"']+)(["'][^>]*)>/gi, (_, before, srcVal, after) => {
+      html = html.replace(/<img\b([^>]*\bsrc=["'])([^"']+)(["'])([^>]*?)(\/?)>/gi, (match, before, srcVal, quote, rest, selfClose) => {
+        if (match.includes('data-original-src=')) {
+          return match;
+        }
         const resolved = resolveImageSource(srcVal, relativePath, workspacePath);
-        return `<img${before}${resolved}${after} data-original-src="${srcVal}">`;
+        return `<img${before}${resolved}${quote}${rest} data-original-src="${srcVal}"${selfClose ? ' /' : ''}>`;
       });
       return html;
     } catch (err: any) {

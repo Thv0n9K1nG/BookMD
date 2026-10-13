@@ -765,6 +765,7 @@ export const App: React.FC = () => {
                 <Editor
                   content={activeTab.content}
                   relativePath={activeTab.relativePath}
+                  workspacePath={workspace?.path}
                   theme={settings.theme}
                   settings={settings}
                   targetLine={targetLine}

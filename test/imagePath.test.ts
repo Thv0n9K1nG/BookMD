@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { normalizePathSegments, resolveImageSource } from '../src/utils/imagePath';
+import {
+  normalizePathSegments,
+  resolveImageSource,
+  buildImageHtmlTag,
+  cacheImageWidth,
+  getCachedImageWidth,
+} from '../src/utils/imagePath';
 
 describe('normalizePathSegments', () => {
   it('handles basic and complex relative segments', () => {
@@ -79,3 +85,32 @@ describe('resolveImageSource', () => {
     expect(res).toBe('C:/PROJECT/BookMD/assets/images/My Image 1.png');
   });
 });
+
+describe('buildImageHtmlTag', () => {
+  it('generates HTML <img> tag with exact width when width is provided', () => {
+    expect(buildImageHtmlTag('assets/images/photo.png', '', '', 1920)).toBe(
+      '<img src="assets/images/photo.png" title="" alt="" width="1920"/>'
+    );
+    expect(buildImageHtmlTag('assets/images/photo.png', 'My Alt', '', 800)).toBe(
+      '<img src="assets/images/photo.png" title="" alt="My Alt" width="800"/>'
+    );
+  });
+
+  it('omits width attribute when width is null or undefined or 0', () => {
+    expect(buildImageHtmlTag('assets/images/photo.png', '', '')).toBe(
+      '<img src="assets/images/photo.png" title="" alt=""/>'
+    );
+    expect(buildImageHtmlTag('assets/images/photo.png', 'Caption', '', null)).toBe(
+      '<img src="assets/images/photo.png" title="" alt="Caption"/>'
+    );
+  });
+});
+
+describe('imageWidthCache', () => {
+  it('caches and retrieves image widths correctly', () => {
+    cacheImageWidth('test/sample.png', 1024);
+    expect(getCachedImageWidth('test/sample.png')).toBe(1024);
+    expect(getCachedImageWidth('unknown.png')).toBeNull();
+  });
+});
+
