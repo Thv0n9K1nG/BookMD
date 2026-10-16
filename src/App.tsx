@@ -126,7 +126,9 @@ export const App: React.FC = () => {
       localStorage.setItem('bookmd_last_workspace', selectedPath);
       const tree = await getWorkspaceTree();
       setFileTree(tree);
-      addToast(`Đã mở workspace: ${wsInfo.name}`, 'success');
+      if (!isInitialAutoOpen) {
+        addToast(`Đã mở workspace: ${wsInfo.name}`, 'success');
+      }
 
       // Auto open README.md if present
       const findReadme = (entries: FileEntry[]): FileEntry | undefined => {
@@ -730,27 +732,37 @@ export const App: React.FC = () => {
     return activeTab.content.trim().split(/\s+/).filter(Boolean).length;
   }, [activeTab?.content]);
 
-  // Initial load: check CLI launch argument first, else restore last workspace if stored
+  // Stable refs for callbacks invoked by initial load and global listeners
+  const handleOpenPathRef = useRef(handleOpenPath);
+  handleOpenPathRef.current = handleOpenPath;
+
+  const handleOpenWorkspaceRef = useRef(handleOpenWorkspace);
+  handleOpenWorkspaceRef.current = handleOpenWorkspace;
+
+  // Initial load: check CLI launch argument first, else restore last workspace if stored (RUN ONCE)
+  const initialLoadDoneRef = useRef(false);
   useEffect(() => {
-    let isMounted = true;
+    if (initialLoadDoneRef.current) return;
+    initialLoadDoneRef.current = true;
+
     (async () => {
-      const cliPath = await getCliLaunchPath();
-      if (!isMounted) return;
-      if (cliPath && cliPath.trim().length > 0) {
-        handleOpenPath(cliPath);
-      } else {
-        const savedWs = localStorage.getItem('bookmd_last_workspace');
-        if (savedWs && savedWs.trim()) {
-          handleOpenWorkspace(savedWs.trim(), true);
+      try {
+        const cliPath = await getCliLaunchPath();
+        if (cliPath && cliPath.trim().length > 0) {
+          handleOpenPathRef.current?.(cliPath);
+        } else {
+          const savedWs = localStorage.getItem('bookmd_last_workspace');
+          if (savedWs && savedWs.trim()) {
+            handleOpenWorkspaceRef.current?.(savedWs.trim(), true);
+          }
         }
+      } catch (err) {
+        console.warn('Initial load error:', err);
       }
     })();
-    return () => {
-      isMounted = false;
-    };
-  }, [handleOpenPath, handleOpenWorkspace]);
+  }, []);
 
-  // Listen for single-instance launch requests and file drag-drop
+  // Listen for single-instance launch requests and file drag-drop (RUN ONCE)
   useEffect(() => {
     let unlistenOpenPath: (() => void) | undefined;
     let unlistenDragDrop: (() => void) | undefined;
@@ -758,7 +770,7 @@ export const App: React.FC = () => {
     if (isTauri) {
       listen<string>('open-path-requested', (event) => {
         if (event.payload) {
-          handleOpenPath(event.payload);
+          handleOpenPathRef.current?.(event.payload);
         }
       }).then((fn) => {
         unlistenOpenPath = fn;
@@ -768,7 +780,7 @@ export const App: React.FC = () => {
         if (event.payload?.paths && event.payload.paths.length > 0) {
           const first = event.payload.paths[0];
           if (first) {
-            handleOpenPath(first);
+            handleOpenPathRef.current?.(first);
           }
         }
       }).then((fn) => {
@@ -780,7 +792,7 @@ export const App: React.FC = () => {
       unlistenOpenPath?.();
       unlistenDragDrop?.();
     };
-  }, [handleOpenPath]);
+  }, []);
 
   // Intercept global link clicks so external URLs never navigate the WebView
   useEffect(() => {
