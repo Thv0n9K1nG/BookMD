@@ -8,7 +8,6 @@ import {
   FilePlusIcon,
   FolderPlusIcon,
   RefreshIcon,
-  SidebarToggleIcon,
   TocIcon,
   FilesIcon,
 } from '../common/Icons';
@@ -26,7 +25,6 @@ interface FileTreeProps {
   onSelectSidebarTab?: (tab: SidebarTab) => void;
   onSelectFile: (file: FileEntry) => void;
   onRefresh: () => void;
-  onToggleCollapse: () => void;
   onNavigateToLine?: (line: number) => void;
   onContextMenu: (e: React.MouseEvent, entry?: FileEntry, folderPath?: string) => void;
   onCreateNew: (folderPath: string, kind: 'file' | 'directory') => void;
@@ -136,7 +134,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
   onSelectSidebarTab,
   onSelectFile,
   onRefresh,
-  onToggleCollapse,
   onNavigateToLine,
   onContextMenu,
   onCreateNew,
@@ -171,41 +168,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   };
 
   if (isCollapsed) {
-    return (
-      <div className="sidebar collapsed">
-        <button
-          className="btn btn-icon sidebar-expand-btn"
-          onClick={onToggleCollapse}
-          title="Mở thanh Sidebar (Ctrl+B)"
-        >
-          <SidebarToggleIcon size={16} />
-        </button>
-
-        <button
-          className={`btn btn-icon sidebar-expand-btn ${currentTab === 'files' ? 'active' : ''}`}
-          onClick={() => {
-            handleTabChange('files');
-            onToggleCollapse();
-          }}
-          title="Mở Thư mục Workspace"
-          style={{ marginTop: '6px' }}
-        >
-          <FilesIcon size={15} />
-        </button>
-
-        <button
-          className={`btn btn-icon sidebar-expand-btn ${currentTab === 'toc' ? 'active' : ''}`}
-          onClick={() => {
-            handleTabChange('toc');
-            onToggleCollapse();
-          }}
-          title="Mở Mục lục (Table of Contents)"
-          style={{ marginTop: '4px' }}
-        >
-          <TocIcon size={15} />
-        </button>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -258,13 +221,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
               </button>
             </>
           )}
-          <button
-            className="btn btn-icon"
-            onClick={onToggleCollapse}
-            title="Thu gọn Sidebar"
-          >
-            <SidebarToggleIcon size={14} />
-          </button>
         </div>
       </div>
 

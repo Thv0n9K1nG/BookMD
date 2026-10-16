@@ -476,13 +476,16 @@ export const App: React.FC = () => {
   );
 
   // Export Current Markdown Document to PDF
+  const isExportingPdfRef = useRef(false);
   const handleExportPdf = useCallback(async () => {
+    if (isExportingPdfRef.current) return;
     const currentTab = tabs.find((t) => t.relativePath === activePath);
     if (!currentTab) {
       addToast('Vui lòng mở một file Markdown để xuất PDF', 'info');
       return;
     }
 
+    isExportingPdfRef.current = true;
     try {
       addToast('Đang chuẩn bị tài liệu xuất PDF...', 'info');
       const fullHtml = await generatePrintHtml(
@@ -496,11 +499,15 @@ export const App: React.FC = () => {
       if (success) {
         addToast('Đã mở cửa sổ in ấn (chọn "Save as PDF" / "Lưu dưới dạng PDF")', 'success');
       } else {
-        window.print();
+        addToast('Không thể mở cửa sổ in ấn', 'error');
       }
     } catch (err: any) {
       console.error('Export PDF error:', err);
-      window.print();
+      addToast(`Lỗi xuất PDF: ${err?.message || 'Không xác định'}`, 'error');
+    } finally {
+      setTimeout(() => {
+        isExportingPdfRef.current = false;
+      }, 500);
     }
   }, [tabs, activePath, workspace?.path, addToast]);
 
@@ -707,7 +714,6 @@ export const App: React.FC = () => {
           onSelectSidebarTab={setSidebarTab}
           onSelectFile={handleOpenFile}
           onRefresh={handleRefreshTree}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           onNavigateToLine={(line) => {
             setTargetLine(line);
             if (viewMode === 'preview') {

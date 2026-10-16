@@ -186,7 +186,12 @@ export async function generatePrintHtml(
  */
 export function printHtmlViaIframe(fullHtml: string): Promise<boolean> {
   return new Promise((resolve) => {
+    // Remove any leftover print iframes first
+    const existing = document.querySelectorAll('.bookmd-print-iframe');
+    existing.forEach((node) => node.remove());
+
     const iframe = document.createElement('iframe');
+    iframe.className = 'bookmd-print-iframe';
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
     iframe.style.bottom = '0';
@@ -196,18 +201,39 @@ export function printHtmlViaIframe(fullHtml: string): Promise<boolean> {
     iframe.style.visibility = 'hidden';
     document.body.appendChild(iframe);
 
-    const doc = iframe.contentWindow?.document;
-    if (!doc) {
-      if (iframe.parentNode) document.body.removeChild(iframe);
-      resolve(false);
-      return;
-    }
+    let printed = false;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    let onloadTimer: ReturnType<typeof setTimeout> | null = null;
 
-    doc.open();
-    doc.write(fullHtml);
-    doc.close();
+    const cleanup = () => {
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+      if (onloadTimer) {
+        clearTimeout(onloadTimer);
+        onloadTimer = null;
+      }
+      setTimeout(() => {
+        if (iframe.parentNode) {
+          document.body.removeChild(iframe);
+        }
+      }, 1500);
+    };
 
     const doPrint = () => {
+      if (printed) return;
+      printed = true;
+
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+      if (onloadTimer) {
+        clearTimeout(onloadTimer);
+        onloadTimer = null;
+      }
+
       try {
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
@@ -216,22 +242,30 @@ export function printHtmlViaIframe(fullHtml: string): Promise<boolean> {
         console.error('Print dialog error:', err);
         resolve(false);
       } finally {
-        setTimeout(() => {
-          if (iframe.parentNode) {
-            document.body.removeChild(iframe);
-          }
-        }, 4000);
+        cleanup();
       }
     };
 
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      cleanup();
+      resolve(false);
+      return;
+    }
+
+    doc.open();
+    doc.write(fullHtml);
+    doc.close();
+
     if (iframe.contentWindow) {
       iframe.contentWindow.onload = () => {
-        setTimeout(doPrint, 200);
+        onloadTimer = setTimeout(doPrint, 150);
       };
-      // Fallback timer in case onload already passed
-      setTimeout(doPrint, 500);
+      // Fallback timer in case onload already passed or didn't fire
+      fallbackTimer = setTimeout(doPrint, 600);
     } else {
       doPrint();
     }
   });
 }
+
