@@ -18,12 +18,15 @@ pub fn export_pdf(
     // Build a standalone HTML document with embedded CSS for export
     let full_html = build_export_html(html_content, markdown_file);
     
-    // Write HTML to temp file, then we'll use the frontend to trigger print
-    let temp_html_path = std::path::Path::new(workspace_path)
-        .join(".bookmd_export_temp.html");
-    std::fs::write(&temp_html_path, &full_html)?;
-
-    Ok(temp_html_path.to_string_lossy().to_string())
+    if !destination.is_empty() {
+        std::fs::write(dest_path, &full_html)?;
+        Ok(destination.to_string())
+    } else {
+        let temp_html_path = std::path::Path::new(workspace_path)
+            .join(".bookmd_export_temp.html");
+        std::fs::write(&temp_html_path, &full_html)?;
+        Ok(temp_html_path.to_string_lossy().to_string())
+    }
 }
 
 /// Clean up temporary export files

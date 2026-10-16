@@ -5,7 +5,8 @@ import {
   FolderOpenIcon,
   FileIcon,
   ChevronRightIcon,
-  PlusIcon,
+  FilePlusIcon,
+  FolderPlusIcon,
   RefreshIcon,
   SidebarToggleIcon,
   TocIcon,
@@ -237,9 +238,16 @@ export const FileTree: React.FC<FileTreeProps> = ({
               <button
                 className="btn btn-icon"
                 onClick={() => onCreateNew('', 'file')}
-                title="Tạo file mới"
+                title="Tạo file mới (Ctrl+N)"
               >
-                <PlusIcon size={14} />
+                <FilePlusIcon size={14} />
+              </button>
+              <button
+                className="btn btn-icon"
+                onClick={() => onCreateNew('', 'directory')}
+                title="Tạo thư mục mới"
+              >
+                <FolderPlusIcon size={14} />
               </button>
               <button
                 className="btn btn-icon"

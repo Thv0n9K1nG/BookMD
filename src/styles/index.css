@@ -1935,4 +1935,199 @@ body {
   height: 100%;
 }
 
+/* ─── Prompt / Create Entry Modal ────────────────────────────── */
+
+.prompt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1100;
+  backdrop-filter: blur(4px);
+  padding: 16px;
+  animation: promptFadeIn 0.15s ease-out;
+}
+
+@keyframes promptFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.prompt-modal-dialog {
+  width: 440px;
+  max-width: 95vw;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45), var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.prompt-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.prompt-modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.prompt-modal-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.prompt-modal-title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.prompt-modal-subtitle {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.prompt-close-btn {
+  color: var(--text-tertiary);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.prompt-close-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.prompt-modal-body {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.prompt-input-wrapper {
+  position: relative;
+}
+
+.prompt-text-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.prompt-text-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.prompt-text-input.has-error {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.prompt-error-message {
+  font-size: 11px;
+  color: var(--error);
+  padding-left: 2px;
+}
+
+.prompt-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-primary);
+}
+
+.prompt-btn {
+  padding: 8px 16px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+}
+
+/* ─── Media Print Styles (Clean PDF Export Fallback) ───────────── */
+
+@media print {
+  /* Completely hide all IDE shell & UI controls */
+  .titlebar,
+  .sidebar,
+  .tab-bar,
+  .status-bar,
+  .split-divider,
+  .editor-pane,
+  .prompt-modal-overlay,
+  .search-modal-overlay,
+  .settings-overlay,
+  .command-palette-overlay,
+  .context-menu,
+  .toast-container,
+  .welcome {
+    display: none !important;
+  }
+
+  body, html, #root, .app-layout, .workspace-layout, .main-content, .editor-area {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #1e293b !important;
+  }
+
+  .preview-pane {
+    display: block !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #1e293b !important;
+  }
+
+  .preview-pane [data-source-line] {
+    box-shadow: none !important;
+    border-left: none !important;
+    background: transparent !important;
+    transform: none !important;
+  }
+}
+
+
 

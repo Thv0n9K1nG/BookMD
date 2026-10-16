@@ -21,12 +21,10 @@ import {
   renameFile,
   deleteFile,
   renameImagesForDocument,
-  exportPdf,
-  promptSavePdfPath,
   selectWorkspaceFolder,
   isTauri,
 } from './services/ipc';
-import { resolveImageSource, normalizePathSegments } from './utils/imagePath';
+import { normalizePathSegments } from './utils/imagePath';
 import { Header } from './components/Header/Header';
 import { FileTree } from './components/Sidebar/FileTree';
 import { TabBar } from './components/Tabs/TabBar';
@@ -38,7 +36,8 @@ import { ContextMenu } from './components/ContextMenu/ContextMenu';
 import { SettingsModal } from './components/Settings/SettingsModal';
 import { StatusBar } from './components/StatusBar/StatusBar';
 import { ToastContainer } from './components/Toast/ToastContainer';
-import MarkdownIt from 'markdown-it';
+import { PromptModal } from './components/common/PromptModal';
+import { generatePrintHtml, printHtmlViaIframe } from './utils/exportPdf';
 
 export const App: React.FC = () => {
   // Settings
@@ -84,6 +83,16 @@ export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [promptDialog, setPromptDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    icon?: 'file' | 'directory' | 'rename';
+    defaultValue?: string;
+    placeholder?: string;
+    confirmLabel?: string;
+    onSubmit: (val: string) => void;
+  } | null>(null);
 
   // Apply theme to DOM
   useEffect(() => {
@@ -331,92 +340,118 @@ export const App: React.FC = () => {
 
   // Create New File or Directory
   const handleCreateNew = useCallback(
-    async (parentFolder: string, kind: 'file' | 'directory') => {
-      const title = kind === 'file' ? 'Tên file mới (.md):' : 'Tên thư mục mới:';
-      const defaultName = kind === 'file' ? 'new_note.md' : 'NewFolder';
-      const name = prompt(title, defaultName);
-      if (!name || !name.trim()) return;
+    (parentFolder: string, kind: 'file' | 'directory') => {
+      const isFile = kind === 'file';
+      const title = isFile ? 'Tạo File Markdown mới' : 'Tạo Thư mục mới';
+      const defaultName = isFile ? 'new_note.md' : 'NewFolder';
+      const subtitle = parentFolder ? `Vị trí: ${parentFolder}` : 'Vị trí: Thư mục gốc Workspace';
 
-      const finalName = kind === 'file' && !name.includes('.') ? `${name.trim()}.md` : name.trim();
-      const relativePath = parentFolder ? `${parentFolder}/${finalName}` : finalName;
+      setPromptDialog({
+        isOpen: true,
+        title,
+        subtitle,
+        icon: isFile ? 'file' : 'directory',
+        defaultValue: defaultName,
+        placeholder: isFile ? 'vd: ghi_chu.md' : 'vd: ThuMucMoi',
+        confirmLabel: isFile ? 'Tạo File' : 'Tạo Thư mục',
+        onSubmit: async (name: string) => {
+          setPromptDialog(null);
+          if (!name || !name.trim()) return;
 
-      try {
-        const created = await createFile(relativePath, kind);
-        await handleRefreshTree();
+          const finalName = isFile && !name.includes('.') ? `${name.trim()}.md` : name.trim();
+          const relativePath = parentFolder ? `${parentFolder}/${finalName}` : finalName;
 
-        // Auto-expand parent folder if created inside one
-        if (parentFolder) {
-          const parts = parentFolder.replace(/\\/g, '/').split('/');
-          const toExpand: string[] = [];
-          let cur = '';
-          for (const p of parts) {
-            cur = cur ? `${cur}/${p}` : p;
-            toExpand.push(cur);
+          try {
+            const created = await createFile(relativePath, kind);
+            await handleRefreshTree();
+
+            // Auto-expand parent folder if created inside one
+            if (parentFolder) {
+              const parts = parentFolder.replace(/\\/g, '/').split('/');
+              const toExpand: string[] = [];
+              let cur = '';
+              for (const p of parts) {
+                cur = cur ? `${cur}/${p}` : p;
+                toExpand.push(cur);
+              }
+              setExpandedFolders((prev) => {
+                const next = new Set(prev);
+                toExpand.forEach((f) => next.add(f));
+                return next;
+              });
+            }
+
+            addToast(`Đã tạo: ${created.name}`, 'success');
+            if (kind === 'file') {
+              handleOpenFile(created);
+            }
+          } catch (err: any) {
+            console.error('Create entry error:', err);
+            addToast(`Lỗi tạo: ${err?.message || err}`, 'error');
           }
-          setExpandedFolders((prev) => {
-            const next = new Set(prev);
-            toExpand.forEach((f) => next.add(f));
-            return next;
-          });
-        }
-
-        addToast(`Đã tạo: ${created.name}`, 'success');
-        if (kind === 'file') {
-          handleOpenFile(created);
-        }
-      } catch (err: any) {
-        console.error('Create entry error:', err);
-        addToast(`Lỗi tạo: ${err?.message || err}`, 'error');
-      }
+        },
+      });
     },
     [handleRefreshTree, handleOpenFile, addToast]
   );
 
   // Rename File / Folder
   const handleRename = useCallback(
-    async (sourcePath: string, currentName: string) => {
-      const newName = prompt('Đổi tên thành:', currentName);
-      if (!newName || !newName.trim() || newName.trim() === currentName) return;
+    (sourcePath: string, currentName: string) => {
+      const isFile = sourcePath.endsWith('.md') || currentName.includes('.');
+      setPromptDialog({
+        isOpen: true,
+        title: `Đổi tên ${isFile ? 'File' : 'Thư mục'}`,
+        subtitle: `Đường dẫn hiện tại: ${sourcePath}`,
+        icon: 'rename',
+        defaultValue: currentName,
+        placeholder: 'Nhập tên mới...',
+        confirmLabel: 'Đổi tên',
+        onSubmit: async (newName: string) => {
+          setPromptDialog(null);
+          if (!newName || !newName.trim() || newName.trim() === currentName) return;
 
-      const parts = sourcePath.split(/[\/\\]/);
-      parts.pop();
-      const destinationPath = parts.length > 0 ? `${parts.join('/')}/${newName.trim()}` : newName.trim();
+          const parts = sourcePath.split(/[\/\\]/);
+          parts.pop();
+          const destinationPath = parts.length > 0 ? `${parts.join('/')}/${newName.trim()}` : newName.trim();
 
-      try {
-        await renameFile(sourcePath, destinationPath);
-
-        // Rename associated images if markdown file
-        if (sourcePath.endsWith('.md')) {
           try {
-            await renameImagesForDocument(sourcePath, destinationPath, settings.imageDir);
-          } catch (e) {
-            console.warn('Image rename note:', e);
-          }
-        }
+            await renameFile(sourcePath, destinationPath);
 
-        // Update tabs if opened
-        setTabs((prev) =>
-          prev.map((tab) => {
-            if (tab.relativePath === sourcePath) {
-              return {
-                ...tab,
-                relativePath: destinationPath,
-                name: newName.trim(),
-              };
+            // Rename associated images if markdown file
+            if (sourcePath.endsWith('.md')) {
+              try {
+                await renameImagesForDocument(sourcePath, destinationPath, settings.imageDir);
+              } catch (e) {
+                console.warn('Image rename note:', e);
+              }
             }
-            return tab;
-          })
-        );
-        if (activePath === sourcePath) {
-          setActivePath(destinationPath);
-        }
 
-        await handleRefreshTree();
-        addToast(`Đã đổi tên thành ${newName.trim()}`, 'success');
-      } catch (err: any) {
-        console.error('Rename error:', err);
-        addToast(`Lỗi đổi tên: ${err?.message || err}`, 'error');
-      }
+            // Update tabs if opened
+            setTabs((prev) =>
+              prev.map((tab) => {
+                if (tab.relativePath === sourcePath) {
+                  return {
+                    ...tab,
+                    relativePath: destinationPath,
+                    name: newName.trim(),
+                  };
+                }
+                return tab;
+              })
+            );
+            if (activePath === sourcePath) {
+              setActivePath(destinationPath);
+            }
+
+            await handleRefreshTree();
+            addToast(`Đã đổi tên thành: ${newName.trim()}`, 'success');
+          } catch (err: any) {
+            console.error('Rename error:', err);
+            addToast(`Lỗi đổi tên: ${err?.message || err}`, 'error');
+          }
+        },
+      });
     },
     [settings.imageDir, activePath, handleRefreshTree, addToast]
   );
@@ -449,70 +484,25 @@ export const App: React.FC = () => {
     }
 
     try {
-      const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
-      const defaultImgRule =
-        md.renderer.rules.image ||
-        function (tokens, idx, options, _env, self) {
-          return self.renderToken(tokens, idx, options);
-        };
-      md.renderer.rules.image = function (tokens, idx, options, env, self) {
-        const token = tokens[idx];
-        const srcIndex = token.attrIndex('src');
-        if (srcIndex >= 0 && token.attrs) {
-          token.attrs[srcIndex][1] = resolveImageSource(
-            String(token.attrs[srcIndex][1]),
-            currentTab.relativePath,
-            workspace?.path
-          );
-        }
-        return defaultImgRule(tokens, idx, options, env, self);
-      };
-
-      let bodyHtml = md.render(currentTab.content);
-      bodyHtml = bodyHtml.replace(
-        /<img\b([^>]*\bsrc=["'])([^"']+)(["'][^>]*)>/gi,
-        (_, before, srcVal, after) => {
-          const resolved = resolveImageSource(srcVal, currentTab.relativePath, workspace?.path);
-          return `<img${before}${resolved}${after}>`;
-        }
+      addToast('Đang chuẩn bị tài liệu xuất PDF...', 'info');
+      const fullHtml = await generatePrintHtml(
+        currentTab.name,
+        currentTab.content,
+        currentTab.relativePath,
+        workspace?.path
       );
-      const fullHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${currentTab.name}</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
-    h1, h2, h3 { color: #0f172a; margin-top: 1.2em; }
-    h1 { border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
-    code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: #4f46e5; }
-    pre { background: #0f172a; color: #f8fafc; padding: 16px; border-radius: 8px; overflow-x: auto; }
-    pre code { background: none; color: inherit; }
-    blockquote { border-left: 4px solid #6366f1; margin: 16px 0; padding: 8px 16px; background: #f8fafc; color: #475569; }
-    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-    th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
-    th { background: #f1f5f9; }
-    img { max-width: 100%; height: auto; border-radius: 6px; }
-    @media print { body { padding: 0; } }
-  </style>
-</head>
-<body>
-  ${bodyHtml}
-</body>
-</html>`;
 
-      const dest = await promptSavePdfPath(currentTab.name);
-      if (!dest) return;
-
-      await exportPdf(currentTab.relativePath, fullHtml, dest);
-      addToast(`Đã xuất PDF thành công: ${dest}`, 'success');
+      const success = await printHtmlViaIframe(fullHtml);
+      if (success) {
+        addToast('Đã mở cửa sổ in ấn (chọn "Save as PDF" / "Lưu dưới dạng PDF")', 'success');
+      } else {
+        window.print();
+      }
     } catch (err: any) {
       console.error('Export PDF error:', err);
-      // In web browser fallback, trigger window.print
       window.print();
-      addToast('Đã mở cửa sổ in ấn PDF', 'info');
     }
-  }, [tabs, activePath, addToast]);
+  }, [tabs, activePath, workspace?.path, addToast]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -865,9 +855,24 @@ export const App: React.FC = () => {
         }}
       />
 
+      {promptDialog && (
+        <PromptModal
+          isOpen={promptDialog.isOpen}
+          title={promptDialog.title}
+          subtitle={promptDialog.subtitle}
+          icon={promptDialog.icon}
+          defaultValue={promptDialog.defaultValue}
+          placeholder={promptDialog.placeholder}
+          confirmLabel={promptDialog.confirmLabel}
+          onClose={() => setPromptDialog(null)}
+          onSubmit={promptDialog.onSubmit}
+        />
+      )}
+
       <ToastContainer toasts={toasts} />
     </div>
   );
 };
 
 export default App;
+
