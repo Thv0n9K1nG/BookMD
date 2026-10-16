@@ -1,3 +1,38 @@
+# Release Notes — BookMD v0.1.3
+
+**BookMD v0.1.3** introduces seamless single-file opening via Windows Explorer and CLI, native multithreaded workspace search with 3-line context snippets, smart image dimensions on paste and auto-transformation, a dedicated New Folder button with custom Prompt modals, and isolated A4 PDF export with UI cleanups.
+
+---
+
+## 🚀 What's New & Bug Fixes (Changelog)
+
+### 📄 Seamless Single-File Opening & Single-Instance Coordination
+- **File Association & CLI Launch**: Resolved the issue where double-clicking a `.md` file in Windows Explorer or launching via command line (`bookmd path/to/file.md`) would ignore the target file and open the previously stored workspace. BookMD now detects launch arguments immediately and opens the requested document.
+- **Smart Workspace Adoption**: Opening a document outside the active workspace automatically sets its parent directory as the workspace root. Sibling notes and relative image folders (`assets/`, `img/`) work right out of the box. If the file already belongs to the current workspace, it opens directly into a new tab without reloading the tree.
+- **Single-Instance IPC Coordination**: Integrated `tauri-plugin-single-instance`. Launching a document while BookMD is already running automatically focuses the existing window and opens the file in a new tab without creating duplicate app processes.
+- **Drag & Drop Support**: Drag and drop any `.md` file onto the BookMD window to open it instantly.
+- **Dedicated Open File Actions**: Added `Ctrl+O` keyboard shortcut, top titlebar button, Command Palette command, and Welcome screen buttons for opening single Markdown files.
+
+### 🔎 Native Ripgrep Workspace Search with 3-Line Context
+- **Rust-Powered Fast Search**: High-performance multi-threaded text search across the entire workspace.
+- **3-Line Context Snippets**: Search results display total matches and are organized per file, showing 1 line before, the matching line with highlighted search keywords, and 1 line after.
+- **Smooth Modal Scrolling**: Fixed search result scrolling container height, mousewheel event forwarding, persistent custom scrollbars, and keyboard arrow navigation.
+
+### 🖼️ Natural Image Dimensions & Markdown Syntax Auto-Transform
+- **Auto-Measured Width on Paste**: Pasting images from clipboard saves the asset and generates standard `<img src="..." title="" alt="" width="N"/>` tags with the image's natural dimensions automatically computed.
+- **Instant Syntax Transformation**: Typing markdown image syntax `![alt](url)` automatically converts into clean `<img .../>` tags as soon as the closing parenthesis `)` is completed.
+
+### 📁 Sidebar Enhancements & Modern Prompt Modals
+- **Dedicated New Folder Button**: Added a dedicated "New Folder" button alongside "New File" in the FileTree toolbar.
+- **Custom `PromptModal` UI**: Replaced native browser `window.prompt()` popups with a modern, glassmorphic modal dialog with OS filename validation (preventing forbidden characters `< > : " / \ | ? *`), smart filename selection excluding `.md` extensions, and Enter/Esc keyboard shortcuts.
+- **Full Sidebar Collapse (0px)**: Removed duplicate sidebar collapse buttons. Toggling sidebar (`Ctrl+B` or top-left titlebar button) now completely collapses the sidebar to 0px width, maximizing editor and preview space.
+
+### 🖨️ Isolated A4 PDF Export & Cancel Fix
+- **Isolated Iframe Printing**: Documents are rendered into a dedicated, print-optimized A4 layout inside an isolated iframe, ensuring zero BookMD IDE chrome appears in the printed PDF. Full support for Vietnamese UTF-8 typography, code blocks, tables, and images.
+- **Cancel Dialog Fix**: Fixed an issue where canceling the print dialog required pressing Cancel twice due to uncancelled fallback timers. Printing is now strictly guarded to trigger once.
+
+---
+
 # Release Notes — BookMD v0.1.2
 
 **BookMD v0.1.2** introduces synchronized split-mode zoom & focus, secure external link handling via the OS default browser, and eliminates initial workspace load errors on fresh installations.

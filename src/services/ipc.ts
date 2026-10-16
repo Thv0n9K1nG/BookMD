@@ -7,6 +7,7 @@ import {
   SearchOptions,
   ImageResult,
   ImageSaveOptions,
+  OpenTargetResult,
 } from '../types';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -114,6 +115,60 @@ export async function selectWorkspaceFolder(): Promise<string | null> {
     }
   }
   return prompt('Nhập đường dẫn thư mục Workspace:', '');
+}
+
+export async function selectSingleFile(): Promise<string | null> {
+  if (isTauri) {
+    try {
+      const selected = await openDialog({
+        directory: false,
+        multiple: false,
+        title: 'Mở file Markdown',
+        filters: [{ name: 'Markdown Document', extensions: ['md', 'markdown', 'txt'] }],
+      });
+      if (typeof selected === 'string') return selected;
+      if (Array.isArray(selected) && (selected as string[]).length > 0) return (selected as string[])[0];
+      return null;
+    } catch (err) {
+      console.warn('Dialog open file failed:', err);
+    }
+  }
+  return null;
+}
+
+export async function getCliLaunchPath(): Promise<string | null> {
+  if (isTauri) {
+    try {
+      return await invoke<string | null>('get_cli_launch_path');
+    } catch (err) {
+      console.warn('Failed to get CLI launch path:', err);
+    }
+  }
+  return null;
+}
+
+export async function resolvePathTarget(path: string): Promise<OpenTargetResult> {
+  if (isTauri) {
+    return await invoke<OpenTargetResult>('resolve_path_target', { path });
+  }
+  const isFile = path.endsWith('.md') || path.endsWith('.markdown') || path.endsWith('.txt');
+  if (isFile) {
+    const parts = path.replace(/\\/g, '/').split('/');
+    const fileName = parts.pop() || null;
+    const workspacePath = parts.join('/') || '.';
+    return {
+      workspacePath,
+      relativeFilePath: fileName,
+      fileName,
+      isFile: true,
+    };
+  }
+  return {
+    workspacePath: path,
+    relativeFilePath: null,
+    fileName: null,
+    isFile: false,
+  };
 }
 
 export async function openWorkspace(path: string): Promise<WorkspaceInfo> {

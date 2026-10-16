@@ -88,3 +88,10 @@ export interface TocItem {
   line: number;
 }
 
+export interface OpenTargetResult {
+  workspacePath: string;
+  relativeFilePath?: string | null;
+  fileName?: string | null;
+  isFile: boolean;
+}
+

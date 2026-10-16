@@ -22,6 +22,9 @@ import {
   deleteFile,
   renameImagesForDocument,
   selectWorkspaceFolder,
+  selectSingleFile,
+  getCliLaunchPath,
+  resolvePathTarget,
   isTauri,
 } from './services/ipc';
 import { normalizePathSegments } from './utils/imagePath';
@@ -257,6 +260,73 @@ export const App: React.FC = () => {
     }
   }, [tabs, addToast]);
   handleOpenFileRef.current = handleOpenFile;
+
+  // Open any path (file or workspace folder)
+  const handleOpenPath = useCallback(
+    async (rawPath: string) => {
+      if (!rawPath || rawPath.trim().length === 0) return;
+      const cleanPath = rawPath.trim();
+
+      try {
+        const target = await resolvePathTarget(cleanPath);
+
+        const normTargetWorkspace = target.workspacePath.replace(/\\/g, '/').toLowerCase();
+        const normCurrentWorkspace = workspace?.path ? workspace.path.replace(/\\/g, '/').toLowerCase() : '';
+
+        if (target.isFile) {
+          // Check if file is already inside the current open workspace
+          if (workspace && normTargetWorkspace.startsWith(normCurrentWorkspace) && normCurrentWorkspace.length > 0) {
+            const wsPathClean = workspace.path.replace(/\\/g, '/');
+            const cleanTargetFile = cleanPath.replace(/\\/g, '/');
+            let rel = cleanTargetFile;
+            if (cleanTargetFile.toLowerCase().startsWith(wsPathClean.toLowerCase() + '/')) {
+              rel = cleanTargetFile.slice(wsPathClean.length + 1);
+            } else if (target.relativeFilePath) {
+              rel = target.relativeFilePath;
+            }
+            await handleOpenFile({
+              name: target.fileName || rel.split('/').pop() || 'Document.md',
+              relativePath: rel,
+              kind: 'file',
+            });
+            addToast(`Đã mở file: ${target.fileName || rel}`, 'success');
+            return;
+          }
+
+          // Otherwise, file is outside current workspace: open its parent folder as workspace
+          const wsInfo = await openWorkspace(target.workspacePath);
+          setWorkspace(wsInfo);
+          localStorage.setItem('bookmd_last_workspace', target.workspacePath);
+          const tree = await getWorkspaceTree();
+          setFileTree(tree);
+
+          const fileName = target.fileName || target.relativeFilePath || 'Document.md';
+          const relPath = target.relativeFilePath || fileName;
+          await handleOpenFile({
+            name: fileName,
+            relativePath: relPath,
+            kind: 'file',
+          });
+          addToast(`Đã mở file: ${fileName}`, 'success');
+        } else {
+          // It's a directory: open as workspace
+          await handleOpenWorkspace(target.workspacePath);
+        }
+      } catch (err: any) {
+        console.error('Failed to open path:', err);
+        addToast(`Không thể mở: ${err?.message || err}`, 'error');
+      }
+    },
+    [workspace, handleOpenWorkspace, handleOpenFile, addToast]
+  );
+
+  // Open single file dialog action
+  const handleSelectAndOpenFile = useCallback(async () => {
+    const filePath = await selectSingleFile();
+    if (filePath) {
+      await handleOpenPath(filePath);
+    }
+  }, [handleOpenPath]);
 
   // Navigate to relative file (e.g. from markdown link in Preview)
   const handleNavigateToFile = useCallback(
@@ -519,6 +589,9 @@ export const App: React.FC = () => {
       if (isMod && e.key.toLowerCase() === 's') {
         e.preventDefault();
         handleSaveActiveFile();
+      } else if (isMod && !e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        handleSelectAndOpenFile();
       } else if (isMod && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
@@ -540,7 +613,7 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSaveActiveFile]);
+  }, [handleSaveActiveFile, handleSelectAndOpenFile]);
 
   // Context Menu Handler
   const handleContextMenu = (e: React.MouseEvent, entry?: FileEntry, folderPath?: string) => {
@@ -556,9 +629,15 @@ export const App: React.FC = () => {
   const commands: CommandItem[] = useMemo(
     () => [
       {
-        id: 'open-workspace',
-        title: 'Mở Workspace...',
+        id: 'open-file',
+        title: 'Mở File Markdown...',
         shortcut: 'Ctrl+O',
+        action: () => handleSelectAndOpenFile(),
+      },
+      {
+        id: 'open-workspace',
+        title: 'Mở Thư mục / Workspace...',
+        shortcut: 'Ctrl+Shift+K',
         action: () => handleOpenWorkspace(),
       },
       {
@@ -641,7 +720,7 @@ export const App: React.FC = () => {
         action: () => setIsSettingsOpen(true),
       },
     ],
-    [handleOpenWorkspace, handleCreateNew, handleSaveActiveFile, handleExportPdf, settings.theme]
+    [handleSelectAndOpenFile, handleOpenWorkspace, handleCreateNew, handleSaveActiveFile, handleExportPdf, settings.theme]
   );
 
   // Active Tab details
@@ -651,13 +730,57 @@ export const App: React.FC = () => {
     return activeTab.content.trim().split(/\s+/).filter(Boolean).length;
   }, [activeTab?.content]);
 
-  // Initial load: restore last workspace if stored, or stay on Welcome screen
+  // Initial load: check CLI launch argument first, else restore last workspace if stored
   useEffect(() => {
-    const savedWs = localStorage.getItem('bookmd_last_workspace');
-    if (savedWs && savedWs.trim()) {
-      handleOpenWorkspace(savedWs.trim(), true);
+    let isMounted = true;
+    (async () => {
+      const cliPath = await getCliLaunchPath();
+      if (!isMounted) return;
+      if (cliPath && cliPath.trim().length > 0) {
+        handleOpenPath(cliPath);
+      } else {
+        const savedWs = localStorage.getItem('bookmd_last_workspace');
+        if (savedWs && savedWs.trim()) {
+          handleOpenWorkspace(savedWs.trim(), true);
+        }
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [handleOpenPath, handleOpenWorkspace]);
+
+  // Listen for single-instance launch requests and file drag-drop
+  useEffect(() => {
+    let unlistenOpenPath: (() => void) | undefined;
+    let unlistenDragDrop: (() => void) | undefined;
+
+    if (isTauri) {
+      listen<string>('open-path-requested', (event) => {
+        if (event.payload) {
+          handleOpenPath(event.payload);
+        }
+      }).then((fn) => {
+        unlistenOpenPath = fn;
+      });
+
+      listen<{ paths?: string[] }>('tauri://drag-drop', (event) => {
+        if (event.payload?.paths && event.payload.paths.length > 0) {
+          const first = event.payload.paths[0];
+          if (first) {
+            handleOpenPath(first);
+          }
+        }
+      }).then((fn) => {
+        unlistenDragDrop = fn;
+      });
     }
-  }, [handleOpenWorkspace]);
+
+    return () => {
+      unlistenOpenPath?.();
+      unlistenDragDrop?.();
+    };
+  }, [handleOpenPath]);
 
   // Intercept global link clicks so external URLs never navigate the WebView
   useEffect(() => {
@@ -688,6 +811,7 @@ export const App: React.FC = () => {
         theme={settings.theme}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
+        onOpenFile={handleSelectAndOpenFile}
         onOpenWorkspace={() => handleOpenWorkspace()}
         onToggleSearch={() => setIsSearchOpen(true)}
         onToggleCommandPalette={() => setIsCommandPaletteOpen(true)}
@@ -792,12 +916,18 @@ export const App: React.FC = () => {
               <div className="welcome-subtitle">
                 A lightweight, filesystem-first Markdown workspace designed for technical notes, cybersecurity & devops documentation.
               </div>
-              <div className="welcome-action">
-                <button className="welcome-btn" onClick={() => handleCreateNew('', 'file')}>
-                  📄 Tạo ghi chú mới
+              <div className="welcome-action" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button className="welcome-btn" onClick={handleSelectAndOpenFile} title="Mở file Markdown (Ctrl+O)">
+                  📄 Mở File Markdown (Ctrl+O)
                 </button>
-                <div className="welcome-shortcut">hoặc mở tài liệu từ cây thư mục bên trái</div>
+                <button className="welcome-btn" onClick={() => handleOpenWorkspace()} title="Mở thư mục Workspace">
+                  📁 Mở Workspace...
+                </button>
+                <button className="welcome-btn" onClick={() => handleCreateNew('', 'file')} title="Tạo ghi chú mới (Ctrl+N)">
+                  ➕ Tạo ghi chú mới
+                </button>
               </div>
+              <div className="welcome-shortcut">hoặc kéo thả file / mở tài liệu từ cây thư mục bên trái</div>
             </div>
           )}
         </main>

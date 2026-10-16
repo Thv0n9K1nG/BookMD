@@ -175,11 +175,98 @@ fn export_pdf(
     export::export_pdf(&ws, &markdown_file, &html_content, &destination).map_err(String::from)
 }
 
+// ─── CLI & Launch Path Handling ─────────────────────────────────
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenTargetResult {
+    pub workspace_path: String,
+    pub relative_file_path: Option<String>,
+    pub file_name: Option<String>,
+    pub is_file: bool,
+}
+
+pub fn find_target_path_from_args<I, S>(args: I) -> Option<String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    for arg in args.into_iter().skip(1) {
+        let s = arg.as_ref();
+        if s.starts_with('-') {
+            continue;
+        }
+        let p = std::path::Path::new(s);
+        if p.exists() {
+            if let Ok(canonical) = p.canonicalize() {
+                let canonical_str = canonical.to_string_lossy().to_string();
+                let clean = canonical_str.strip_prefix(r"\\?\").unwrap_or(&canonical_str).to_string();
+                return Some(clean);
+            }
+            return Some(s.to_string());
+        } else if s.ends_with(".md") || s.ends_with(".markdown") || s.ends_with(".txt") {
+            return Some(s.to_string());
+        }
+    }
+    None
+}
+
+#[tauri::command]
+fn get_cli_launch_path() -> Option<String> {
+    find_target_path_from_args(std::env::args())
+}
+
+#[tauri::command]
+fn resolve_path_target(path: String) -> Result<OpenTargetResult, String> {
+    let p = std::path::Path::new(&path);
+    if !p.exists() {
+        return Err(format!("Đường dẫn không tồn tại: {}", path));
+    }
+    let canonical = p.canonicalize().map_err(|e| e.to_string())?;
+    let canonical_str = canonical.to_string_lossy().to_string();
+    let clean_str = canonical_str.strip_prefix(r"\\?\").unwrap_or(&canonical_str).to_string();
+    let clean_path = std::path::Path::new(&clean_str);
+
+    if clean_path.is_file() {
+        let parent = clean_path
+            .parent()
+            .ok_or_else(|| "Không tìm thấy thư mục cha".to_string())?;
+        let parent_str = parent.to_string_lossy().to_string();
+        let file_name = clean_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string());
+        Ok(OpenTargetResult {
+            workspace_path: parent_str,
+            relative_file_path: file_name.clone(),
+            file_name,
+            is_file: true,
+        })
+    } else {
+        Ok(OpenTargetResult {
+            workspace_path: clean_str,
+            relative_file_path: None,
+            file_name: None,
+            is_file: false,
+        })
+    }
+}
+
 // ─── App Entry Point ────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            use tauri::{Emitter, Manager};
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+            if let Some(target) = find_target_path_from_args(&argv) {
+                let _ = app.emit("open-path-requested", target);
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
@@ -199,6 +286,8 @@ pub fn run() {
             image_read_data,
             image_rename_for_document,
             export_pdf,
+            get_cli_launch_path,
+            resolve_path_target,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

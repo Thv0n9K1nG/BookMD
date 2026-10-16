@@ -8,6 +8,7 @@ import {
   PdfIcon,
   SettingsIcon,
   SidebarToggleIcon,
+  FileIcon,
 } from '../common/Icons';
 
 interface HeaderProps {
@@ -15,6 +16,7 @@ interface HeaderProps {
   theme: Theme;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  onOpenFile?: () => void;
   onOpenWorkspace: () => void;
   onToggleSearch: () => void;
   onToggleCommandPalette: () => void;
@@ -28,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   isSidebarCollapsed = false,
   onToggleSidebar,
+  onOpenFile,
   onOpenWorkspace,
   onToggleSearch,
   onToggleCommandPalette,
@@ -49,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        <div className="titlebar-brand" onClick={onOpenWorkspace} style={{ cursor: 'pointer' }}>
+        <div className="titlebar-brand" onClick={onOpenWorkspace} style={{ cursor: 'pointer' }} title="Mở Workspace khác...">
           <BookIcon size={18} />
           <span>BookMD</span>
           {workspaceName && (
@@ -67,6 +70,17 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           )}
         </div>
+
+        {onOpenFile && (
+          <button
+            className="btn btn-icon"
+            onClick={onOpenFile}
+            title="Mở file Markdown... (Ctrl+O)"
+            style={{ marginLeft: '2px' }}
+          >
+            <FileIcon size={15} />
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
