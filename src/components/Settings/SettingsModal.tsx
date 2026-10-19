@@ -128,6 +128,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
             Tự động lưu khi chỉnh sửa (Auto Save)
           </label>
+
+          {settings.autoSave && (
+            <div
+              style={{
+                marginLeft: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-primary)',
+              }}
+            >
+              <label style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                Thời gian chờ tự động lưu:
+              </label>
+              <select
+                className="settings-select"
+                style={{
+                  width: 'auto',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--bg-editor)',
+                }}
+                value={settings.autoSaveDelay ?? 2}
+                onChange={(e) => onUpdateSettings({ autoSaveDelay: Number(e.target.value) })}
+              >
+                <option value={1}>1 giây</option>
+                <option value={2}>2 giây (Mặc định)</option>
+                <option value={3}>3 giây</option>
+                <option value={5}>5 giây</option>
+                <option value={10}>10 giây</option>
+                <option value={30}>30 giây</option>
+              </select>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>

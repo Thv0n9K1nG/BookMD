@@ -282,10 +282,17 @@ export const Preview: React.FC<PreviewProps> = ({
       if (!bestEl) return;
 
       // If code inside pre, target the pre container
-      const targetEl =
+      let targetEl =
         bestEl.tagName === 'CODE' && bestEl.parentElement?.tagName === 'PRE'
           ? (bestEl.parentElement as HTMLElement)
           : bestEl;
+
+      // If inside blockquote, target the blockquote element
+      if (targetEl.parentElement?.tagName === 'BLOCKQUOTE') {
+        targetEl = targetEl.parentElement as HTMLElement;
+      } else if (targetEl.closest('blockquote')) {
+        targetEl = targetEl.closest('blockquote') as HTMLElement;
+      }
 
       if (activeFocusElRef.current !== targetEl) {
         if (activeFocusElRef.current) {

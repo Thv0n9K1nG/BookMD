@@ -254,6 +254,18 @@ export const Editor: React.FC<EditorProps> = ({
         wordWrapCompartment.current.of(settings.wordWrap ? EditorView.lineWrapping : []),
         pasteHandler,
         imageTransformHandler,
+        EditorView.domEventHandlers({
+          keydown: (e) => {
+            const isMod = e.ctrlKey || e.metaKey;
+            if (isMod && e.key.toLowerCase() === 's') {
+              e.preventDefault();
+              e.stopPropagation();
+              onSaveRef.current();
+              return true;
+            }
+            return false;
+          },
+        }),
         keymap.of([
           ...defaultKeymap,
           ...historyKeymap,

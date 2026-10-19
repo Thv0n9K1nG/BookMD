@@ -62,6 +62,7 @@ export interface Settings {
   theme: Theme;
   fontSize: number;
   autoSave: boolean;
+  autoSaveDelay?: number; // in seconds, default: 2
   lineNumbers: boolean;
   wordWrap: boolean;
 }

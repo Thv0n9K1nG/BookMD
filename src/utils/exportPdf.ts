@@ -130,6 +130,19 @@ export async function generatePrintHtml(
       page-break-inside: avoid;
       break-inside: avoid;
     }
+    blockquote > p {
+      margin: 0;
+      line-height: 1.5;
+    }
+    blockquote > p + p {
+      margin-top: 6pt;
+    }
+    blockquote > :first-child {
+      margin-top: 0;
+    }
+    blockquote > :last-child {
+      margin-bottom: 0;
+    }
     table {
       width: 100%;
       border-collapse: collapse;

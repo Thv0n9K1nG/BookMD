@@ -81,4 +81,23 @@ This is a paragraph.
     const resolved3 = normalizePathSegments(`${currentDir}/${href3}`);
     expect(resolved3).toBe('README.md');
   });
+
+  it('maps source lines correctly for blockquotes and nested paragraphs', () => {
+    const md = new MarkdownIt();
+    md.core.ruler.push('source_lines', (state) => {
+      state.tokens.forEach((token) => {
+        if (token.map && token.nesting >= 0) {
+          token.attrSet('data-source-line', String(token.map[0] + 1));
+          token.attrSet('data-source-end-line', String(token.map[1]));
+        }
+      });
+    });
+
+    const markdownText = `> this is blockquote\n\ntrust antigravity`;
+    const html = md.render(markdownText);
+    expect(html).toContain('blockquote');
+    expect(html).toContain('data-source-line="1"');
+    expect(html).toContain('this is blockquote');
+  });
 });
+

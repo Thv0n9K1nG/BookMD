@@ -45,22 +45,24 @@ import { generatePrintHtml, printHtmlViaIframe } from './utils/exportPdf';
 export const App: React.FC = () => {
   // Settings
   const [settings, setSettings] = useState<Settings>(() => {
-    const saved = localStorage.getItem('bookmd_settings');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // ignore
-      }
-    }
-    return {
+    const defaultSettings: Settings = {
       imageDir: 'assets/images',
       theme: 'dark',
       fontSize: 14,
       autoSave: false,
+      autoSaveDelay: 2,
       lineNumbers: true,
       wordWrap: true,
     };
+    const saved = localStorage.getItem('bookmd_settings');
+    if (saved) {
+      try {
+        return { ...defaultSettings, ...JSON.parse(saved) };
+      } catch (e) {
+        // ignore
+      }
+    }
+    return defaultSettings;
   });
 
   // Workspace & Files
@@ -352,24 +354,52 @@ export const App: React.FC = () => {
   );
 
   // Select Tab
-  const handleSelectTab = useCallback((path: string) => {
-    setActivePath(path);
-  }, []);
-
-  // Close Tab
-  const handleCloseTab = useCallback((path: string) => {
-    setTabs((prev) => {
-      const nextTabs = prev.filter((t) => t.relativePath !== path);
-      if (activePath === path) {
-        if (nextTabs.length > 0) {
-          setActivePath(nextTabs[nextTabs.length - 1].relativePath);
-        } else {
-          setActivePath(null);
+  const handleSelectTab = useCallback(
+    (path: string) => {
+      if (settings.autoSave && activePath && activePath !== path) {
+        const prevTab = tabs.find((t) => t.relativePath === activePath);
+        if (prevTab && prevTab.isDirty) {
+          writeFile(prevTab.relativePath, prevTab.content)
+            .then(() => {
+              setTabs((prev) =>
+                prev.map((t) =>
+                  t.relativePath === prevTab.relativePath
+                    ? { ...t, savedContent: t.content, isDirty: false }
+                    : t
+                )
+              );
+            })
+            .catch((err) => console.error('Failed to auto-save tab on switch:', err));
         }
       }
-      return nextTabs;
-    });
-  }, [activePath]);
+      setActivePath(path);
+    },
+    [settings.autoSave, activePath, tabs]
+  );
+
+  // Close Tab
+  const handleCloseTab = useCallback(
+    (path: string) => {
+      const tabToClose = tabs.find((t) => t.relativePath === path);
+      if (tabToClose && tabToClose.isDirty && settings.autoSave) {
+        writeFile(tabToClose.relativePath, tabToClose.content).catch((err) =>
+          console.error('Failed to auto-save closing tab:', err)
+        );
+      }
+      setTabs((prev) => {
+        const nextTabs = prev.filter((t) => t.relativePath !== path);
+        if (activePath === path) {
+          if (nextTabs.length > 0) {
+            setActivePath(nextTabs[nextTabs.length - 1].relativePath);
+          } else {
+            setActivePath(null);
+          }
+        }
+        return nextTabs;
+      });
+    },
+    [activePath, tabs, settings.autoSave]
+  );
 
   // Content Change in Active File
   const handleContentChange = useCallback((newContent: string) => {
@@ -389,26 +419,52 @@ export const App: React.FC = () => {
     );
   }, [activePath]);
 
+  const isSavingRef = useRef(false);
+
   // Save Active File
-  const handleSaveActiveFile = useCallback(async () => {
+  const handleSaveActiveFile = useCallback(
+    async (isSilent = false) => {
+      if (isSavingRef.current) return;
+      const currentTab = tabs.find((t) => t.relativePath === activePath);
+      if (!currentTab || !currentTab.isDirty) return;
+
+      isSavingRef.current = true;
+      try {
+        await writeFile(currentTab.relativePath, currentTab.content);
+        setTabs((prev) =>
+          prev.map((tab) =>
+            tab.relativePath === activePath
+              ? { ...tab, savedContent: tab.content, isDirty: false }
+              : tab
+          )
+        );
+        if (!isSilent) {
+          addToast(`Đã lưu ${currentTab.name}`, 'success');
+        }
+      } catch (err: any) {
+        console.error('Save file error:', err);
+        addToast(`Lỗi lưu file: ${err?.message || err}`, 'error');
+      } finally {
+        isSavingRef.current = false;
+      }
+    },
+    [tabs, activePath, addToast]
+  );
+
+  // Auto-Save Effect (debounced by settings.autoSaveDelay)
+  useEffect(() => {
+    if (!settings.autoSave || !activePath) return;
+
     const currentTab = tabs.find((t) => t.relativePath === activePath);
     if (!currentTab || !currentTab.isDirty) return;
 
-    try {
-      await writeFile(currentTab.relativePath, currentTab.content);
-      setTabs((prev) =>
-        prev.map((tab) =>
-          tab.relativePath === activePath
-            ? { ...tab, savedContent: tab.content, isDirty: false }
-            : tab
-        )
-      );
-      addToast(`Đã lưu ${currentTab.name}`, 'success');
-    } catch (err: any) {
-      console.error('Save file error:', err);
-      addToast(`Lỗi lưu file: ${err?.message || err}`, 'error');
-    }
-  }, [tabs, activePath, addToast]);
+    const delayMs = Math.max(1, settings.autoSaveDelay ?? 2) * 1000;
+    const timer = setTimeout(() => {
+      handleSaveActiveFile(true);
+    }, delayMs);
+
+    return () => clearTimeout(timer);
+  }, [settings.autoSave, settings.autoSaveDelay, activePath, tabs, handleSaveActiveFile]);
 
   // Create New File or Directory
   const handleCreateNew = useCallback(
