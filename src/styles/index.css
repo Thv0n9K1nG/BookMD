@@ -563,6 +563,39 @@ body {
   background: var(--bg-preview);
   font-family: var(--font-sans);
   min-width: 0;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.preview-pane * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.preview-pane ::selection {
+  background: rgba(99, 102, 241, 0.32);
+  color: inherit;
+}
+
+[data-theme='dark'] .preview-pane ::selection {
+  background: rgba(99, 102, 241, 0.44);
+  color: inherit;
+}
+
+.preview-pane a,
+.preview-pane button,
+.preview-pane summary,
+.preview-pane input[type="checkbox"],
+.preview-pane label {
+  cursor: pointer;
+  user-select: auto;
+}
+
+.preview-pane img {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
 }
 
 /* Split mode auto-focus & zoom highlight on active section being edited */
@@ -671,6 +704,7 @@ body {
 }
 
 .preview-pane pre {
+  position: relative;
   background: var(--bg-editor);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
@@ -684,6 +718,47 @@ body {
   padding: 0;
   color: var(--text-primary);
   font-size: var(--text-sm);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.preview-pane .code-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--text-tertiary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 2;
+}
+
+.preview-pane pre:hover .code-copy-btn {
+  opacity: 1;
+}
+
+.preview-pane .code-copy-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.preview-pane .code-copy-btn.copied {
+  opacity: 1;
+  color: var(--success);
+  border-color: var(--success);
+  background: var(--bg-surface);
 }
 
 .preview-pane blockquote {

@@ -975,6 +975,7 @@ export const App: React.FC = () => {
                   activeLine={cursorPos.line}
                   viewMode={viewMode}
                   onNavigateToFile={handleNavigateToFile}
+                  onToast={addToast}
                 />
               )}
             </div>

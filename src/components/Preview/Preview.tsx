@@ -1,9 +1,10 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import MarkdownIt from 'markdown-it';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { resolveImageSource } from '../../utils/imagePath';
 import { readImageData, isTauri } from '../../services/ipc';
 import { ViewMode } from '../../types';
+import { CopyIcon } from '../common/Icons';
 
 interface PreviewProps {
   content: string;
@@ -12,6 +13,7 @@ interface PreviewProps {
   activeLine?: number;
   viewMode?: ViewMode;
   onNavigateToFile?: (relPath: string) => void;
+  onToast?: (message: string, type?: 'info' | 'success' | 'error') => void;
 }
 
 export const Preview: React.FC<PreviewProps> = ({
@@ -21,10 +23,17 @@ export const Preview: React.FC<PreviewProps> = ({
   activeLine,
   viewMode,
   onNavigateToFile,
+  onToast,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeFocusElRef = useRef<HTMLElement | null>(null);
   const scrollTimeoutRef = useRef<any>(null);
+  const [copyMenu, setCopyMenu] = useState<{
+    x: number;
+    y: number;
+    text: string;
+    label: string;
+  } | null>(null);
 
   const md = useMemo(() => {
     const instance = new MarkdownIt({
@@ -326,12 +335,121 @@ export const Preview: React.FC<PreviewProps> = ({
     };
   }, [activeLine, viewMode, renderedHtml]);
 
+  // 1. Add copy buttons to code blocks in the rendered markdown
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const preElements = container.querySelectorAll<HTMLPreElement>('pre');
+    preElements.forEach((pre) => {
+      if (pre.querySelector('.code-copy-btn')) return;
+      const btn = document.createElement('button');
+      btn.className = 'code-copy-btn';
+      btn.type = 'button';
+      btn.title = 'Sao chép mã nguồn';
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span>`;
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const code = pre.querySelector('code');
+        const codeText = code ? code.innerText : pre.innerText;
+        navigator.clipboard.writeText(codeText);
+        btn.innerHTML = `<span>Đã chép!</span>`;
+        btn.classList.add('copied');
+        onToast?.('Đã sao chép mã nguồn', 'success');
+        setTimeout(() => {
+          btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span>`;
+          btn.classList.remove('copied');
+        }, 2000);
+      };
+      pre.appendChild(btn);
+    });
+  }, [renderedHtml, onToast]);
+
+  // 2. Right-click context menu for selected text or code blocks in preview pane
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleContextMenu = (e: MouseEvent) => {
+      const selection = window.getSelection();
+      const selectedText = selection ? selection.toString() : '';
+      if (selectedText.trim()) {
+        e.preventDefault();
+        setCopyMenu({
+          x: e.clientX,
+          y: e.clientY,
+          text: selectedText,
+          label: 'Sao chép văn bản đã chọn (Ctrl+C)',
+        });
+        return;
+      }
+
+      const preBlock = (e.target as HTMLElement)?.closest('pre');
+      if (preBlock) {
+        e.preventDefault();
+        const codeEl = preBlock.querySelector('code');
+        const text = codeEl ? codeEl.innerText : preBlock.innerText;
+        setCopyMenu({
+          x: e.clientX,
+          y: e.clientY,
+          text,
+          label: 'Sao chép toàn bộ khối mã',
+        });
+        return;
+      }
+    };
+
+    container.addEventListener('contextmenu', handleContextMenu);
+    return () => {
+      container.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, []);
+
+  // 3. Dismiss context menu on click outside or contextmenu elsewhere
+  useEffect(() => {
+    if (!copyMenu) return;
+    const handleOutside = () => setCopyMenu(null);
+    window.addEventListener('click', handleOutside);
+    window.addEventListener('contextmenu', handleOutside);
+    return () => {
+      window.removeEventListener('click', handleOutside);
+      window.removeEventListener('contextmenu', handleOutside);
+    };
+  }, [copyMenu]);
+
   return (
-    <div
-      className="preview-pane"
-      id="bookmd-preview"
-      ref={containerRef}
-      dangerouslySetInnerHTML={{ __html: renderedHtml }}
-    />
+    <>
+      <div
+        className="preview-pane"
+        id="bookmd-preview"
+        ref={containerRef}
+        dangerouslySetInnerHTML={{ __html: renderedHtml }}
+      />
+
+      {copyMenu && (
+        <div
+          className="context-menu"
+          style={{
+            position: 'fixed',
+            left: `${Math.min(copyMenu.x, window.innerWidth - 250)}px`,
+            top: `${Math.min(copyMenu.y, window.innerHeight - 80)}px`,
+            zIndex: 9999,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="context-menu-item"
+            onClick={() => {
+              navigator.clipboard.writeText(copyMenu.text);
+              onToast?.('Đã sao chép vào bộ nhớ tạm', 'success');
+              setCopyMenu(null);
+            }}
+          >
+            <CopyIcon size={14} style={{ marginRight: '8px' }} />
+            <span>{copyMenu.label}</span>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
