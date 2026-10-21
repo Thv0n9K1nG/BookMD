@@ -67,13 +67,20 @@ describe('resolveImageSource', () => {
     );
     expect(res3).toBe('C:/PROJECT/BookMD/img/TryHackMe_Docker_image_1.png');
 
-    // Workspace-root-relative reference with leading slash
-    const res4 = resolveImageSource(
-      '/img/custom_logo.png',
+    // Absolute filesystem paths (Windows drive letter)
+    const res5 = resolveImageSource(
+      'C:/PROJECT/BookMD/assets/images/abs_test.png',
       'TryHackMe/Docker/image.md',
       'C:/PROJECT/BookMD'
     );
-    expect(res4).toBe('C:/PROJECT/BookMD/img/custom_logo.png');
+    expect(res5).toBe('C:/PROJECT/BookMD/assets/images/abs_test.png');
+
+    const res6 = resolveImageSource(
+      'C:\\PROJECT\\BookMD\\assets\\images\\abs_test_backslash.png',
+      'TryHackMe/Docker/image.md',
+      'C:/PROJECT/BookMD'
+    );
+    expect(res6).toBe('C:/PROJECT/BookMD/assets/images/abs_test_backslash.png');
   });
 
   it('handles URL-encoded paths and spaces', () => {

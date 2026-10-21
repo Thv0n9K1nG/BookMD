@@ -143,20 +143,30 @@ export const Editor: React.FC<EditorProps> = ({
             getImageNaturalWidth(blobUrl).then(async (naturalWidth) => {
               URL.revokeObjectURL(blobUrl);
               try {
-                // Read the latest imageDir directly from settingsRef to avoid stale closures
+                // Read image settings directly from settingsRef to avoid stale closures
                 const currentImageDir = settingsRef.current.imageDir;
+                const currentNamingBaseDir = settingsRef.current.imageNamingBaseDir;
+                const currentReferenceType = settingsRef.current.imageReferenceType || 'relative';
+
                 const base64 = await fileToBase64(file);
                 const res = await saveImage(relativePath, base64, {
                   imageDir: currentImageDir,
+                  namingBaseDir: currentNamingBaseDir,
+                  referenceType: currentReferenceType,
                 });
 
                 if (naturalWidth) {
                   cacheImageWidth(res.relativePath, naturalWidth);
                 }
 
-                // Insert HTML <img> tag with exact natural width: <img src="<image>" title="" alt="" width="n"/>
+                // Insert HTML <img> tag: if referenceType is 'absolute', use full path, otherwise use docRelativePath
+                const refSrc =
+                  currentReferenceType === 'absolute'
+                    ? res.path.replace(/\\/g, '/')
+                    : (res.docRelativePath || res.relativePath);
+
                 const selection = view.state.selection.main;
-                const refText = buildImageHtmlTag(res.relativePath, '', '', naturalWidth);
+                const refText = buildImageHtmlTag(refSrc, '', '', naturalWidth);
 
                 view.dispatch({
                   changes: {

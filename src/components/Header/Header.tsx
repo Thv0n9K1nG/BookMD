@@ -9,6 +9,7 @@ import {
   SettingsIcon,
   SidebarToggleIcon,
   FileIcon,
+  ImageIcon,
 } from '../common/Icons';
 
 interface HeaderProps {
@@ -23,6 +24,7 @@ interface HeaderProps {
   onExportPdf: () => void;
   onToggleTheme: () => void;
   onOpenSettings: () => void;
+  onOpenImageSettings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -37,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   onExportPdf,
   onToggleTheme,
   onOpenSettings,
+  onOpenImageSettings,
 }) => {
   return (
     <header className="titlebar">
@@ -139,8 +142,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           className="btn btn-icon"
+          onClick={onOpenImageSettings}
+          title="Cài đặt xử lý hình ảnh (Image Handling)"
+        >
+          <ImageIcon size={15} />
+        </button>
+
+        <button
+          className="btn btn-icon"
           onClick={onOpenSettings}
-          title="Cài đặt"
+          title="Cài đặt chung"
         >
           <SettingsIcon size={15} />
         </button>

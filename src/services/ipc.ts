@@ -294,25 +294,30 @@ export async function saveImage(
       options,
     });
   }
-  // Mock image save
+  // Mock image save following <folder>-<mdStem>_<index>.<ext>
   const parts = markdownFile.replace(/\.md$/i, '').split('/');
   const docName = parts.pop() || 'Doc';
-  const folder = parts.join('_') || 'root';
-  const filename = `${folder}_${docName}_1.png`;
+  const folder = parts.join('-');
+  const filename = folder ? `${folder}-${docName}_1.png` : `${docName}_1.png`;
   const imgDir = (options?.imageDir || 'assets/images').replace(/\\/g, '/');
   const relativePath = `${imgDir}/${filename}`;
+  const isAbs = options?.referenceType === 'absolute';
+  const path = `C:/MockWorkspace/${relativePath}`;
+  const docRelativePath = relativePath;
   return {
-    path: `C:/MockWorkspace/${relativePath}`,
+    path,
     relativePath,
+    docRelativePath,
     filename,
-    markdownReference: `![${docName}](${relativePath})`,
+    markdownReference: `![](${isAbs ? path : docRelativePath})`,
   };
 }
 
 export async function renameImagesForDocument(
   oldPath: string,
   newPath: string,
-  imageDir?: string
+  imageDir?: string,
+  namingBaseDir?: string
 ): Promise<[string, string][]> {
   if (isTauri) {
     return await invoke<[string, string][]>('image_rename_for_document', {
@@ -322,6 +327,8 @@ export async function renameImagesForDocument(
       new_path: newPath,
       imageDir,
       image_dir: imageDir,
+      namingBaseDir,
+      naming_base_dir: namingBaseDir,
     });
   }
   return [];

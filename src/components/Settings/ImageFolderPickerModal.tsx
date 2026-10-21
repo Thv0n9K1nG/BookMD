@@ -14,6 +14,10 @@ interface ImageFolderPickerModalProps {
   currentImageDir: string;
   fileTree: FileEntry[];
   workspaceName?: string;
+  title?: string;
+  subtitle?: string;
+  defaultSearchQuery?: string;
+  allowRootSelect?: boolean;
   onClose: () => void;
   onSelectFolder: (folderPath: string) => void;
   onCreateFolder?: (folderPath: string) => Promise<void>;
@@ -51,30 +55,33 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
   currentImageDir,
   fileTree,
   workspaceName,
+  title,
+  subtitle,
+  defaultSearchQuery,
+  allowRootSelect = false,
   onClose,
   onSelectFolder,
   onCreateFolder,
 }) => {
-  // Default search query defaults to 'img' as requested
-  const [searchQuery, setSearchQuery] = useState('img');
-  const [selectedFolder, setSelectedFolder] = useState<string>(currentImageDir || 'assets/images');
+  const initialQuery = defaultSearchQuery !== undefined ? defaultSearchQuery : 'img';
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [selectedFolder, setSelectedFolder] = useState<string>(currentImageDir || '');
   const [isCreatingCustom, setIsCreatingCustom] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
   // Keep selectedFolder and search query in sync when modal opens
   useEffect(() => {
     if (isOpen) {
-      setSelectedFolder(currentImageDir || 'assets/images');
-      setSearchQuery('img');
+      setSelectedFolder(currentImageDir || '');
+      setSearchQuery(defaultSearchQuery !== undefined ? defaultSearchQuery : 'img');
       setIsCreatingCustom(false);
       setNewFolderName('');
     }
-  }, [isOpen, currentImageDir]);
+  }, [isOpen, currentImageDir, defaultSearchQuery]);
 
   // Extract all folders from the workspace tree
   const allFolders = useMemo(() => {
     const list = extractDirectories(fileTree);
-    // Ensure standard suggestions appear if they already exist
     return list;
   }, [fileTree]);
 
@@ -95,10 +102,8 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
   if (!isOpen) return null;
 
   const handleConfirm = () => {
-    if (selectedFolder.trim()) {
-      onSelectFolder(selectedFolder.trim().replace(/\\/g, '/'));
-      onClose();
-    }
+    onSelectFolder(selectedFolder.trim().replace(/\\/g, '/'));
+    onClose();
   };
 
   const handleCreateNew = async () => {
@@ -128,9 +133,9 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
               <ImageIcon size={18} />
             </div>
             <div>
-              <h3 className="folder-picker-title">Chọn thư mục lưu hình ảnh</h3>
+              <h3 className="folder-picker-title">{title || 'Chọn thư mục lưu hình ảnh'}</h3>
               <p className="folder-picker-subtitle">
-                {workspaceName ? `Workspace: ${workspaceName}` : 'Workspace hiện tại'} • Chỉ hiển thị thư mục
+                {subtitle || `${workspaceName ? `Workspace: ${workspaceName}` : 'Workspace hiện tại'} • Chỉ hiển thị thư mục`}
               </p>
             </div>
           </div>
@@ -165,33 +170,35 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
         </div>
 
         {/* Quick presets */}
-        <div className="folder-picker-presets">
-          <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginRight: '4px' }}>
-            Gợi ý nhanh:
-          </span>
-          {presets.map((preset) => {
-            const isCurrent = selectedFolder === preset;
-            return (
-              <button
-                key={preset}
-                type="button"
-                className={`folder-preset-pill ${isCurrent ? 'active' : ''}`}
-                onClick={() => {
-                  setSelectedFolder(preset);
-                  setSearchQuery(preset.includes('/') ? preset.split('/')[1] : preset);
-                }}
-              >
-                <FolderIcon size={12} />
-                <span>{preset}</span>
-              </button>
-            );
-          })}
-        </div>
+        {!allowRootSelect && (
+          <div className="folder-picker-presets">
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginRight: '4px' }}>
+              Gợi ý nhanh:
+            </span>
+            {presets.map((preset) => {
+              const isCurrent = selectedFolder === preset;
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  className={`folder-preset-pill ${isCurrent ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedFolder(preset);
+                    setSearchQuery(preset.includes('/') ? preset.split('/')[1] : preset);
+                  }}
+                >
+                  <FolderIcon size={12} />
+                  <span>{preset}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Folder List (Folders ONLY) */}
         <div className="folder-picker-list-container">
           <div className="folder-picker-list-header">
-            <span>Danh sách thư mục ({filteredFolders.length})</span>
+            <span>Danh sách thư mục ({filteredFolders.length + (allowRootSelect ? 1 : 0)})</span>
             {searchQuery && (
               <span style={{ color: 'var(--accent)' }}>
                 Đang lọc theo: "{searchQuery}"
@@ -200,6 +207,28 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
           </div>
 
           <div className="folder-picker-list">
+            {allowRootSelect && (
+              <div
+                className={`folder-picker-item ${selectedFolder === '' ? 'selected' : ''}`}
+                onClick={() => setSelectedFolder('')}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                  <FolderIcon
+                    size={16}
+                    style={{ color: selectedFolder === '' ? 'var(--accent)' : 'var(--text-secondary)', flexShrink: 0 }}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span className="folder-item-name" style={{ fontWeight: 600 }}>Thư mục gốc Workspace (Mặc định)</span>
+                    <span className="folder-item-path">/ (Tự động đặt tên từ các folder con cấp cao nhất)</span>
+                  </div>
+                </div>
+                {selectedFolder === '' && (
+                  <div className="folder-item-check">
+                    <CheckIcon size={14} />
+                  </div>
+                )}
+              </div>
+            )}
             {filteredFolders.length > 0 ? (
               filteredFolders.map((folder) => {
                 const isSelected = selectedFolder === folder.relativePath;

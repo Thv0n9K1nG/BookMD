@@ -47,6 +47,8 @@ export const App: React.FC = () => {
   const [settings, setSettings] = useState<Settings>(() => {
     const defaultSettings: Settings = {
       imageDir: 'assets/images',
+      imageNamingBaseDir: '',
+      imageReferenceType: 'relative',
       theme: 'dark',
       fontSize: 14,
       autoSave: false,
@@ -86,6 +88,7 @@ export const App: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'general' | 'image'>('general');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [promptDialog, setPromptDialog] = useState<{
@@ -549,7 +552,12 @@ export const App: React.FC = () => {
             // Rename associated images if markdown file
             if (sourcePath.endsWith('.md')) {
               try {
-                await renameImagesForDocument(sourcePath, destinationPath, settings.imageDir);
+                await renameImagesForDocument(
+                  sourcePath,
+                  destinationPath,
+                  settings.imageDir,
+                  settings.imageNamingBaseDir
+                );
               } catch (e) {
                 console.warn('Image rename note:', e);
               }
@@ -890,7 +898,14 @@ export const App: React.FC = () => {
             theme: prev.theme === 'dark' ? 'light' : 'dark',
           }))
         }
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={() => {
+          setSettingsTab('general');
+          setIsSettingsOpen(true);
+        }}
+        onOpenImageSettings={() => {
+          setSettingsTab('image');
+          setIsSettingsOpen(true);
+        }}
       />
 
       <div className="app-body">
@@ -1026,14 +1041,31 @@ export const App: React.FC = () => {
 
       <SettingsModal
         isOpen={isSettingsOpen}
+        initialTab={settingsTab}
         settings={settings}
         fileTree={fileTree}
         workspaceName={workspace?.name}
         onClose={() => setIsSettingsOpen(false)}
         onUpdateSettings={(newSettings) => {
           setSettings((prev) => ({ ...prev, ...newSettings }));
-          if (newSettings.imageDir) {
+          if (newSettings.imageDir !== undefined) {
             addToast(`Thư mục lưu ảnh: ${newSettings.imageDir}`, 'success');
+          }
+          if (newSettings.imageNamingBaseDir !== undefined) {
+            addToast(
+              newSettings.imageNamingBaseDir
+                ? `Thư mục bắt đầu đặt tên: ${newSettings.imageNamingBaseDir}`
+                : 'Thư mục bắt đầu đặt tên: Mặc định (dưới workspace)',
+              'success'
+            );
+          }
+          if (newSettings.imageReferenceType !== undefined) {
+            addToast(
+              newSettings.imageReferenceType === 'relative'
+                ? 'Đường dẫn ảnh: Tương đối'
+                : 'Đường dẫn ảnh: Tuyệt đối',
+              'success'
+            );
           }
         }}
         onCreateFolder={async (folderPath) => {

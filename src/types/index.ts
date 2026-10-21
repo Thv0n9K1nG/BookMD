@@ -35,13 +35,18 @@ export interface SearchOptions {
 export interface ImageResult {
   path: string;
   relativePath: string;
+  docRelativePath?: string;
   filename: string;
   markdownReference: string;
 }
 
+export type ImageReferenceType = 'relative' | 'absolute';
+
 export interface ImageSaveOptions {
   imageDir?: string;
   preferredExtension?: string;
+  namingBaseDir?: string;
+  referenceType?: ImageReferenceType;
 }
 
 export type ViewMode = 'editor' | 'preview' | 'split';
@@ -59,6 +64,8 @@ export interface OpenTab {
 
 export interface Settings {
   imageDir: string;
+  imageNamingBaseDir?: string; // Thư mục bắt đầu đặt tên ảnh (mặc định: workspace root)
+  imageReferenceType?: ImageReferenceType; // 'relative' (mặc định) | 'absolute'
   theme: Theme;
   fontSize: number;
   autoSave: boolean;

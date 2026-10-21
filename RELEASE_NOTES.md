@@ -1,3 +1,43 @@
+# Release Notes — BookMD v0.1.4
+
+**BookMD v0.1.4** delivers our signature, brand-defining **Advanced Image Handling System** with hierarchical hyphenated naming formulas, naming base directory selection, relative vs. absolute reference options, and a quick-access header button. It also brings full text selection & copy support in the Markdown Preview pane, balanced blockquote layout, and refined debounced auto-save controls.
+
+---
+
+## 🚀 What's New & Improvements (Changelog)
+
+### 🖼️ Advanced Image Handling System (Signature Feature)
+- **Hierarchical Hyphenated Naming Convention**:
+  - Image assets are now systematically named using the clean, predictable formula:  
+    `<subfolder>-<subfolder>-...-<document-name>_<index>.<extension>`
+  - If a Markdown file is directly under the workspace or selected base folder, it cleanly names as:  
+    `<document-name>_<index>.<extension>`
+  - Image numbers strictly increment per document (`_1.png`, `_2.png`, etc.) avoiding collision across files.
+- **Custom Naming Base Directory**:
+  - Added a dedicated setting allowing users to select which folder hierarchy naming starts from downwards.
+  - Ideal for monorepos or multi-topic workspaces (e.g., folders previously opened as standalone workspaces) where you want image names scoped under that sub-folder rather than the global workspace root.
+- **Relative vs. Absolute Reference Syntax**:
+  - Configurable in Settings: choose between **Relative Paths** (default, e.g. `../../assets/images/...`) for maximal portable markdown notes across GitHub/Obsidian/MarkText, or **Absolute Paths** (e.g. `C:/PROJECT/...`).
+- **Dedicated Image Handling Titlebar Icon & Settings Tab**:
+  - Added a dedicated **Image Handling** button (`ImageIcon`) right next to the Settings button in the top titlebar for instant 1-click access.
+  - Reorganized the Settings Modal into clean tabs: **"Xử lý hình ảnh (Image Handling)"** and **"Cài đặt chung (General)"**, complete with interactive folder pickers, folder creation, and live naming formula demonstrations.
+
+### 📝 Full Text Selection & Copy in Preview Pane
+- **I-Beam Cursor & Native Text Selection**: Enabled `user-select: text` and `cursor: text` across all rendered markdown preview elements (headings, body paragraphs, tables, blockquotes, lists).
+- **One-Click Code Block Copying**: Code fences now include a quick-copy icon button with visual confirmation.
+- **Context Menu Integration**: Right-clicking selected text within the preview pane allows quick copying to the system clipboard.
+
+### 💬 Refined Blockquote Callout Styling
+- Fixed vertical alignment and text offset in Markdown blockquotes.
+- Quote identifier bars and callout tags are cleanly proportioned and vertically centered, keeping focus directly on quoted text.
+
+### ⚡ Debounced Auto-Save & Clean Notifications
+- **Debounced Auto-Save Engine**: Auto-save now operates on a reliable debounce timer, eliminating rapid-fire saves during fast typing.
+- **Configurable Auto-Save Interval**: Added customizable auto-save interval settings in milliseconds.
+- **Single Save Notification**: Eliminated duplicate "Lưu file thành công" toast notifications when saving manually (`Ctrl+S`).
+
+---
+
 # Release Notes — BookMD v0.1.3
 
 **BookMD v0.1.3** introduces seamless single-file opening via Windows Explorer and CLI, native multithreaded workspace search with 3-line context snippets, smart image dimensions on paste and auto-transformation, a dedicated New Folder button with custom Prompt modals, and isolated A4 PDF export with UI cleanups.

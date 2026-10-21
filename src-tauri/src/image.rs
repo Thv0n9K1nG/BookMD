@@ -10,6 +10,7 @@ use crate::error::AppError;
 pub struct ImageResult {
     pub path: String,
     pub relative_path: String,
+    pub doc_relative_path: String,
     pub filename: String,
     pub markdown_reference: String,
 }
@@ -18,10 +19,12 @@ pub struct ImageResult {
 #[serde(rename_all = "camelCase")]
 pub struct ImageSaveOptions {
     pub image_dir: Option<String>,
+    pub naming_base_dir: Option<String>,
+    pub reference_type: Option<String>,
 }
 
 /// Save an image from base64 data, following BookMD naming convention:
-/// <path-context>_<markdown-file>_<image-index>.<extension>
+/// <folder>-<folder>-...-<markdown-stem>_<image-index>.<extension>
 pub fn save_image(
     workspace_path: &str,
     markdown_file: &str,
@@ -31,12 +34,19 @@ pub fn save_image(
     let workspace = Path::new(workspace_path);
     let md_path = Path::new(markdown_file);
 
-    // Determine path context from markdown relative path
-    let path_context = build_path_context(md_path);
-    let md_stem = md_path
-        .file_stem()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_default();
+    let naming_base_dir = options.as_ref().and_then(|o| o.naming_base_dir.as_deref());
+    let reference_type = options
+        .as_ref()
+        .and_then(|o| o.reference_type.as_deref())
+        .unwrap_or("relative");
+
+    // Determine naming context from markdown relative path and naming base dir
+    let (folders, md_stem) = build_naming_context(md_path, naming_base_dir);
+    let name_prefix = if folders.is_empty() {
+        md_stem
+    } else {
+        format!("{}-{}", folders.join("-"), md_stem)
+    };
 
     // Determine image directory
     let image_dir = if let Some(ref opts) = options {
@@ -60,15 +70,11 @@ pub fn save_image(
     // Detect format from base64 data URI prefix
     let (bytes, extension) = decode_image_data(image_data)?;
 
-    // Determine image index
-    let image_index = next_image_index(&image_dir, &path_context, &md_stem);
+    // Determine image index with target prefix "<name_prefix>_"
+    let image_index = next_image_index(&image_dir, &name_prefix);
 
-    // Build filename
-    let filename = if path_context.is_empty() {
-        format!("{}_{}.{}", md_stem, image_index, extension)
-    } else {
-        format!("{}_{}_{}.{}", path_context, md_stem, image_index, extension)
-    };
+    // Build filename: <folders-joined-by-hyphen>-<md_stem>_<image_index>.<extension>
+    let filename = format!("{}_{}.{}", name_prefix, image_index, extension);
 
     let image_path = image_dir.join(&filename);
 
@@ -80,20 +86,28 @@ pub fn save_image(
     // Save image
     fs::write(&image_path, &bytes)?;
 
-    // Calculate relative markdown reference
+    // Calculate relative markdown reference from current document
     let md_abs = workspace.join(md_path);
     let md_dir = md_abs.parent().unwrap_or(workspace);
-    let relative = pathdiff_relative(md_dir, &image_path);
+    let doc_relative_path = pathdiff_relative(md_dir, &image_path).replace('\\', "/");
 
-    let markdown_reference = format!("![]({})", relative.replace('\\', "/"));
+    let is_absolute = reference_type.eq_ignore_ascii_case("absolute");
+    let ref_src = if is_absolute {
+        image_path.to_string_lossy().replace('\\', "/")
+    } else {
+        doc_relative_path.clone()
+    };
+
+    let markdown_reference = format!("![]({})", ref_src);
 
     Ok(ImageResult {
-        path: image_path.to_string_lossy().to_string(),
+        path: image_path.to_string_lossy().replace('\\', "/"),
         relative_path: image_path
             .strip_prefix(workspace)
             .unwrap_or(&image_path)
             .to_string_lossy()
             .replace('\\', "/"),
+        doc_relative_path,
         filename,
         markdown_reference,
     })
@@ -105,15 +119,25 @@ pub fn rename_images_for_document(
     old_md_path: &str,
     new_md_path: &str,
     image_dir: Option<&str>,
+    naming_base_dir: Option<&str>,
 ) -> Result<Vec<(String, String)>, AppError> {
     let workspace = Path::new(workspace_path);
     let old_md = Path::new(old_md_path);
     let new_md = Path::new(new_md_path);
 
-    let old_context = build_path_context(old_md);
-    let old_stem = old_md.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-    let new_context = build_path_context(new_md);
-    let new_stem = new_md.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let (old_folders, old_stem) = build_naming_context(old_md, naming_base_dir);
+    let old_prefix = if old_folders.is_empty() {
+        format!("{}_", old_stem)
+    } else {
+        format!("{}-{}_", old_folders.join("-"), old_stem)
+    };
+
+    let (new_folders, new_stem) = build_naming_context(new_md, naming_base_dir);
+    let new_prefix = if new_folders.is_empty() {
+        format!("{}_", new_stem)
+    } else {
+        format!("{}-{}_", new_folders.join("-"), new_stem)
+    };
 
     let img_dir = if let Some(dir) = image_dir {
         let trimmed = dir.trim();
@@ -130,12 +154,6 @@ pub fn rename_images_for_document(
         return Ok(Vec::new());
     }
 
-    let old_prefix = if old_context.is_empty() {
-        format!("{}_", old_stem)
-    } else {
-        format!("{}_{}_", old_context, old_stem)
-    };
-
     let mut renames = Vec::new();
 
     for entry in fs::read_dir(&img_dir)? {
@@ -143,11 +161,7 @@ pub fn rename_images_for_document(
         let name = entry.file_name().to_string_lossy().to_string();
         if name.starts_with(&old_prefix) {
             let suffix = &name[old_prefix.len()..];
-            let new_name = if new_context.is_empty() {
-                format!("{}_{}", new_stem, suffix)
-            } else {
-                format!("{}_{}_{}", new_context, new_stem, suffix)
-            };
+            let new_name = format!("{}{}", new_prefix, suffix);
 
             let new_path = img_dir.join(&new_name);
             if new_path.exists() {
@@ -164,16 +178,46 @@ pub fn rename_images_for_document(
 
 // --- Helper functions ---
 
-fn build_path_context(md_relative_path: &Path) -> String {
-    if let Some(parent) = md_relative_path.parent() {
-        let parts: Vec<String> = parent
+fn build_naming_context(
+    md_relative_path: &Path,
+    naming_base_dir: Option<&str>,
+) -> (Vec<String>, String) {
+    let md_stem = md_relative_path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let md_norm = md_relative_path.to_string_lossy().replace('\\', "/");
+    let effective_rel = if let Some(base) = naming_base_dir {
+        let base_norm = base.trim().replace('\\', "/").trim_matches('/').to_string();
+        if !base_norm.is_empty() {
+            let base_prefix = format!("{}/", base_norm);
+            if md_norm.starts_with(&base_prefix) {
+                md_norm[base_prefix.len()..].to_string()
+            } else if md_norm == base_norm {
+                md_norm.clone()
+            } else {
+                md_norm.clone()
+            }
+        } else {
+            md_norm.clone()
+        }
+    } else {
+        md_norm.clone()
+    };
+
+    let p = Path::new(&effective_rel);
+    let folders: Vec<String> = if let Some(parent) = p.parent() {
+        parent
             .components()
             .map(|c| c.as_os_str().to_string_lossy().to_string())
-            .collect();
-        parts.join("_")
+            .filter(|s| !s.is_empty() && s != ".")
+            .collect()
     } else {
-        String::new()
-    }
+        Vec::new()
+    };
+
+    (folders, md_stem)
 }
 
 fn default_image_dir(workspace: &Path, md_path: &Path) -> PathBuf {
@@ -183,20 +227,16 @@ fn default_image_dir(workspace: &Path, md_path: &Path) -> PathBuf {
     md_dir.join("images")
 }
 
-fn next_image_index(image_dir: &Path, path_context: &str, md_stem: &str) -> u32 {
-    let prefix = if path_context.is_empty() {
-        format!("{}_", md_stem)
-    } else {
-        format!("{}_{}_", path_context, md_stem)
-    };
+fn next_image_index(image_dir: &Path, name_prefix: &str) -> u32 {
+    let target_prefix = format!("{}_", name_prefix);
 
     let mut max_index: u32 = 0;
     if let Ok(entries) = fs::read_dir(image_dir) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with(&prefix) {
+            if name.starts_with(&target_prefix) {
                 // Extract index from filename
-                let after_prefix = &name[prefix.len()..];
+                let after_prefix = &name[target_prefix.len()..];
                 if let Some(dot_pos) = after_prefix.rfind('.') {
                     if let Ok(idx) = after_prefix[..dot_pos].parse::<u32>() {
                         max_index = max_index.max(idx);
@@ -362,15 +402,63 @@ mod tests {
             base64_1px_png,
             Some(ImageSaveOptions {
                 image_dir: Some("img".to_string()),
+                naming_base_dir: None,
+                reference_type: Some("relative".to_string()),
             }),
         )
         .expect("save_image should succeed with custom image_dir");
 
-        assert_eq!(res.filename, "TryHackMe_Docker_image_1.png");
-        assert_eq!(res.relative_path, "img/TryHackMe_Docker_image_1.png");
-        assert_eq!(res.markdown_reference, "![](../../img/TryHackMe_Docker_image_1.png)");
+        assert_eq!(res.filename, "TryHackMe-Docker-image_1.png");
+        assert_eq!(res.relative_path, "img/TryHackMe-Docker-image_1.png");
+        assert_eq!(res.markdown_reference, "![](../../img/TryHackMe-Docker-image_1.png)");
 
         assert!(Path::new(&res.path).exists());
+
+        // Test with naming_base_dir = "TryHackMe"
+        let res2 = save_image(
+            ws_str,
+            "TryHackMe/Docker/image.md",
+            base64_1px_png,
+            Some(ImageSaveOptions {
+                image_dir: Some("img".to_string()),
+                naming_base_dir: Some("TryHackMe".to_string()),
+                reference_type: Some("relative".to_string()),
+            }),
+        )
+        .expect("save_image should succeed with naming_base_dir");
+
+        assert_eq!(res2.filename, "Docker-image_1.png");
+
+        // Test with reference_type = "absolute"
+        let res3 = save_image(
+            ws_str,
+            "TryHackMe/Docker/image.md",
+            base64_1px_png,
+            Some(ImageSaveOptions {
+                image_dir: Some("img".to_string()),
+                naming_base_dir: Some("TryHackMe".to_string()),
+                reference_type: Some("absolute".to_string()),
+            }),
+        )
+        .expect("save_image should succeed with absolute reference");
+
+        assert_eq!(res3.filename, "Docker-image_2.png");
+        assert_eq!(res3.markdown_reference, format!("![]({})", res3.path));
+
+        // Test with markdown file directly at workspace root
+        let res_root = save_image(
+            ws_str,
+            "root_note.md",
+            base64_1px_png,
+            Some(ImageSaveOptions {
+                image_dir: Some("img".to_string()),
+                naming_base_dir: None,
+                reference_type: Some("relative".to_string()),
+            }),
+        )
+        .expect("save_image root file should succeed");
+        assert_eq!(res_root.filename, "root_note_1.png");
+        assert_eq!(res_root.markdown_reference, "![](img/root_note_1.png)");
 
         // Cleanup
         let _ = fs::remove_dir_all(&temp_dir);
@@ -402,6 +490,8 @@ mod tests {
             base64_1px_png,
             Some(ImageSaveOptions {
                 image_dir: Some("img".to_string()),
+                naming_base_dir: None,
+                reference_type: None,
             }),
         )
         .unwrap();

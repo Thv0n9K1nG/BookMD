@@ -155,11 +155,18 @@ fn image_rename_for_document(
     old_path: String,
     new_path: String,
     image_dir: Option<String>,
+    naming_base_dir: Option<String>,
     state: State<AppState>,
 ) -> Result<Vec<(String, String)>, String> {
     let ws = get_workspace(&state)?;
-    image::rename_images_for_document(&ws, &old_path, &new_path, image_dir.as_deref())
-        .map_err(String::from)
+    image::rename_images_for_document(
+        &ws,
+        &old_path,
+        &new_path,
+        image_dir.as_deref(),
+        naming_base_dir.as_deref(),
+    )
+    .map_err(String::from)
 }
 
 // ─── Export Commands ────────────────────────────────────────────

@@ -71,14 +71,15 @@ export function resolveImageSource(
     // Keep decodedSrc as is if decodeURI fails
   }
 
-  // Check if src is an absolute filesystem path with Windows drive letter (e.g. C:\... or C:/...)
+  // Check if src is an absolute filesystem path (Windows drive letter or matching workspace root on Unix)
+  const normWorkspace = workspacePath.replace(/\\/g, '/').replace(/\/+$/, '');
   const isWindowsAbs = /^[a-zA-Z]:[\\\/]/.test(decodedSrc);
+  const isUnixAbs = decodedSrc.startsWith('/') && normWorkspace.startsWith('/') && decodedSrc.startsWith(normWorkspace);
 
   let fullPath = '';
-  if (isWindowsAbs) {
+  if (isWindowsAbs || isUnixAbs) {
     fullPath = decodedSrc;
   } else {
-    const normWorkspace = workspacePath.replace(/\\/g, '/').replace(/\/+$/, '');
     const normDocPath = docRelativePath.replace(/\\/g, '/');
     const docDir = normDocPath.includes('/')
       ? normDocPath.substring(0, normDocPath.lastIndexOf('/'))
