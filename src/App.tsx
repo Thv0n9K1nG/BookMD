@@ -41,6 +41,11 @@ import { StatusBar } from './components/StatusBar/StatusBar';
 import { ToastContainer } from './components/Toast/ToastContainer';
 import { PromptModal } from './components/common/PromptModal';
 import { generatePrintHtml, printHtmlViaIframe } from './utils/exportPdf';
+import {
+  getKeybinding,
+  matchKeybinding,
+  DEFAULT_KEYBINDINGS_MAP,
+} from './utils/keybindings';
 
 export const App: React.FC = () => {
   // Settings
@@ -55,17 +60,31 @@ export const App: React.FC = () => {
       autoSaveDelay: 2,
       lineNumbers: true,
       wordWrap: true,
+      keybindings: DEFAULT_KEYBINDINGS_MAP,
     };
     const saved = localStorage.getItem('bookmd_settings');
     if (saved) {
       try {
-        return { ...defaultSettings, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        return {
+          ...defaultSettings,
+          ...parsed,
+          keybindings: {
+            ...DEFAULT_KEYBINDINGS_MAP,
+            ...(parsed.keybindings || {}),
+          },
+        };
       } catch (e) {
         // ignore
       }
     }
     return defaultSettings;
   });
+
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   // Workspace & Files
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
@@ -88,7 +107,7 @@ export const App: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'general' | 'image'>('general');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'image' | 'keybindings'>('general');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [promptDialog, setPromptDialog] = useState<{
@@ -650,36 +669,42 @@ export const App: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isMod = e.ctrlKey || e.metaKey;
+      const kb = settingsRef.current.keybindings;
 
-      if (isMod && e.key.toLowerCase() === 's') {
+      if (matchKeybinding(e, getKeybinding('saveFile', kb))) {
         e.preventDefault();
         handleSaveActiveFile();
-      } else if (isMod && !e.shiftKey && e.key.toLowerCase() === 'o') {
+      } else if (matchKeybinding(e, getKeybinding('openFile', kb))) {
         e.preventDefault();
         handleSelectAndOpenFile();
-      } else if (isMod && e.shiftKey && e.key.toLowerCase() === 'p') {
+      } else if (matchKeybinding(e, getKeybinding('openWorkspace', kb))) {
+        e.preventDefault();
+        handleOpenWorkspace();
+      } else if (matchKeybinding(e, getKeybinding('commandPalette', kb))) {
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
-      } else if (isMod && e.shiftKey && e.key.toLowerCase() === 'f') {
+      } else if (matchKeybinding(e, getKeybinding('searchWorkspace', kb))) {
         e.preventDefault();
         setIsSearchOpen((prev) => !prev);
-      } else if (isMod && e.key.toLowerCase() === 'b') {
+      } else if (matchKeybinding(e, getKeybinding('toggleSidebar', kb))) {
         e.preventDefault();
         setIsSidebarCollapsed((prev) => !prev);
-      } else if (isMod && e.shiftKey && e.key.toLowerCase() === 'o') {
+      } else if (matchKeybinding(e, getKeybinding('toggleToc', kb))) {
         e.preventDefault();
         setIsSidebarCollapsed(false);
         setSidebarTab((prev) => (prev === 'files' ? 'toc' : 'files'));
-      } else if (isMod && e.key === '\\') {
+      } else if (matchKeybinding(e, getKeybinding('toggleViewMode', kb))) {
         e.preventDefault();
         setViewMode((prev) => (prev === 'editor' ? 'split' : prev === 'split' ? 'preview' : 'editor'));
+      } else if (matchKeybinding(e, getKeybinding('exportPdf', kb))) {
+        e.preventDefault();
+        handleExportPdf();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSaveActiveFile, handleSelectAndOpenFile]);
+  }, [handleSaveActiveFile, handleSelectAndOpenFile, handleOpenWorkspace, handleExportPdf]);
 
   // Context Menu Handler
   const handleContextMenu = (e: React.MouseEvent, entry?: FileEntry, folderPath?: string) => {
@@ -692,18 +717,20 @@ export const App: React.FC = () => {
   };
 
   // Commands for Palette
-  const commands: CommandItem[] = useMemo(
-    () => [
+  // Commands for Palette
+  const commands: CommandItem[] = useMemo(() => {
+    const kb = settings.keybindings;
+    return [
       {
         id: 'open-file',
         title: 'Mở File Markdown...',
-        shortcut: 'Ctrl+O',
+        shortcut: getKeybinding('openFile', kb),
         action: () => handleSelectAndOpenFile(),
       },
       {
         id: 'open-workspace',
         title: 'Mở Thư mục / Workspace...',
-        shortcut: 'Ctrl+Shift+K',
+        shortcut: getKeybinding('openWorkspace', kb),
         action: () => handleOpenWorkspace(),
       },
       {
@@ -720,25 +747,25 @@ export const App: React.FC = () => {
       {
         id: 'save-file',
         title: 'Lưu File hiện tại',
-        shortcut: 'Ctrl+S',
+        shortcut: getKeybinding('saveFile', kb),
         action: () => handleSaveActiveFile(),
       },
       {
         id: 'search-workspace',
         title: 'Tìm kiếm toàn bộ Workspace',
-        shortcut: 'Ctrl+Shift+F',
+        shortcut: getKeybinding('searchWorkspace', kb),
         action: () => setIsSearchOpen(true),
       },
       {
         id: 'toggle-sidebar',
         title: 'Ẩn / Hiện Sidebar',
-        shortcut: 'Ctrl+B',
+        shortcut: getKeybinding('toggleSidebar', kb),
         action: () => setIsSidebarCollapsed((prev) => !prev),
       },
       {
         id: 'toggle-sidebar-toc',
         title: 'Sidebar: Chuyển đổi Thư mục / Mục lục (Table of Contents)',
-        shortcut: 'Ctrl+Shift+O',
+        shortcut: getKeybinding('toggleToc', kb),
         action: () => {
           setIsSidebarCollapsed(false);
           setSidebarTab((prev) => (prev === 'files' ? 'toc' : 'files'));
@@ -752,7 +779,7 @@ export const App: React.FC = () => {
       {
         id: 'view-split',
         title: 'Chuyển sang chế độ: Split (Editor + Preview)',
-        shortcut: 'Ctrl+\\',
+        shortcut: getKeybinding('toggleViewMode', kb),
         action: () => setViewMode('split'),
       },
       {
@@ -763,6 +790,7 @@ export const App: React.FC = () => {
       {
         id: 'export-pdf',
         title: 'Xuất tài liệu sang PDF...',
+        shortcut: getKeybinding('exportPdf', kb),
         action: () => handleExportPdf(),
       },
       {
@@ -785,9 +813,16 @@ export const App: React.FC = () => {
         title: 'Cài đặt: Chọn thư mục lưu hình ảnh (Image Directory)...',
         action: () => setIsSettingsOpen(true),
       },
-    ],
-    [handleSelectAndOpenFile, handleOpenWorkspace, handleCreateNew, handleSaveActiveFile, handleExportPdf, settings.theme]
-  );
+    ];
+  }, [
+    handleSelectAndOpenFile,
+    handleOpenWorkspace,
+    handleCreateNew,
+    handleSaveActiveFile,
+    handleExportPdf,
+    settings.theme,
+    settings.keybindings,
+  ]);
 
   // Active Tab details
   const activeTab = tabs.find((t) => t.relativePath === activePath);
@@ -923,9 +958,7 @@ export const App: React.FC = () => {
           onRefresh={handleRefreshTree}
           onNavigateToLine={(line) => {
             setTargetLine(line);
-            if (viewMode === 'preview') {
-              setViewMode('split');
-            }
+            setCursorPos((prev) => ({ ...prev, line }));
           }}
           onContextMenu={handleContextMenu}
           onCreateNew={handleCreateNew}
@@ -1066,6 +1099,9 @@ export const App: React.FC = () => {
                 : 'Đường dẫn ảnh: Tuyệt đối',
               'success'
             );
+          }
+          if (newSettings.keybindings !== undefined) {
+            addToast('Đã lưu cấu hình phím tắt', 'success');
           }
         }}
         onCreateFolder={async (folderPath) => {

@@ -1,3 +1,50 @@
+# Release Notes — BookMD v0.1.5
+
+**BookMD v0.1.5** introduces an interactive **Hierarchical Directory Tree Picker** for image folders, a comprehensive **Custom Keybinding System** with real-time shortcut recording, and fixes the Table of Contents navigation in Preview mode to preserve view mode while zooming to target sections.
+
+---
+
+## 🚀 What's New & Improvements (Changelog)
+
+### 🌲 Interactive Hierarchical Directory Tree Picker
+- **True Tree View Selection**: Replaced the previous flat list with an intuitive, expandable/collapsible directory tree structure.
+- **Visual Depth & Controls**: Clearly displays nested folders with indentation, animated chevron toggles, subfolder count badges, and full path hints.
+- **Smart Auto-Expansion & Search Filtering**: Searching folders in the tree automatically highlights matches and unfolds ancestor directories.
+- **Bulk Navigation Controls**: Added "Mở rộng tất cả (Expand All)" and "Thu gọn (Collapse All)" actions to effortlessly browse deep workspace trees.
+- **Dedicated Root Workspace Selector**: When selecting the image naming base directory, a dedicated Root node allows easily configuring naming to start from top-level workspace subfolders.
+- **Subfolder Creator & Quick Presets**: Quickly create new subfolders directly in the tree view or jump using preset pills (`img`, `assets/images`, etc.).
+
+### ⌨️ Comprehensive Keybinding Customization System
+- **Dedicated Keybindings Tab**: Added a brand-new **"Phím tắt (Keybindings)"** tab in Settings with real-time search, category grouping, and reset buttons.
+- **Markdown Formatting Shortcuts**:
+  - **In đậm (Bold)**: `Ctrl+B` (wraps or unwraps `**...**`)
+  - **Mã nội dòng (Inline Code)**: `Ctrl+\`` (wraps or unwraps `` `...` ``)
+  - **In nghiêng (Italic)**: `Ctrl+I` (`*...*`)
+  - **Khối mã nguồn (Code Block)**: `Ctrl+Shift+C` (```` ```...``` ````)
+  - **Gạch ngang (Strikethrough)**: `Ctrl+Shift+X` (`~~...~~`)
+  - **Chèn liên kết (Link)**: `Ctrl+K` (`[text](url)`)
+  - **Tiêu đề (Headings H1-H3)**: `Ctrl+1`, `Ctrl+2`, `Ctrl+3`
+  - **Khối trích dẫn (Blockquote)**: `Ctrl+Shift+Q` (`> `)
+  - **Danh sách (Lists)**: Bullet (`Ctrl+Shift+U`), Numbered (`Ctrl+Shift+O`), Task List with checkboxes (`Ctrl+Shift+T`)
+- **System & Navigation Shortcuts**:
+  - **Lưu file**: `Ctrl+S`
+  - **Mở file Markdown**: `Ctrl+O`
+  - **Mở thư mục Workspace**: `Ctrl+Shift+W`
+  - **Đóng/mở Sidebar**: `Ctrl+Shift+B` (moved from `Ctrl+B` to avoid conflict with Bold)
+  - **Bật/tắt Mục lục (TOC)**: `Ctrl+Shift+M`
+  - **Tìm kiếm Workspace**: `Ctrl+Shift+F`
+  - **Bảng lệnh nhanh (Command Palette)**: `Ctrl+Shift+P`
+  - **Chuyển chế độ xem (Editor/Split/Preview)**: `Ctrl+\`
+  - **Xuất PDF A4**: `Ctrl+Shift+E`
+- **Interactive Shortcut Recording**: Click on any shortcut badge, press your desired key combination, and BookMD instantly validates, maps, and persists it. Press `Escape` to cancel.
+- **Dynamic Synchronization**: Customized keybindings immediately propagate across the CodeMirror editor, Command Palette badges, and global shortcuts.
+
+### 🎯 Preview Mode Table of Contents (TOC) Navigation Fix
+- **Preserved Preview View Mode**: Resolved the issue where clicking any heading in the TOC while in Preview mode forcefully switched the application into Split mode.
+- **Smooth Section Scroll & Focus**: Navigating headings in Preview mode now remains strictly in Preview mode, smoothly scrolling to the header and illuminating it with active section zoom feedback.
+
+---
+
 # Release Notes — BookMD v0.1.4
 
 **BookMD v0.1.4** delivers our signature, brand-defining **Advanced Image Handling System** with hierarchical hyphenated naming formulas, naming base directory selection, relative vs. absolute reference options, and a quick-access header button. It also brings full text selection & copy support in the Markdown Preview pane, balanced blockquote layout, and refined debounced auto-save controls.

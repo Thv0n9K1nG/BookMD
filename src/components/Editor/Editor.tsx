@@ -12,7 +12,12 @@ import {
   getCachedImageWidth,
   getImageNaturalWidth,
 } from '../../utils/imagePath';
-import { Theme, Settings } from '../../types';
+import { Theme, Settings, KeybindingAction } from '../../types';
+import {
+  getKeybinding,
+  matchKeybinding,
+  executeFormattingCommand,
+} from '../../utils/keybindings';
 
 interface EditorProps {
   content: string;
@@ -265,14 +270,45 @@ export const Editor: React.FC<EditorProps> = ({
         pasteHandler,
         imageTransformHandler,
         EditorView.domEventHandlers({
-          keydown: (e) => {
-            const isMod = e.ctrlKey || e.metaKey;
-            if (isMod && e.key.toLowerCase() === 's') {
+          keydown: (e, view) => {
+            const currentSettings = settingsRef.current;
+            const keybindings = currentSettings?.keybindings;
+
+            // Save shortcut
+            const saveShortcut = getKeybinding('saveFile', keybindings);
+            if (matchKeybinding(e, saveShortcut)) {
               e.preventDefault();
               e.stopPropagation();
               onSaveRef.current();
               return true;
             }
+
+            // Formatting shortcuts
+            const formattingActions: KeybindingAction[] = [
+              'formatBold',
+              'formatItalic',
+              'formatInlineCode',
+              'formatCodeBlock',
+              'formatStrikethrough',
+              'formatLink',
+              'formatHeading1',
+              'formatHeading2',
+              'formatHeading3',
+              'formatQuote',
+              'formatBulletList',
+              'formatNumberedList',
+              'formatTaskList',
+            ];
+
+            for (const action of formattingActions) {
+              const shortcut = getKeybinding(action, keybindings);
+              if (shortcut && matchKeybinding(e, shortcut)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return executeFormattingCommand(view, action);
+              }
+            }
+
             return false;
           },
         }),

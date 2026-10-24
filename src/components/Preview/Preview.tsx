@@ -245,7 +245,7 @@ export const Preview: React.FC<PreviewProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
-    if (viewMode !== 'split' || typeof activeLine !== 'number') {
+    if ((viewMode !== 'split' && viewMode !== 'preview') || typeof activeLine !== 'number') {
       if (activeFocusElRef.current) {
         activeFocusElRef.current.classList.remove('preview-active-focus');
         activeFocusElRef.current = null;

@@ -2,12 +2,109 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FileEntry } from '../../types';
 import {
   FolderIcon,
+  FolderOpenIcon,
+  ChevronRightIcon,
   SearchIcon,
   CloseIcon,
   CheckIcon,
   PlusIcon,
   ImageIcon,
 } from '../common/Icons';
+
+export interface DirectoryNode {
+  name: string;
+  relativePath: string;
+  children: DirectoryNode[];
+}
+
+export function buildDirectoryTree(entries: FileEntry[]): DirectoryNode[] {
+  const dirs: DirectoryNode[] = [];
+  for (const item of entries) {
+    if (item.kind === 'directory') {
+      dirs.push({
+        name: item.name,
+        relativePath: item.relativePath.replace(/\\/g, '/'),
+        children: item.children ? buildDirectoryTree(item.children) : [],
+      });
+    }
+  }
+  return dirs;
+}
+
+function getAllDirectoryPaths(nodes: DirectoryNode[]): string[] {
+  const paths: string[] = [];
+  function traverse(list: DirectoryNode[]) {
+    for (const node of list) {
+      paths.push(node.relativePath);
+      if (node.children.length > 0) {
+        traverse(node.children);
+      }
+    }
+  }
+  traverse(nodes);
+  return paths;
+}
+
+function getAncestorPaths(relativePath: string): string[] {
+  const parts = relativePath.replace(/\\/g, '/').split('/');
+  const ancestors: string[] = [];
+  let current = '';
+  for (let i = 0; i < parts.length - 1; i++) {
+    current = current ? `${current}/${parts[i]}` : parts[i];
+    ancestors.push(current);
+  }
+  return ancestors;
+}
+
+function filterDirectoryTree(
+  nodes: DirectoryNode[],
+  query: string
+): { filtered: DirectoryNode[]; matchedAncestors: Set<string> } {
+  const matchedAncestors = new Set<string>();
+  const q = query.trim().toLowerCase();
+
+  if (!q) {
+    return { filtered: nodes, matchedAncestors };
+  }
+
+  function filterNodes(list: DirectoryNode[]): DirectoryNode[] {
+    const result: DirectoryNode[] = [];
+    for (const node of list) {
+      const isSelfMatch =
+        node.name.toLowerCase().includes(q) ||
+        node.relativePath.toLowerCase().includes(q);
+      const childResults = filterNodes(node.children);
+
+      if (isSelfMatch || childResults.length > 0) {
+        getAncestorPaths(node.relativePath).forEach((p) => matchedAncestors.add(p));
+        matchedAncestors.add(node.relativePath);
+        result.push({
+          ...node,
+          children: childResults,
+        });
+      }
+    }
+    return result;
+  }
+
+  return { filtered: filterNodes(nodes), matchedAncestors };
+}
+
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query.trim()) return text;
+  const q = query.trim().toLowerCase();
+  const index = text.toLowerCase().indexOf(q);
+  if (index === -1) return text;
+  return (
+    <>
+      {text.substring(0, index)}
+      <span style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'underline' }}>
+        {text.substring(index, index + q.length)}
+      </span>
+      {text.substring(index + q.length)}
+    </>
+  );
+}
 
 interface ImageFolderPickerModalProps {
   isOpen: boolean;
@@ -23,33 +120,6 @@ interface ImageFolderPickerModalProps {
   onCreateFolder?: (folderPath: string) => Promise<void>;
 }
 
-interface FolderOption {
-  name: string;
-  relativePath: string;
-}
-
-// Recursively extract all directory entries from file tree
-function extractDirectories(entries: FileEntry[]): FolderOption[] {
-  const dirs: FolderOption[] = [];
-
-  function traverse(items: FileEntry[]) {
-    for (const item of items) {
-      if (item.kind === 'directory') {
-        dirs.push({
-          name: item.name,
-          relativePath: item.relativePath.replace(/\\/g, '/'),
-        });
-        if (item.children && item.children.length > 0) {
-          traverse(item.children);
-        }
-      }
-    }
-  }
-
-  traverse(entries);
-  return dirs;
-}
-
 export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
   isOpen,
   currentImageDir,
@@ -63,43 +133,79 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
   onSelectFolder,
   onCreateFolder,
 }) => {
-  const initialQuery = defaultSearchQuery !== undefined ? defaultSearchQuery : 'img';
+  const initialQuery = defaultSearchQuery !== undefined ? defaultSearchQuery : '';
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [selectedFolder, setSelectedFolder] = useState<string>(currentImageDir || '');
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set<string>());
   const [isCreatingCustom, setIsCreatingCustom] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
-  // Keep selectedFolder and search query in sync when modal opens
+  // Extract pure directory tree
+  const dirTree = useMemo(() => buildDirectoryTree(fileTree), [fileTree]);
+
+  // Total directory count in entire workspace
+  const totalDirsCount = useMemo(() => {
+    return getAllDirectoryPaths(dirTree).length;
+  }, [dirTree]);
+
+  // Filtered tree & matching ancestors
+  const { filtered: visibleTree, matchedAncestors } = useMemo(() => {
+    return filterDirectoryTree(dirTree, searchQuery);
+  }, [dirTree, searchQuery]);
+
+  // Keep selectedFolder, search query, and initial tree expansion in sync when modal opens
   useEffect(() => {
     if (isOpen) {
       setSelectedFolder(currentImageDir || '');
-      setSearchQuery(defaultSearchQuery !== undefined ? defaultSearchQuery : 'img');
+      setSearchQuery(defaultSearchQuery !== undefined ? defaultSearchQuery : '');
       setIsCreatingCustom(false);
       setNewFolderName('');
+
+      // Auto expand ancestors of current selection + top-level folders
+      const initialExpanded = new Set<string>();
+      if (currentImageDir) {
+        getAncestorPaths(currentImageDir).forEach((p) => initialExpanded.add(p));
+        initialExpanded.add(currentImageDir);
+      }
+      // Also expand top level folders
+      dirTree.forEach((node) => initialExpanded.add(node.relativePath));
+      setExpandedPaths(initialExpanded);
     }
-  }, [isOpen, currentImageDir, defaultSearchQuery]);
+  }, [isOpen, currentImageDir, defaultSearchQuery, dirTree]);
 
-  // Extract all folders from the workspace tree
-  const allFolders = useMemo(() => {
-    const list = extractDirectories(fileTree);
-    return list;
-  }, [fileTree]);
-
-  // Filter folders by search query (folders only)
-  const filteredFolders = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return allFolders;
-    return allFolders.filter(
-      (f) =>
-        f.name.toLowerCase().includes(q) ||
-        f.relativePath.toLowerCase().includes(q)
-    );
-  }, [allFolders, searchQuery]);
-
-  // Quick preset suggestions
-  const presets = ['assets/images', 'images', 'img', 'assets/img', 'static/images'];
+  // When search query changes, auto-expand matching ancestor paths
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setExpandedPaths((prev) => {
+        const next = new Set(prev);
+        matchedAncestors.forEach((p) => next.add(p));
+        return next;
+      });
+    }
+  }, [searchQuery, matchedAncestors]);
 
   if (!isOpen) return null;
+
+  const toggleExpand = (path: string) => {
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
+
+  const handleExpandAll = () => {
+    const all = getAllDirectoryPaths(dirTree);
+    setExpandedPaths(new Set(all));
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedPaths(new Set());
+  };
 
   const handleConfirm = () => {
     onSelectFolder(selectedFolder.trim().replace(/\\/g, '/'));
@@ -114,8 +220,90 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
       await onCreateFolder(cleanPath);
     }
     setSelectedFolder(cleanPath);
+    // Expand to new path
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      getAncestorPaths(cleanPath).forEach((p) => next.add(p));
+      next.add(cleanPath);
+      return next;
+    });
     setIsCreatingCustom(false);
     setNewFolderName('');
+  };
+
+  // Quick preset suggestions
+  const presets = ['assets/images', 'images', 'img', 'assets/img', 'static/images'];
+
+  // Render a directory tree node recursively
+  const renderTreeNode = (node: DirectoryNode, depth = 0): React.ReactNode => {
+    const hasChildren = node.children.length > 0;
+    const isExpanded = expandedPaths.has(node.relativePath);
+    const isSelected = selectedFolder === node.relativePath;
+
+    return (
+      <div key={node.relativePath} className="folder-tree-node">
+        <div
+          className={`folder-picker-item folder-tree-item ${isSelected ? 'selected' : ''}`}
+          style={{ paddingLeft: `${depth * 18 + 12}px` }}
+          onClick={() => setSelectedFolder(node.relativePath)}
+          onDoubleClick={() => hasChildren && toggleExpand(node.relativePath)}
+          title={node.relativePath}
+        >
+          {/* Chevron expand/collapse toggle */}
+          {hasChildren ? (
+            <button
+              type="button"
+              className={`folder-tree-chevron ${isExpanded ? 'open' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpand(node.relativePath);
+              }}
+              title={isExpanded ? 'Thu gọn thư mục' : 'Mở rộng thư mục'}
+            >
+              <ChevronRightIcon size={12} />
+            </button>
+          ) : (
+            <span className="folder-tree-spacer" />
+          )}
+
+          {/* Folder Icon */}
+          <span className="folder-tree-icon">
+            {isExpanded ? (
+              <FolderOpenIcon size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
+            ) : (
+              <FolderIcon size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
+            )}
+          </span>
+
+          {/* Folder Name & Details */}
+          <div className="folder-tree-content">
+            <span className="folder-item-name">
+              {highlightMatch(node.name, searchQuery)}
+            </span>
+            {hasChildren && (
+              <span className="folder-item-count" title={`${node.children.length} thư mục con`}>
+                {node.children.length}
+              </span>
+            )}
+            <span className="folder-item-path">{node.relativePath}</span>
+          </div>
+
+          {/* Selection indicator */}
+          {isSelected && (
+            <div className="folder-item-check">
+              <CheckIcon size={14} />
+            </div>
+          )}
+        </div>
+
+        {/* Recursive Children */}
+        {hasChildren && isExpanded && (
+          <div className="folder-tree-children">
+            {node.children.map((child) => renderTreeNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -135,7 +323,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
             <div>
               <h3 className="folder-picker-title">{title || 'Chọn thư mục lưu hình ảnh'}</h3>
               <p className="folder-picker-subtitle">
-                {subtitle || `${workspaceName ? `Workspace: ${workspaceName}` : 'Workspace hiện tại'} • Chỉ hiển thị thư mục`}
+                {subtitle || `${workspaceName ? `Workspace: ${workspaceName}` : 'Workspace'} • Cây thư mục dạng phân cấp`}
               </p>
             </div>
           </div>
@@ -144,7 +332,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
           </button>
         </div>
 
-        {/* Filter / Search Bar (Defaults to 'img') */}
+        {/* Filter / Search Bar */}
         <div className="folder-picker-search-container">
           <div className="folder-picker-search-box">
             <SearchIcon size={15} style={{ color: 'var(--text-tertiary)' }} />
@@ -153,14 +341,14 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
               className="folder-picker-search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm thư mục trong workspace (mặc định 'img')..."
+              placeholder="Tìm kiếm thư mục trong cây thư mục..."
               autoFocus
             />
             {searchQuery && (
               <button
                 className="btn btn-icon"
                 onClick={() => setSearchQuery('')}
-                title="Xóa tìm kiếm (xem tất cả thư mục)"
+                title="Xóa tìm kiếm"
                 style={{ padding: '2px' }}
               >
                 <CloseIcon size={13} />
@@ -169,7 +357,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
           </div>
         </div>
 
-        {/* Quick presets */}
+        {/* Quick presets (only for image folder, not base naming dir) */}
         {!allowRootSelect && (
           <div className="folder-picker-presets">
             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginRight: '4px' }}>
@@ -184,7 +372,12 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                   className={`folder-preset-pill ${isCurrent ? 'active' : ''}`}
                   onClick={() => {
                     setSelectedFolder(preset);
-                    setSearchQuery(preset.includes('/') ? preset.split('/')[1] : preset);
+                    setExpandedPaths((prev) => {
+                      const next = new Set(prev);
+                      getAncestorPaths(preset).forEach((p) => next.add(p));
+                      next.add(preset);
+                      return next;
+                    });
                   }}
                 >
                   <FolderIcon size={12} />
@@ -195,32 +388,64 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
           </div>
         )}
 
-        {/* Folder List (Folders ONLY) */}
+        {/* Folder Tree Container */}
         <div className="folder-picker-list-container">
           <div className="folder-picker-list-header">
-            <span>Danh sách thư mục ({filteredFolders.length + (allowRootSelect ? 1 : 0)})</span>
-            {searchQuery && (
-              <span style={{ color: 'var(--accent)' }}>
-                Đang lọc theo: "{searchQuery}"
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>
+                Cây thư mục ({totalDirsCount} thư mục)
               </span>
-            )}
+              {searchQuery && (
+                <span style={{ color: 'var(--accent)' }}>
+                  • Lọc theo: "{searchQuery}"
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                className="btn btn-text"
+                style={{ fontSize: '11px', padding: '2px 6px', color: 'var(--text-secondary)' }}
+                onClick={handleExpandAll}
+                title="Mở rộng tất cả thư mục"
+              >
+                Mở rộng tất cả
+              </button>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <button
+                type="button"
+                className="btn btn-text"
+                style={{ fontSize: '11px', padding: '2px 6px', color: 'var(--text-secondary)' }}
+                onClick={handleCollapseAll}
+                title="Thu gọn tất cả thư mục"
+              >
+                Thu gọn
+              </button>
+            </div>
           </div>
 
-          <div className="folder-picker-list">
+          <div className="folder-picker-list folder-picker-tree">
+            {/* Special Workspace Root Option when allowRootSelect is true */}
             {allowRootSelect && (
               <div
-                className={`folder-picker-item ${selectedFolder === '' ? 'selected' : ''}`}
+                className={`folder-picker-item folder-tree-item ${selectedFolder === '' ? 'selected' : ''}`}
+                style={{ paddingLeft: '12px' }}
                 onClick={() => setSelectedFolder('')}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                <span className="folder-tree-spacer" />
+                <span className="folder-tree-icon">
                   <FolderIcon
                     size={16}
-                    style={{ color: selectedFolder === '' ? 'var(--accent)' : 'var(--text-secondary)', flexShrink: 0 }}
+                    style={{ color: selectedFolder === '' ? 'var(--accent)' : 'var(--text-secondary)' }}
                   />
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span className="folder-item-name" style={{ fontWeight: 600 }}>Thư mục gốc Workspace (Mặc định)</span>
-                    <span className="folder-item-path">/ (Tự động đặt tên từ các folder con cấp cao nhất)</span>
-                  </div>
+                </span>
+                <div className="folder-tree-content">
+                  <span className="folder-item-name" style={{ fontWeight: 600 }}>
+                    Thư mục gốc Workspace (Root /)
+                  </span>
+                  <span className="folder-item-path">
+                    Mặc định • Tự động đặt tên theo folder con cấp 1 dưới workspace
+                  </span>
                 </div>
                 {selectedFolder === '' && (
                   <div className="folder-item-check">
@@ -229,47 +454,24 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                 )}
               </div>
             )}
-            {filteredFolders.length > 0 ? (
-              filteredFolders.map((folder) => {
-                const isSelected = selectedFolder === folder.relativePath;
-                return (
-                  <div
-                    key={folder.relativePath}
-                    className={`folder-picker-item ${isSelected ? 'selected' : ''}`}
-                    onClick={() => setSelectedFolder(folder.relativePath)}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                      <FolderIcon
-                        size={16}
-                        style={{ color: isSelected ? 'var(--accent)' : 'var(--text-secondary)', flexShrink: 0 }}
-                      />
-                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                        <span className="folder-item-name">{folder.name}</span>
-                        <span className="folder-item-path">{folder.relativePath}</span>
-                      </div>
-                    </div>
-                    {isSelected && (
-                      <div className="folder-item-check">
-                        <CheckIcon size={14} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+
+            {/* Tree nodes */}
+            {visibleTree.length > 0 ? (
+              visibleTree.map((node) => renderTreeNode(node, 0))
             ) : (
               <div className="folder-picker-empty">
                 <p>Không tìm thấy thư mục nào khớp với "{searchQuery}".</p>
                 {searchQuery.trim() && (
                   <button
                     className="btn btn-secondary"
-                    style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {
                       const newPath = searchQuery.trim();
                       setSelectedFolder(newPath);
                     }}
                   >
                     <PlusIcon size={14} />
-                    <span>Dùng "{searchQuery.trim()}" làm thư mục lưu ảnh mới</span>
+                    <span>Dùng "{searchQuery.trim()}" làm đường dẫn mới</span>
                   </button>
                 )}
               </div>
@@ -286,7 +488,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
               onClick={() => setIsCreatingCustom(true)}
             >
               <PlusIcon size={13} />
-              <span>Nhập đường dẫn thư mục tùy chỉnh khác...</span>
+              <span>Tạo thư mục mới hoặc nhập đường dẫn tùy chỉnh...</span>
             </button>
           ) : (
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
@@ -302,7 +504,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                 }}
               />
               <button className="btn btn-primary" onClick={handleCreateNew} style={{ fontSize: '12px' }}>
-                Chọn
+                Tạo & Chọn
               </button>
               <button className="btn btn-secondary" onClick={() => setIsCreatingCustom(false)} style={{ fontSize: '12px' }}>
                 Hủy
@@ -314,9 +516,9 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
         {/* Footer */}
         <div className="folder-picker-footer">
           <div className="folder-picker-selection-info">
-            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Thư mục đang chọn:</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Đang chọn:</span>
             <code className="folder-picker-selected-path">
-              {selectedFolder || '(Chưa chọn)'}
+              {selectedFolder === '' && allowRootSelect ? '/ (Gốc workspace)' : selectedFolder || '(Chưa chọn)'}
             </code>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -326,7 +528,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
             <button
               className="btn btn-primary"
               onClick={handleConfirm}
-              disabled={!selectedFolder}
+              disabled={!allowRootSelect && !selectedFolder}
             >
               <CheckIcon size={14} style={{ marginRight: '6px' }} />
               <span>Xác nhận chọn thư mục này</span>

@@ -374,3 +374,46 @@ export const CopyIcon = ({ size = 16, ...props }: IconProps) => (
     <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
   </svg>
 );
+
+export const KeyboardIcon = ({ size = 16, ...props }: IconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <rect width="20" height="16" x="2" y="4" rx="2" />
+    <path d="M6 8h.001" />
+    <path d="M10 8h.001" />
+    <path d="M14 8h.001" />
+    <path d="M18 8h.001" />
+    <path d="M6 12h.001" />
+    <path d="M10 12h.001" />
+    <path d="M14 12h.001" />
+    <path d="M18 12h.001" />
+    <path d="M7 16h10" />
+  </svg>
+);
+
+export const RotateCcwIcon = ({ size = 16, ...props }: IconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </svg>
+);
+

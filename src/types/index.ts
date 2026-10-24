@@ -62,6 +62,42 @@ export interface OpenTab {
   cursorLine?: number;
 }
 
+export type KeybindingCategory = 'formatting' | 'application';
+
+export type KeybindingAction =
+  | 'formatBold'
+  | 'formatItalic'
+  | 'formatInlineCode'
+  | 'formatCodeBlock'
+  | 'formatStrikethrough'
+  | 'formatLink'
+  | 'formatHeading1'
+  | 'formatHeading2'
+  | 'formatHeading3'
+  | 'formatQuote'
+  | 'formatBulletList'
+  | 'formatNumberedList'
+  | 'formatTaskList'
+  | 'saveFile'
+  | 'openFile'
+  | 'openWorkspace'
+  | 'toggleSidebar'
+  | 'toggleToc'
+  | 'searchWorkspace'
+  | 'commandPalette'
+  | 'toggleViewMode'
+  | 'exportPdf';
+
+export interface KeybindingDef {
+  id: KeybindingAction;
+  name: string;
+  category: KeybindingCategory;
+  defaultKey: string;
+  description: string;
+}
+
+export type KeybindingsMap = Record<string, string>;
+
 export interface Settings {
   imageDir: string;
   imageNamingBaseDir?: string; // Thư mục bắt đầu đặt tên ảnh (mặc định: workspace root)
@@ -72,6 +108,7 @@ export interface Settings {
   autoSaveDelay?: number; // in seconds, default: 2
   lineNumbers: boolean;
   wordWrap: boolean;
+  keybindings?: KeybindingsMap; // Custom keyboard shortcuts mapping
 }
 
 export interface ToastMessage {
