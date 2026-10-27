@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-10-27
+
+### Added
+- **KaTeX LaTeX Math Expressions**:
+  - Full support for inline `$math$` and display block `$$\nmath\n$$` formulas.
+  - Offline, high-performance KaTeX styling in both live preview and PDF export.
+- **Unicode & Vietnamese Diacritic Anchor Links**:
+  - Unicode-aware slug generation (`\p{L}\p{N}`) preserving Vietnamese accented letters (`ô`, `ơ`, `ư`, `á`, `đ`, etc.).
+  - Multi-strategy anchor lookup supporting URI-encoded and unaccented fallback matches.
+
+### Fixed
+- **Image Re-rendering & Flashing**:
+  - Replaced destructive preview DOM replacements with `morphdom` reconciliation.
+  - Image nodes (`<img>`) with identical sources are preserved intact in memory while typing in the editor, completely eliminating flicker and jitter.
+
 ## [0.1.0] - 2026-10-09
 
 ### Added

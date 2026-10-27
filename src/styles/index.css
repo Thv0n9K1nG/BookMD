@@ -2443,5 +2443,34 @@ body {
   100% { opacity: 0.9; }
 }
 
+/* ─── KaTeX Math Expression Styling ──────────────────────────────── */
+
+.katex-block {
+  display: block;
+  margin: 1.2rem 0;
+  padding: 0.85rem 1.2rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.katex-inline {
+  padding: 0 3px;
+  vertical-align: baseline;
+}
+
+.katex-error {
+  color: var(--error);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 2px 4px;
+  background: var(--error-muted);
+  border-radius: var(--radius-sm);
+}
+
 
 

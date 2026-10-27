@@ -1,3 +1,34 @@
+# Release Notes — BookMD v0.1.6
+
+**BookMD v0.1.6** brings flicker-free typing with **DOM Reconciliation (morphdom)** that eliminates image re-rendering while editing, full support for **KaTeX LaTeX Math Expressions** (both inline `$math$` and block `$$math$$`), and resolves **Vietnamese and Unicode diacritic heading anchor links** for seamless in-document navigation.
+
+---
+
+## 🚀 What's New & Improvements (Changelog)
+
+### ⚡ Flicker-Free Image Stability via DOM Reconciliation (morphdom)
+- **Eliminated Image Re-rendering & Flashing**: Fixed the frustrating issue where typing characters anywhere in the editor caused all images in the preview pane to flash, reload, and jitter.
+- **Smart Element Morphing**: Powered by `morphdom`, BookMD now surgically patches only the changed text nodes and blocks in the preview DOM while preserving existing, decoded `<img>` elements intact.
+- **Persistent Asset State**: Loaded images, IPC fallbacks, and scroll positions remain completely stable in memory while you write.
+
+### 📐 KaTeX LaTeX Math Expressions ($math$ and $$math$$)
+- **Inline Math**: Type `$E = mc^2$` or `$\\alpha + \\beta = \\gamma$` within any sentence to render crisp, typography-grade inline formulas.
+- **Block Display Math**: Use `$$` delimiters on single lines or multi-line blocks:
+  ```markdown
+  $$
+  \sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+  $$
+  ```
+- **Fast, Offline & Self-Contained**: KaTeX renders instantaneously without external network requests or latency.
+- **PDF Export Support**: Math formulas are seamlessly included and styled when exporting documents to A4 PDF.
+
+### 🇻🇳 Vietnamese & Unicode Diacritics Heading Anchor Links
+- **Full Diacritic & Accent Support**: Resolved the issue where anchor links with Vietnamese text (e.g. `[Môi trường Phân tích & Quy trình Tái lập Độc lập](#1-môi-trường-phân-tích--quy-trình-tái-lập-độc-lập)`) failed to navigate to the target section.
+- **Unicode-Aware Slug Generation**: Headings now receive clean slugs preserving Unicode letters (`\p{L}`) across all languages (Vietnamese diacritics like `ô`, `ơ`, `ư`, `á`, `đ`, etc.) while removing punctuation and formatting tokens.
+- **Multi-Level Anchor Matching**: The anchor navigation engine handles URI-encoded links, accented slugs, unaccented variants, and multi-hyphen conventions, ensuring table-of-contents links always navigate smoothly.
+
+---
+
 # Release Notes — BookMD v0.1.5
 
 **BookMD v0.1.5** introduces an interactive **Hierarchical Directory Tree Picker** for image folders, a comprehensive **Custom Keybinding System** with real-time shortcut recording, and fixes the Table of Contents navigation in Preview mode to preserve view mode while zooming to target sections.

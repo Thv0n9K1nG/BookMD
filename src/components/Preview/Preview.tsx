@@ -1,10 +1,14 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import MarkdownIt from 'markdown-it';
+import morphdom from 'morphdom';
+import 'katex/dist/katex.min.css';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { resolveImageSource } from '../../utils/imagePath';
 import { readImageData, isTauri } from '../../services/ipc';
 import { ViewMode } from '../../types';
 import { CopyIcon } from '../common/Icons';
+import { generateHeadingSlug, findHeadingElement } from '../../utils/slug';
+import { markdownMathPlugin } from '../../utils/markdownMath';
 
 interface PreviewProps {
   content: string;
@@ -28,6 +32,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const activeFocusElRef = useRef<HTMLElement | null>(null);
   const scrollTimeoutRef = useRef<any>(null);
+  const prevDocPathRef = useRef<string>(relativePath);
   const [copyMenu, setCopyMenu] = useState<{
     x: number;
     y: number;
@@ -43,6 +48,9 @@ export const Preview: React.FC<PreviewProps> = ({
       breaks: true,
     });
 
+    // Support LaTeX math expressions ($...$ and $$...$$)
+    instance.use(markdownMathPlugin);
+
     // 1. Map source lines to block tokens for split-view scroll sync and focus zooming
     instance.core.ruler.push('source_lines', (state) => {
       state.tokens.forEach((token) => {
@@ -53,18 +61,14 @@ export const Preview: React.FC<PreviewProps> = ({
       });
     });
 
-    // 2. Automatically generate unique IDs for headings for internal anchor jumps
+    // 2. Automatically generate unique IDs for headings for internal anchor jumps (Vietnamese/Unicode supported)
     instance.core.ruler.push('heading_ids', (state) => {
       const seenSlugs = new Map<string, number>();
       state.tokens.forEach((token, idx) => {
         if (token.type === 'heading_open') {
           const nextToken = state.tokens[idx + 1];
           if (nextToken && nextToken.type === 'inline' && nextToken.content) {
-            let slug = nextToken.content
-              .trim()
-              .toLowerCase()
-              .replace(/[^\w\s-]/g, '')
-              .replace(/\s+/g, '-');
+            let slug = generateHeadingSlug(nextToken.content);
             if (slug) {
               const count = seenSlugs.get(slug) || 0;
               seenSlugs.set(slug, count + 1);
@@ -142,6 +146,55 @@ export const Preview: React.FC<PreviewProps> = ({
     }
   }, [content, md, relativePath, workspacePath]);
 
+  // Robust DOM reconciliation using morphdom to eliminate image flickering on typing
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Full reset if switching to a different file or first render
+    if (prevDocPathRef.current !== relativePath || !container.hasChildNodes()) {
+      prevDocPathRef.current = relativePath;
+      container.innerHTML = renderedHtml;
+      return;
+    }
+
+    // Morph the DOM tree smoothly, preserving existing image elements and focus
+    const temp = document.createElement('div');
+    temp.className = 'preview-pane';
+    temp.id = 'bookmd-preview';
+    temp.innerHTML = renderedHtml;
+
+    morphdom(container, temp, {
+      childrenOnly: true,
+      onBeforeElUpdated(fromEl, toEl) {
+        // Preserve code copy buttons inside <pre>
+        if (fromEl.classList && fromEl.classList.contains('code-copy-btn')) {
+          return false;
+        }
+
+        // Image stability: If image source hasn't changed, retain the existing DOM node completely!
+        if (fromEl.tagName === 'IMG') {
+          const fromSrc = fromEl.getAttribute('data-original-src') || fromEl.getAttribute('src');
+          const toSrc = toEl.getAttribute('data-original-src') || toEl.getAttribute('src');
+          if (fromSrc && fromSrc === toSrc) {
+            // Update attributes if needed, but do not replace or reload the image DOM element
+            if (toEl.hasAttribute('alt')) fromEl.setAttribute('alt', toEl.getAttribute('alt')!);
+            if (toEl.hasAttribute('title')) fromEl.setAttribute('title', toEl.getAttribute('title')!);
+            if (toEl.hasAttribute('width')) fromEl.setAttribute('width', toEl.getAttribute('width')!);
+            return false;
+          }
+        }
+
+        // Preserve current active focus indicator
+        if (fromEl.classList && fromEl.classList.contains('preview-active-focus')) {
+          toEl.classList.add('preview-active-focus');
+        }
+
+        return true;
+      },
+    });
+  }, [renderedHtml, relativePath]);
+
   // Robust fallback: if webview blocks asset protocol (403, CSP, drive letter), load image bytes via IPC
   useEffect(() => {
     const container = containerRef.current;
@@ -175,7 +228,7 @@ export const Preview: React.FC<PreviewProps> = ({
   // Intercept all link clicks in preview:
   // - NEVER navigate the current webview (prevents app from becoming a web browser)
   // - External URLs open in system browser via @tauri-apps/plugin-opener
-  // - Anchors scroll smoothly within preview
+  // - Anchors scroll smoothly within preview (Vietnamese/Unicode support)
   // - Relative markdown links open inside BookMD tabs
   useEffect(() => {
     const container = containerRef.current;
@@ -192,19 +245,9 @@ export const Preview: React.FC<PreviewProps> = ({
       e.preventDefault();
       e.stopPropagation();
 
-      // In-page anchor link (e.g. #section or #heading-title)
+      // In-page anchor link (e.g. #1-môi-trường-phân-tích--quy-trình-tái-lập-độc-lập)
       if (href.startsWith('#')) {
-        const rawId = href.slice(1);
-        const decodedId = decodeURIComponent(rawId).toLowerCase();
-        const target =
-          container.querySelector(`[id="${CSS.escape(rawId)}"]`) ||
-          container.querySelector(`[name="${CSS.escape(rawId)}"]`) ||
-          Array.from(container.querySelectorAll('h1, h2, h3, h4, h5, h6')).find((h) => {
-            const headingText = (h.textContent || '').trim().toLowerCase();
-            const headingSlug = headingText.replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
-            return headingSlug === decodedId || headingText === decodedId || h.id === rawId;
-          });
-
+        const target = findHeadingElement(container, href);
         if (target) {
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -239,8 +282,7 @@ export const Preview: React.FC<PreviewProps> = ({
     };
   }, [onNavigateToFile]);
 
-  // Synchronized zoom/focus in Split mode:
-  // As the user writes or moves cursor in the editor, focus & center the preview pane on the exact section
+  // Synchronized zoom/focus in Split and Preview modes:
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -423,7 +465,6 @@ export const Preview: React.FC<PreviewProps> = ({
         className="preview-pane"
         id="bookmd-preview"
         ref={containerRef}
-        dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />
 
       {copyMenu && (

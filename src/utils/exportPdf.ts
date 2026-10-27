@@ -1,6 +1,7 @@
 import MarkdownIt from 'markdown-it';
 import { resolveImageSource } from './imagePath';
 import { readImageData } from '../services/ipc';
+import { markdownMathPlugin } from './markdownMath';
 
 /**
  * Compiles markdown content to a standalone, print-optimized HTML string
@@ -18,6 +19,9 @@ export async function generatePrintHtml(
     breaks: true,
     typographer: true,
   });
+
+  // Enable KaTeX math expressions in export
+  md.use(markdownMathPlugin);
 
   // Render markdown to HTML
   let bodyHtml = md.render(markdownContent);
@@ -44,6 +48,7 @@ export async function generatePrintHtml(
 <head>
   <meta charset="utf-8">
   <title>${title}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css" crossorigin="anonymous">
   <style>
     @page {
       size: A4;
