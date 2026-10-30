@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-10-30
+
+### Added
+- **Editor Tab & Indentation**:
+  - Full keyboard `Tab` and `Shift+Tab` indentation support in CodeMirror 6 editor.
+  - Multi-line block indentation, single-line paragraph indent ("thụt đầu dòng"), and in-text tab spacing without losing focus.
+- **Markdown Footnotes Support**:
+  - Native rendering of Markdown footnotes (`[^1]` and `[^1]: Footnote text`) via `markdown-it-footnote`.
+  - Seamless in-document bidirectional jumping between footnote references and footnote items with smooth scrolling.
+  - Dedicated footnote styling for dark mode, light mode, and high-fidelity PDF export.
+
+### Changed
+- **Session-Scoped Image Directory & Naming Base Settings**:
+  - Image directory and naming base directory settings are now session-scoped and automatically reset upon opening a new workspace or launching a new session.
+  - Default image destination changed from workspace-root `assets/images` to `images/` placed directly inside the folder of the active Markdown file being edited.
+  - Updated Settings UI annotations and placeholders to clearly explain session-scoped behaviors.
+- **Italic Formatting Keybinding**:
+  - Default shortcut updated to `Ctrl+Shift+I` to avoid browser/webview accelerator conflicts, while retaining `Ctrl+I` fallback.
+
 ## [0.1.6] - 2026-10-27
 
 ### Added

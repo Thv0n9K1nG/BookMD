@@ -286,7 +286,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <input
                     className="settings-input"
                     value={settings.imageDir}
-                    placeholder="assets/images"
+                    placeholder="images/ (Mặc định: images/ cạnh file .md đang mở)"
                     style={{ flex: 1, cursor: 'pointer' }}
                     onClick={() => setPickerTarget('imageDir')}
                     onChange={(e) => onUpdateSettings({ imageDir: e.target.value })}
@@ -303,7 +303,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
                 <span className="settings-hint">
-                  Đường dẫn thư mục trong workspace để tự động lưu các file ảnh chụp hoặc paste từ clipboard (mặc định: <code>assets/images</code>).
+                  Mặc định: Tự động tạo và lưu ảnh vào thư mục <code>images/</code> đặt ngay trong thư mục chứa file Markdown đang viết (thay vì lưu cố định ở gốc workspace).<br />
+                  Bạn có thể duyệt hoặc nhập thư mục khác cho phiên làm việc hiện tại.<br />
+                  <em>* Lưu ý: Cài đặt này chỉ áp dụng trong phiên hiện tại và sẽ tự động đặt lại về mặc định khi mở thư mục/workspace khác hoặc khởi động lại ứng dụng.</em>
                 </span>
               </div>
 
@@ -335,7 +337,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span className="settings-hint">
                   Cấu trúc đặt tên ảnh sẽ bắt đầu từ các thư mục con bên dưới mốc này theo công thức: <br />
                   <code>&lt;folder con&gt;-&lt;folder con&gt;-...-&lt;tên file md&gt;_&lt;số thứ tự&gt;</code>.<br />
-                  Nếu file Markdown nằm ngay dưới thư mục mốc này thì tên ảnh sẽ là <code>&lt;tên file md&gt;_&lt;số thứ tự&gt;</code>.
+                  Mặc định là gốc workspace đang mở (tên ảnh tính từ toàn bộ cấu trúc thư mục).<br />
+                  <em>* Lưu ý: Cài đặt này chỉ áp dụng trong phiên hiện tại và sẽ tự động đặt lại về mặc định khi mở thư mục/workspace khác hoặc khởi động lại ứng dụng.</em>
                 </span>
               </div>
 
@@ -368,9 +371,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
                 <span className="settings-hint">
                   {settings.imageReferenceType === 'absolute' ? (
-                    <>Đường dẫn ảnh sẽ được chèn dạng tuyệt đối từ ổ đĩa (VD: <code>C:/PROJECT/BookMD/assets/images/TryHackMe-Docker-note_1.png</code>).</>
+                    <>Đường dẫn ảnh sẽ được chèn dạng tuyệt đối từ ổ đĩa (VD: <code>C:/PROJECT/BookMD/notes/images/Docker-note_1.png</code>).</>
                   ) : (
-                    <>Đường dẫn ảnh được tính tương đối từ vị trí file Markdown đang mở (VD: <code>../../assets/images/TryHackMe-Docker-note_1.png</code>). Giúp bạn dễ dàng copy, chia sẻ hoặc push Git mà không bị hỏng ảnh.</>
+                    <>Đường dẫn ảnh được tính tương đối từ vị trí file Markdown đang mở (VD: <code>images/Docker-note_1.png</code>). Giúp bạn dễ dàng copy, chia sẻ hoặc push Git mà không bị hỏng ảnh.</>
                   )}
                 </span>
               </div>

@@ -14,7 +14,7 @@ export const KEYBINDING_DEFINITIONS: KeybindingDef[] = [
     id: 'formatItalic',
     name: 'In nghiêng (Italic)',
     category: 'formatting',
-    defaultKey: 'Ctrl+I',
+    defaultKey: 'Ctrl+Shift+I',
     description: 'Bọc đoạn văn bản đã chọn trong dấu *in nghiêng*',
   },
   {
@@ -171,6 +171,9 @@ export const DEFAULT_KEYBINDINGS_MAP: KeybindingsMap = KEYBINDING_DEFINITIONS.re
 
 export function getKeybinding(action: KeybindingAction, customMap?: KeybindingsMap): string {
   if (customMap && customMap[action]) {
+    if (action === 'formatItalic' && customMap[action] === 'Ctrl+I') {
+      return 'Ctrl+Shift+I';
+    }
     return customMap[action];
   }
   return DEFAULT_KEYBINDINGS_MAP[action] || '';

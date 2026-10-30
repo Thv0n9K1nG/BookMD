@@ -9,6 +9,7 @@ import { ViewMode } from '../../types';
 import { CopyIcon } from '../common/Icons';
 import { generateHeadingSlug, findHeadingElement } from '../../utils/slug';
 import { markdownMathPlugin } from '../../utils/markdownMath';
+import footnote from 'markdown-it-footnote';
 
 interface PreviewProps {
   content: string;
@@ -48,8 +49,11 @@ export const Preview: React.FC<PreviewProps> = ({
       breaks: true,
     });
 
-    // Support LaTeX math expressions ($...$ and $$...$$)
+    // Support LaTeX math expressions ($...$ and $...$)
     instance.use(markdownMathPlugin);
+
+    // Support Markdown Footnotes ([^1] and [^1]: ...)
+    instance.use(footnote);
 
     // 1. Map source lines to block tokens for split-view scroll sync and focus zooming
     instance.core.ruler.push('source_lines', (state) => {

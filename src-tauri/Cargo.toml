@@ -1,6 +1,6 @@
 [package]
 name = "bookmd"
-version = "0.1.6"
+version = "0.1.7"
 description = "A lightweight, filesystem-first Markdown workspace for technical notes"
 authors = ["you"]
 edition = "2021"

@@ -51,7 +51,7 @@ export const App: React.FC = () => {
   // Settings
   const [settings, setSettings] = useState<Settings>(() => {
     const defaultSettings: Settings = {
-      imageDir: 'assets/images',
+      imageDir: 'images',
       imageNamingBaseDir: '',
       imageReferenceType: 'relative',
       theme: 'dark',
@@ -69,6 +69,9 @@ export const App: React.FC = () => {
         return {
           ...defaultSettings,
           ...parsed,
+          // Reset session-scoped image handling settings per session
+          imageDir: 'images',
+          imageNamingBaseDir: '',
           keybindings: {
             ...DEFAULT_KEYBINDINGS_MAP,
             ...(parsed.keybindings || {}),
@@ -90,7 +93,7 @@ export const App: React.FC = () => {
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const [fileTree, setFileTree] = useState<FileEntry[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    () => new Set(['TryHackMe', 'assets', 'assets/images', 'img'])
+    () => new Set(['TryHackMe', 'images', 'assets', 'img'])
   );
   const [sidebarWidth, setSidebarWidth] = useState(250);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -121,10 +124,11 @@ export const App: React.FC = () => {
     onSubmit: (val: string) => void;
   } | null>(null);
 
-  // Apply theme to DOM
+  // Apply theme to DOM and persist settings (excluding session-scoped image handling settings)
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme);
-    localStorage.setItem('bookmd_settings', JSON.stringify(settings));
+    const { imageDir: _imgDir, imageNamingBaseDir: _namingDir, ...persistentSettings } = settings;
+    localStorage.setItem('bookmd_settings', JSON.stringify(persistentSettings));
   }, [settings]);
 
   // Toast helper
@@ -148,6 +152,13 @@ export const App: React.FC = () => {
       const wsInfo = await openWorkspace(selectedPath);
       setWorkspace(wsInfo);
       localStorage.setItem('bookmd_last_workspace', selectedPath);
+
+      // Reset session-scoped image handling settings on workspace change
+      setSettings((prev) => ({
+        ...prev,
+        imageDir: 'images',
+        imageNamingBaseDir: '',
+      }));
       const tree = await getWorkspaceTree();
       setFileTree(tree);
       if (!isInitialAutoOpen) {

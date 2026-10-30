@@ -49,20 +49,11 @@ pub fn save_image(
     };
 
     // Determine image directory
-    let image_dir = if let Some(ref opts) = options {
-        if let Some(ref dir) = opts.image_dir {
-            let trimmed = dir.trim();
-            if trimmed.is_empty() {
-                default_image_dir(workspace, md_path)
-            } else {
-                workspace.join(trimmed)
-            }
-        } else {
-            default_image_dir(workspace, md_path)
-        }
-    } else {
-        default_image_dir(workspace, md_path)
-    };
+    let image_dir = resolve_image_dir(
+        workspace,
+        md_path,
+        options.as_ref().and_then(|o| o.image_dir.as_deref()),
+    );
 
     // Create image directory if needed
     fs::create_dir_all(&image_dir)?;
@@ -139,16 +130,7 @@ pub fn rename_images_for_document(
         format!("{}-{}_", new_folders.join("-"), new_stem)
     };
 
-    let img_dir = if let Some(dir) = image_dir {
-        let trimmed = dir.trim();
-        if trimmed.is_empty() {
-            default_image_dir(workspace, old_md)
-        } else {
-            workspace.join(trimmed)
-        }
-    } else {
-        default_image_dir(workspace, old_md)
-    };
+    let img_dir = resolve_image_dir(workspace, old_md, image_dir);
 
     if !img_dir.exists() {
         return Ok(Vec::new());
@@ -218,6 +200,24 @@ fn build_naming_context(
     };
 
     (folders, md_stem)
+}
+
+fn resolve_image_dir(workspace: &Path, md_path: &Path, image_dir_option: Option<&str>) -> PathBuf {
+    if let Some(dir) = image_dir_option {
+        let trimmed = dir.trim().replace('\\', "/");
+        let clean = trimmed.trim_matches('/');
+        if clean.is_empty() || clean == "images" || clean == "." {
+            default_image_dir(workspace, md_path)
+        } else if trimmed.starts_with("./") {
+            let md_abs = workspace.join(md_path);
+            let md_dir = md_abs.parent().unwrap_or(workspace);
+            md_dir.join(clean)
+        } else {
+            workspace.join(clean)
+        }
+    } else {
+        default_image_dir(workspace, md_path)
+    }
 }
 
 fn default_image_dir(workspace: &Path, md_path: &Path) -> PathBuf {
@@ -461,6 +461,37 @@ mod tests {
         assert_eq!(res_root.markdown_reference, "![](img/root_note_1.png)");
 
         // Cleanup
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_save_image_default_in_md_folder() {
+        let temp_dir = std::env::temp_dir().join(format!("bookmd_test_{}", uuid::Uuid::new_v4()));
+        let ws_str = temp_dir.to_str().unwrap();
+
+        let base64_1px_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+        // When image_dir is "images" or None, save into <folder-of-md>/images/
+        let res = save_image(
+            ws_str,
+            "TryHackMe/Docker/image.md",
+            base64_1px_png,
+            Some(ImageSaveOptions {
+                image_dir: Some("images".to_string()),
+                naming_base_dir: None,
+                reference_type: Some("relative".to_string()),
+            }),
+        )
+        .expect("save_image should succeed with default images/ dir");
+
+        assert_eq!(res.filename, "TryHackMe-Docker-image_1.png");
+        assert_eq!(res.relative_path, "TryHackMe/Docker/images/TryHackMe-Docker-image_1.png");
+        assert_eq!(res.doc_relative_path, "images/TryHackMe-Docker-image_1.png");
+        assert_eq!(res.markdown_reference, "![](images/TryHackMe-Docker-image_1.png)");
+
+        assert!(Path::new(&res.path).exists());
+        assert!(temp_dir.join("TryHackMe/Docker/images/TryHackMe-Docker-image_1.png").exists());
+
         let _ = fs::remove_dir_all(&temp_dir);
     }
 

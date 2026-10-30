@@ -299,11 +299,21 @@ export async function saveImage(
   const docName = parts.pop() || 'Doc';
   const folder = parts.join('-');
   const filename = folder ? `${folder}-${docName}_1.png` : `${docName}_1.png`;
-  const imgDir = (options?.imageDir || 'assets/images').replace(/\\/g, '/');
-  const relativePath = `${imgDir}/${filename}`;
+  const rawImgDir = (options?.imageDir || 'images').replace(/\\/g, '/');
+  const cleanDir = rawImgDir.replace(/^\.?\/+|\/+$/g, '');
+
+  let relativePath: string;
+  let docRelativePath: string;
+  if (!cleanDir || cleanDir === 'images') {
+    const docFolder = parts.join('/');
+    relativePath = docFolder ? `${docFolder}/images/${filename}` : `images/${filename}`;
+    docRelativePath = `images/${filename}`;
+  } else {
+    relativePath = `${cleanDir}/${filename}`;
+    docRelativePath = relativePath;
+  }
   const isAbs = options?.referenceType === 'absolute';
   const path = `C:/MockWorkspace/${relativePath}`;
-  const docRelativePath = relativePath;
   return {
     path,
     relativePath,

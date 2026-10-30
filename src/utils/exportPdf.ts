@@ -2,6 +2,7 @@ import MarkdownIt from 'markdown-it';
 import { resolveImageSource } from './imagePath';
 import { readImageData } from '../services/ipc';
 import { markdownMathPlugin } from './markdownMath';
+import footnote from 'markdown-it-footnote';
 
 /**
  * Compiles markdown content to a standalone, print-optimized HTML string
@@ -22,6 +23,9 @@ export async function generatePrintHtml(
 
   // Enable KaTeX math expressions in export
   md.use(markdownMathPlugin);
+
+  // Enable Markdown Footnotes in export
+  md.use(footnote);
 
   // Render markdown to HTML
   let bodyHtml = md.render(markdownContent);
@@ -189,6 +193,44 @@ export async function generatePrintHtml(
       border: none;
       border-top: 1px solid #cbd5e1;
       margin: 16pt 0;
+    }
+    /* Footnotes in Print / PDF */
+    .footnote-ref {
+      font-size: 0.75em;
+      line-height: 0;
+      vertical-align: super;
+      padding-left: 1px;
+    }
+    .footnote-ref a {
+      color: #4f46e5;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .footnotes-sep {
+      margin: 24pt 0 12pt 0;
+      border: 0;
+      border-top: 1px solid #cbd5e1;
+    }
+    .footnotes {
+      font-size: 9pt;
+      color: #64748b;
+      line-height: 1.5;
+    }
+    .footnotes-list {
+      padding-left: 16pt;
+      margin: 0;
+    }
+    .footnote-item {
+      margin-bottom: 4pt;
+    }
+    .footnote-item p {
+      display: inline;
+      margin: 0;
+    }
+    .footnote-backref {
+      color: #4f46e5;
+      text-decoration: none;
+      margin-left: 3pt;
     }
   </style>
 </head>

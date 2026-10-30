@@ -104,6 +104,7 @@ describe('keybindings utility', () => {
 
   it('retrieves default or custom keybindings with getKeybinding', () => {
     expect(getKeybinding('formatBold')).toBe('Ctrl+B');
+    expect(getKeybinding('formatItalic')).toBe('Ctrl+Shift+I');
     expect(getKeybinding('formatInlineCode')).toBe('Ctrl+`');
     expect(getKeybinding('saveFile')).toBe('Ctrl+S');
     expect(getKeybinding('toggleSidebar')).toBe('Ctrl+Shift+B');

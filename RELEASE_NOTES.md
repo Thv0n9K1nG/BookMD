@@ -1,3 +1,40 @@
+# Release Notes — BookMD v0.1.7
+
+**BookMD v0.1.7** introduces full native **Markdown Footnotes** support (`[^1]` & `[^1]: ...`), enables fluent **Tab Indentation** in the CodeMirror editor, switches the italic shortcut to **`Ctrl+Shift+I`**, and redesigns **Image Directory Management** to default directly to an `images/` folder next to the active document with clean session-scoped isolation across workspaces.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 📝 1. Fluent Tab Indentation in Editor (Cách dòng & Thụt lề)
+- **Natural Tab Key Navigation**: Previously, pressing `Tab` inside CodeMirror trapped focus navigation and failed to indent text.
+- **Context-Aware Indentation**:
+  - **Start of Line / Empty Whitespace**: Indents the line cleanly by standard indent units (`indentMore`), making paragraph indentation and nested markdown lists effortless.
+  - **Selected Text / Multi-Line**: Indents all selected lines with `Tab` and unindents with `Shift+Tab` (`indentLess`).
+  - **Mid-Line Cursor**: Inserts clean spacing at the exact cursor position without shifting earlier content.
+
+### 🔖 2. Markdown Footnotes Support ([^1] & [^1]: ...)
+- **Standard Footnote Syntax**: Write numbered or named footnotes effortlessly in any document:
+  ```markdown
+  Here is a technical claim[^1] supported by source documentation[^rfc].
+
+  [^1]: Official specification reference.
+  [^rfc]: RFC 9110 HTTP Semantics.
+  ```
+- **Bidirectional Smooth Scrolling**: Click any footnote superscript `[1]` to jump directly to the footnote definition; click the back-reference arrow `↩︎` to return directly to the citation.
+- **Dark & Light Mode Polish**: Clean typography with subtle separation lines, hover highlights, and styled superscripts.
+- **A4 PDF Export**: Footnotes are styled cleanly at the bottom of exported print documents.
+
+### 🖼️ 3. Document-Local Image Directory & Session Isolation
+- **Document-Relative Image Folder**: When pasting or adding images, images are now saved into an `images/` folder located directly inside the directory of the Markdown file being edited (rather than being dumped at the workspace root `assets/images/`).
+- **Session-Scoped Settings**: Image directory and naming base directory configurations are now strictly session-scoped. Switching to another workspace or restarting BookMD cleanly resets them to defaults, preventing accidental leaks between projects.
+- **Clarified Settings Guidance**: Settings UI now features clear annotations, updated placeholders, and notes explaining session lifetime.
+
+### ⌨️ 4. Reliable Italic Shortcut (`Ctrl+Shift+I`)
+- **Resolved Key Conflict**: Replaced the previous `Ctrl+I` default shortcut with `Ctrl+Shift+I` to circumvent WebView/browser accelerator interference, with seamless fallback compatibility for legacy key maps.
+
+---
+
 # Release Notes — BookMD v0.1.6
 
 **BookMD v0.1.6** brings flicker-free typing with **DOM Reconciliation (morphdom)** that eliminates image re-rendering while editing, full support for **KaTeX LaTeX Math Expressions** (both inline `$math$` and block `$$math$$`), and resolves **Vietnamese and Unicode diacritic heading anchor links** for seamless in-document navigation.

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import MarkdownIt from 'markdown-it';
+import footnote from 'markdown-it-footnote';
 import { normalizePathSegments } from '../src/utils/imagePath';
 
 describe('Preview Markdown Rules & Synchronized Features', () => {
@@ -98,6 +99,18 @@ This is a paragraph.
     expect(html).toContain('blockquote');
     expect(html).toContain('data-source-line="1"');
     expect(html).toContain('this is blockquote');
+  });
+
+  it('renders markdown footnotes and references correctly', () => {
+    const md = new MarkdownIt().use(footnote);
+    const markdownText = `Here is a footnote reference[^1] and a second one[^note].\n\n[^1]: First footnote text.\n[^note]: Second footnote text.`;
+    const html = md.render(markdownText);
+    expect(html).toContain('class="footnote-ref"');
+    expect(html).toContain('href="#fn1"');
+    expect(html).toContain('class="footnotes"');
+    expect(html).toContain('First footnote text.');
+    expect(html).toContain('Second footnote text.');
+    expect(html).toContain('class="footnote-backref"');
   });
 });
 

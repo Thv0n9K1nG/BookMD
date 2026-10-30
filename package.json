@@ -1,7 +1,7 @@
 {
   "name": "bookmd",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -29,6 +29,7 @@
     "@types/morphdom": "^2.3.0",
     "katex": "^0.19.1",
     "markdown-it": "^15.0.2",
+    "markdown-it-footnote": "^4.0.0",
     "morphdom": "^2.7.8",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
+    "@types/markdown-it-footnote": "^3.0.4",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.2",

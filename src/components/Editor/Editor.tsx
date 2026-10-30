@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { saveImage } from '../../services/ipc';
@@ -302,7 +302,7 @@ export const Editor: React.FC<EditorProps> = ({
 
             for (const action of formattingActions) {
               const shortcut = getKeybinding(action, keybindings);
-              if (shortcut && matchKeybinding(e, shortcut)) {
+              if (shortcut && (matchKeybinding(e, shortcut) || (action === 'formatItalic' && matchKeybinding(e, 'Ctrl+I')))) {
                 e.preventDefault();
                 e.stopPropagation();
                 return executeFormattingCommand(view, action);
@@ -315,6 +315,31 @@ export const Editor: React.FC<EditorProps> = ({
         keymap.of([
           ...defaultKeymap,
           ...historyKeymap,
+          {
+            key: 'Tab',
+            run: (view) => {
+              // If there is an active selection (multi-line or range), indent selected lines
+              if (view.state.selection.ranges.some((r) => !r.empty)) {
+                return indentMore(view);
+              }
+              const pos = view.state.selection.main.head;
+              const line = view.state.doc.lineAt(pos);
+              const textBefore = line.text.slice(0, pos - line.from);
+              // If cursor is at start of line or in leading whitespace, indent the line
+              if (/^\s*$/.test(textBefore)) {
+                return indentMore(view);
+              }
+              // Otherwise, insert 2 spaces at cursor position
+              view.dispatch(
+                view.state.update(view.state.replaceSelection('  '), {
+                  scrollIntoView: true,
+                  userEvent: 'input',
+                })
+              );
+              return true;
+            },
+            shift: indentLess,
+          },
           {
             key: ')',
             run: (view) => {
