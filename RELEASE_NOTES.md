@@ -1,3 +1,35 @@
+# Release Notes — BookMD v0.1.8
+
+**BookMD v0.1.8** brings a dedicated **Open Workspace Button** in the titlebar, introduces automatic **Smart Table Paste to Markdown** (converting Excel, Google Sheets, Word, and web tables into clean markdown tables), defaults **Image Naming** directly to the active document name without folder prefixes, and adds a persistent **Version Indicator** in the bottom status bar.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 📂 1. Dedicated Open Workspace Button in Titlebar
+- **One-Click Workspace Access**: Previously, opening a new workspace required clicking the BookMD brand title in the top-left corner, which was not immediately obvious.
+- **Visual Button Placement**: Added an explicit folder button (`FolderOpenIcon` — *Mở thư mục / Workspace... Ctrl+Shift+W*) directly next to the open Markdown file icon in the titlebar.
+
+### 📊 2. Smart Table Paste to Markdown (Excel, Sheets, Web & TSV)
+- **Automatic Table Recognition**: Copying tables from web browsers, Microsoft Excel, Google Sheets, Microsoft Word, or raw TSV automatically converts into formatted GitHub Markdown tables:
+  ```markdown
+  | Product Name | Price (USD) | Quantity |
+  | --- | --- | --- |
+  | Laptop Pro | 1200 | 5 |
+  | Mechanical Keyboard | 150 | 12 |
+  ```
+- **Strictly Scoped to Tables**: Intentionally extracts cell text content without converting bold, italic, or font styles into markdown formatting tokens, keeping your tables crisp, clean, and bug-free.
+- **Preserves Markdown Integrity**: Standard rich-text paragraphs without tables paste as normal text without unwanted side effects.
+
+### 🖼️ 3. Document-First Image Naming (Naming Base Directory)
+- **Document-First Default**: Pasting images now defaults to naming files directly after the Markdown document being written (e.g. `note_1.png` or `docker_1.png`), instead of prepending the entire workspace directory hierarchy.
+- **Configurable When Needed**: Setting the Naming Base Directory to `/` (Workspace Root) in Settings still allows prepending full workspace folder paths when desired.
+
+### 🏷️ 4. Status Bar Version Indicator
+- **Always Visible**: Added a clean version badge (`v0.1.8`) at the bottom-right corner of the status bar so you always know which version of BookMD you are running.
+
+---
+
 # Release Notes — BookMD v0.1.7
 
 **BookMD v0.1.7** introduces full native **Markdown Footnotes** support (`[^1]` & `[^1]: ...`), enables fluent **Tab Indentation** in the CodeMirror editor, switches the italic shortcut to **`Ctrl+Shift+I`**, and redesigns **Image Directory Management** to default directly to an `images/` folder next to the active document with clean session-scoped isolation across workspaces.

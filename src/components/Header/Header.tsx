@@ -9,6 +9,7 @@ import {
   SettingsIcon,
   SidebarToggleIcon,
   FileIcon,
+  FolderOpenIcon,
   ImageIcon,
 } from '../common/Icons';
 
@@ -84,6 +85,15 @@ export const Header: React.FC<HeaderProps> = ({
             <FileIcon size={15} />
           </button>
         )}
+
+        <button
+          className="btn btn-icon"
+          onClick={onOpenWorkspace}
+          title="Mở thư mục / Workspace... (Ctrl+Shift+W)"
+          style={{ marginLeft: '2px' }}
+        >
+          <FolderOpenIcon size={15} />
+        </button>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

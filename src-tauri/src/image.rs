@@ -170,8 +170,20 @@ fn build_naming_context(
         .unwrap_or_default();
 
     let md_norm = md_relative_path.to_string_lossy().replace('\\', "/");
-    let effective_rel = if let Some(base) = naming_base_dir {
-        let base_norm = base.trim().replace('\\', "/").trim_matches('/').to_string();
+    let base_trimmed = naming_base_dir
+        .map(|s| s.trim().replace('\\', "/"))
+        .unwrap_or_default();
+
+    // Default: when naming_base_dir is not provided or empty, name according to markdown file directly
+    if base_trimmed.is_empty() {
+        return (Vec::new(), md_stem);
+    }
+
+    // When naming_base_dir is "/" or ".", calculate naming starting from workspace root
+    let effective_rel = if base_trimmed == "/" || base_trimmed == "." {
+        md_norm.clone()
+    } else {
+        let base_norm = base_trimmed.trim_matches('/').to_string();
         if !base_norm.is_empty() {
             let base_prefix = format!("{}/", base_norm);
             if md_norm.starts_with(&base_prefix) {
@@ -184,8 +196,6 @@ fn build_naming_context(
         } else {
             md_norm.clone()
         }
-    } else {
-        md_norm.clone()
     };
 
     let p = Path::new(&effective_rel);
@@ -396,6 +406,7 @@ mod tests {
 
         let base64_1px_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
+        // Default: naming_base_dir is None -> image named after markdown file directly
         let res = save_image(
             ws_str,
             "TryHackMe/Docker/image.md",
@@ -408,11 +419,26 @@ mod tests {
         )
         .expect("save_image should succeed with custom image_dir");
 
-        assert_eq!(res.filename, "TryHackMe-Docker-image_1.png");
-        assert_eq!(res.relative_path, "img/TryHackMe-Docker-image_1.png");
-        assert_eq!(res.markdown_reference, "![](../../img/TryHackMe-Docker-image_1.png)");
+        assert_eq!(res.filename, "image_1.png");
+        assert_eq!(res.relative_path, "img/image_1.png");
+        assert_eq!(res.markdown_reference, "![](../../img/image_1.png)");
 
         assert!(Path::new(&res.path).exists());
+
+        // Test with naming_base_dir = "/" (root workspace)
+        let res_ws = save_image(
+            ws_str,
+            "TryHackMe/Docker/image.md",
+            base64_1px_png,
+            Some(ImageSaveOptions {
+                image_dir: Some("img".to_string()),
+                naming_base_dir: Some("/".to_string()),
+                reference_type: Some("relative".to_string()),
+            }),
+        )
+        .expect("save_image should succeed with root workspace naming_base_dir");
+
+        assert_eq!(res_ws.filename, "TryHackMe-Docker-image_1.png");
 
         // Test with naming_base_dir = "TryHackMe"
         let res2 = save_image(
@@ -484,13 +510,13 @@ mod tests {
         )
         .expect("save_image should succeed with default images/ dir");
 
-        assert_eq!(res.filename, "TryHackMe-Docker-image_1.png");
-        assert_eq!(res.relative_path, "TryHackMe/Docker/images/TryHackMe-Docker-image_1.png");
-        assert_eq!(res.doc_relative_path, "images/TryHackMe-Docker-image_1.png");
-        assert_eq!(res.markdown_reference, "![](images/TryHackMe-Docker-image_1.png)");
+        assert_eq!(res.filename, "image_1.png");
+        assert_eq!(res.relative_path, "TryHackMe/Docker/images/image_1.png");
+        assert_eq!(res.doc_relative_path, "images/image_1.png");
+        assert_eq!(res.markdown_reference, "![](images/image_1.png)");
 
         assert!(Path::new(&res.path).exists());
-        assert!(temp_dir.join("TryHackMe/Docker/images/TryHackMe-Docker-image_1.png").exists());
+        assert!(temp_dir.join("TryHackMe/Docker/images/image_1.png").exists());
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

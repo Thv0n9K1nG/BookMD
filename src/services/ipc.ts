@@ -294,10 +294,25 @@ export async function saveImage(
       options,
     });
   }
-  // Mock image save following <folder>-<mdStem>_<index>.<ext>
+  // Mock image save following <namingBase>-<mdStem>_<index>.<ext>
   const parts = markdownFile.replace(/\.md$/i, '').split('/');
   const docName = parts.pop() || 'Doc';
-  const folder = parts.join('-');
+  const namingBase = (options?.namingBaseDir || '').replace(/\\/g, '/').trim();
+  let folder = '';
+  if (namingBase === '/' || namingBase === '.') {
+    folder = parts.join('-');
+  } else if (namingBase) {
+    const cleanBase = namingBase.replace(/^\/+|^\/+$/g, '');
+    const docPath = parts.join('/');
+    if (docPath.startsWith(cleanBase + '/')) {
+      folder = docPath.slice(cleanBase.length + 1).replace(/\//g, '-');
+    } else {
+      folder = parts.join('-');
+    }
+  } else {
+    // Default: name according to markdown file directly
+    folder = '';
+  }
   const filename = folder ? `${folder}-${docName}_1.png` : `${docName}_1.png`;
   const rawImgDir = (options?.imageDir || 'images').replace(/\\/g, '/');
   const cleanDir = rawImgDir.replace(/^\.?\/+|\/+$/g, '');

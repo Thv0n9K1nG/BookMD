@@ -425,34 +425,63 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
           </div>
 
           <div className="folder-picker-list folder-picker-tree">
-            {/* Special Workspace Root Option when allowRootSelect is true */}
+            {/* Special Options when allowRootSelect is true (Naming Base Dir) */}
             {allowRootSelect && (
-              <div
-                className={`folder-picker-item folder-tree-item ${selectedFolder === '' ? 'selected' : ''}`}
-                style={{ paddingLeft: '12px' }}
-                onClick={() => setSelectedFolder('')}
-              >
-                <span className="folder-tree-spacer" />
-                <span className="folder-tree-icon">
-                  <FolderIcon
-                    size={16}
-                    style={{ color: selectedFolder === '' ? 'var(--accent)' : 'var(--text-secondary)' }}
-                  />
-                </span>
-                <div className="folder-tree-content">
-                  <span className="folder-item-name" style={{ fontWeight: 600 }}>
-                    Thư mục gốc Workspace (Root /)
+              <>
+                <div
+                  className={`folder-picker-item folder-tree-item ${selectedFolder === '' ? 'selected' : ''}`}
+                  style={{ paddingLeft: '12px', marginBottom: '2px' }}
+                  onClick={() => setSelectedFolder('')}
+                >
+                  <span className="folder-tree-spacer" />
+                  <span className="folder-tree-icon">
+                    <CheckIcon
+                      size={15}
+                      style={{ color: selectedFolder === '' ? 'var(--accent)' : 'var(--text-tertiary)' }}
+                    />
                   </span>
-                  <span className="folder-item-path">
-                    Mặc định • Tự động đặt tên theo folder con cấp 1 dưới workspace
-                  </span>
-                </div>
-                {selectedFolder === '' && (
-                  <div className="folder-item-check">
-                    <CheckIcon size={14} />
+                  <div className="folder-tree-content">
+                    <span className="folder-item-name" style={{ fontWeight: 600 }}>
+                      Theo file Markdown đang viết (Mặc định)
+                    </span>
+                    <span className="folder-item-path">
+                      Tên ảnh đặt trực tiếp theo file: &lt;tên_file&gt;_&lt;số&gt;.png
+                    </span>
                   </div>
-                )}
-              </div>
+                  {selectedFolder === '' && (
+                    <div className="folder-item-check">
+                      <CheckIcon size={14} />
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  className={`folder-picker-item folder-tree-item ${selectedFolder === '/' ? 'selected' : ''}`}
+                  style={{ paddingLeft: '12px', marginBottom: '4px' }}
+                  onClick={() => setSelectedFolder('/')}
+                >
+                  <span className="folder-tree-spacer" />
+                  <span className="folder-tree-icon">
+                    <FolderIcon
+                      size={16}
+                      style={{ color: selectedFolder === '/' ? 'var(--accent)' : 'var(--text-secondary)' }}
+                    />
+                  </span>
+                  <div className="folder-tree-content">
+                    <span className="folder-item-name" style={{ fontWeight: 600 }}>
+                      Gốc Workspace (Toàn bộ workspace /)
+                    </span>
+                    <span className="folder-item-path">
+                      Tên ảnh tính từ thư mục gốc: &lt;folder&gt;-...-&lt;tên_file&gt;_&lt;số&gt;.png
+                    </span>
+                  </div>
+                  {selectedFolder === '/' && (
+                    <div className="folder-item-check">
+                      <CheckIcon size={14} />
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
             {/* Tree nodes */}
@@ -518,7 +547,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
           <div className="folder-picker-selection-info">
             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Đang chọn:</span>
             <code className="folder-picker-selected-path">
-              {selectedFolder === '' && allowRootSelect ? '/ (Gốc workspace)' : selectedFolder || '(Chưa chọn)'}
+              {selectedFolder === '' && allowRootSelect ? 'Theo file Markdown đang viết (Mặc định)' : selectedFolder === '/' && allowRootSelect ? '/ (Gốc workspace)' : selectedFolder || '(Chưa chọn)'}
             </code>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>

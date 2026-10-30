@@ -1,5 +1,7 @@
 import React from 'react';
 
+export const APP_VERSION = 'v0.1.8';
+
 interface StatusBarProps {
   activeFile?: string;
   isDirty?: boolean;
@@ -41,6 +43,24 @@ export const StatusBar: React.FC<StatusBarProps> = ({
             <span>UTF-8</span>
           </>
         )}
+        <span
+          className="statusbar-version"
+          title="Phiên bản BookMD hiện tại"
+          style={{
+            opacity: 0.85,
+            fontWeight: 500,
+            fontSize: '11px',
+            fontFamily: 'var(--font-mono)',
+            padding: '1px 6px',
+            borderRadius: '4px',
+            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--border-primary)',
+            marginLeft: '4px',
+          }}
+        >
+          {APP_VERSION}
+        </span>
       </div>
     </footer>
   );

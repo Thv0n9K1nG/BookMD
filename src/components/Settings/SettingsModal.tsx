@@ -318,7 +318,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <input
                     className="settings-input"
                     value={settings.imageNamingBaseDir || ''}
-                    placeholder="/ (Gốc workspace - Mặc định)"
+                    placeholder="Theo file Markdown đang viết (Mặc định: <tên_file>_1.png)"
                     style={{ flex: 1, cursor: 'pointer' }}
                     onClick={() => setPickerTarget('namingBaseDir')}
                     onChange={(e) => onUpdateSettings({ imageNamingBaseDir: e.target.value })}
@@ -335,9 +335,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
                 <span className="settings-hint">
-                  Cấu trúc đặt tên ảnh sẽ bắt đầu từ các thư mục con bên dưới mốc này theo công thức: <br />
-                  <code>&lt;folder con&gt;-&lt;folder con&gt;-...-&lt;tên file md&gt;_&lt;số thứ tự&gt;</code>.<br />
-                  Mặc định là gốc workspace đang mở (tên ảnh tính từ toàn bộ cấu trúc thư mục).<br />
+                  Mặc định: Tên ảnh được đặt trực tiếp theo tên file Markdown đang viết (<code>&lt;tên_file&gt;_&lt;số&gt;.png</code>), không kèm tiền tố thư mục từ workspace.<br />
+                  Nếu bạn nhập <code>/</code> hoặc chọn Thư mục gốc Workspace, tên ảnh sẽ được ghép từ toàn bộ cấu trúc thư mục: <code>&lt;folder con&gt;-...-&lt;tên file md&gt;_&lt;số&gt;</code>.<br />
+                  Nếu chọn một thư mục con mốc, tên ảnh sẽ được ghép từ các thư mục con bên dưới mốc đó.<br />
                   <em>* Lưu ý: Cài đặt này chỉ áp dụng trong phiên hiện tại và sẽ tự động đặt lại về mặc định khi mở thư mục/workspace khác hoặc khởi động lại ứng dụng.</em>
                 </span>
               </div>

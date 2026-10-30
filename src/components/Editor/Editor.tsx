@@ -18,6 +18,7 @@ import {
   matchKeybinding,
   executeFormattingCommand,
 } from '../../utils/keybindings';
+import { tryParseClipboardTable } from '../../utils/tablePaste';
 
 interface EditorProps {
   content: string;
@@ -194,6 +195,27 @@ export const Editor: React.FC<EditorProps> = ({
             return true;
           }
         }
+
+        // Check for pasted table (HTML table from web/Excel/Word or TSV from spreadsheets)
+        if (event.clipboardData) {
+          const tableMarkdown = tryParseClipboardTable(event.clipboardData);
+          if (tableMarkdown) {
+            event.preventDefault();
+            const selection = view.state.selection.main;
+            view.dispatch({
+              changes: {
+                from: selection.from,
+                to: selection.to,
+                insert: tableMarkdown,
+              },
+              selection: { anchor: selection.from + tableMarkdown.length },
+              userEvent: 'input.paste',
+            });
+            onToastRef.current?.('Đã nhận diện và chuyển bảng thành Markdown table', 'success');
+            return true;
+          }
+        }
+
         return false;
       },
     });

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-10-31
+
+### Added
+- **Dedicated Open Workspace Button**:
+  - Added an intuitive "Mở thư mục / Workspace..." button (`FolderOpenIcon`) in the top titlebar directly next to the "Mở file Markdown..." button.
+- **Smart Table Paste to Markdown**:
+  - Automatically detects tabular clipboard data from web pages, Microsoft Excel, Google Sheets, Microsoft Word, or TSV data.
+  - Surgically converts tables into clean GitHub-flavored Markdown tables.
+  - Plain-text extraction within table cells prevents unwanted conversion of rich text elements (bold, italic, etc.).
+- **Status Bar App Version Display**:
+  - Added current app version badge (e.g. `v0.1.8`) permanently visible at the bottom right corner of the status bar.
+
+### Changed
+- **Default Image Naming Based on Active Markdown File**:
+  - Image naming base directory setting now defaults directly to the active Markdown file being written (`<tên_file>_<số>.png`) without prepending workspace parent folders.
+  - Preserved option to select workspace root (`/`) or specific parent directories when full folder context prefixing is needed.
+
 ## [0.1.7] - 2026-10-30
 
 ### Added
