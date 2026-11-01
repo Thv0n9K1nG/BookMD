@@ -2540,3 +2540,80 @@ body {
   text-decoration: none;
   transform: translateY(-1px);
 }
+
+/* ==========================================================================
+   Settings Hints & Collapsible Details
+   ========================================================================== */
+.settings-hint {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.settings-hint code {
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-tertiary);
+  color: var(--text-accent);
+}
+
+.settings-hint-details {
+  margin-top: 6px;
+}
+
+.settings-hint-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  list-style: none;
+}
+
+.settings-hint-summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-hint-summary::before {
+  content: '▸';
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.settings-hint-details[open] .settings-hint-summary::before {
+  transform: rotate(90deg);
+}
+
+.settings-hint-summary:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.settings-hint-card {
+  margin-top: 6px;
+  padding: 8px 12px;
+  background-color: var(--bg-tertiary);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.settings-hint-note {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  border-top: 1px dashed var(--border-primary);
+  padding-top: 6px;
+  margin-top: 6px !important;
+}

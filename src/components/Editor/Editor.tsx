@@ -18,7 +18,7 @@ import {
   matchKeybinding,
   executeFormattingCommand,
 } from '../../utils/keybindings';
-import { tryParseClipboardTable } from '../../utils/tablePaste';
+import { tryParseClipboardRichText } from '../../utils/tablePaste';
 
 interface EditorProps {
   content: string;
@@ -196,22 +196,25 @@ export const Editor: React.FC<EditorProps> = ({
           }
         }
 
-        // Check for pasted table (HTML table from web/Excel/Word or TSV from spreadsheets)
+        // Check for rich text or table paste (HTML tables, bold, italic, code, quotes, headings, links, lists)
         if (event.clipboardData) {
-          const tableMarkdown = tryParseClipboardTable(event.clipboardData);
-          if (tableMarkdown) {
+          const parsed = tryParseClipboardRichText(event.clipboardData);
+          if (parsed) {
             event.preventDefault();
             const selection = view.state.selection.main;
             view.dispatch({
               changes: {
                 from: selection.from,
                 to: selection.to,
-                insert: tableMarkdown,
+                insert: parsed.markdown,
               },
-              selection: { anchor: selection.from + tableMarkdown.length },
+              selection: { anchor: selection.from + parsed.markdown.length },
               userEvent: 'input.paste',
             });
-            onToastRef.current?.('Đã nhận diện và chuyển bảng thành Markdown table', 'success');
+            const toastMsg = parsed.isTable
+              ? 'Đã chuyển bảng thành Markdown table'
+              : 'Đã nhận diện và chuyển sang định dạng Markdown';
+            onToastRef.current?.(toastMsg, 'success');
             return true;
           }
         }

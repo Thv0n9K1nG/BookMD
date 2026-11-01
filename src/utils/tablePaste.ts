@@ -1,9 +1,19 @@
 /**
- * Utilities for detecting and converting pasted tables (HTML tables from web/Excel/Word
- * or TSV from spreadsheets) into clean GitHub-flavored Markdown tables.
+ * Utilities for detecting and converting clipboard data (rich HTML or TSV)
+ * into clean GitHub-flavored Markdown.
  *
- * NOTE: Intentionally strips out rich text formatting (bold, italic, font tags, etc.)
- * inside cells to keep the Markdown table clean and strictly scoped to table structure.
+ * Supports:
+ * - Tables (HTML tables from Web/Word/Excel and TSV spreadsheets)
+ * - Bold (<b>, <strong>, font-weight: bold / >= 600)
+ * - Italic (<i>, <em>, font-style: italic)
+ * - Inline code (<code>, <kbd>, <tt>)
+ * - Code blocks (<pre><code>)
+ * - Blockquotes (<blockquote>)
+ * - Headers (<h1> through <h6>)
+ * - Links (<a href="...">)
+ * - Lists (unordered <ul> and ordered <ol>, including nested levels)
+ * - Strikethrough (<s>, <del>, <strike>)
+ * - Line breaks (<br>) and paragraphs (<p>, <div>)
  */
 
 export function htmlTableToMarkdown(html: string): string | null {
@@ -11,77 +21,13 @@ export function htmlTableToMarkdown(html: string): string | null {
     return null;
   }
 
-  try {
-    let rows: string[][] = [];
-    let maxCols = 0;
+  const doc = getParsedDocument(html);
+  if (!doc) return null;
 
-    // Use DOMParser if available in browser / WebView environment
-    if (typeof DOMParser !== 'undefined') {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const table = doc.querySelector('table');
-      if (!table) return null;
+  const table = doc.querySelector('table');
+  if (!table) return null;
 
-      const trElements = Array.from(table.querySelectorAll('tr'));
-      if (trElements.length === 0) return null;
-
-      for (const tr of trElements) {
-        const cellElements = Array.from(tr.querySelectorAll('th, td'));
-        if (cellElements.length === 0) continue;
-
-        const row = cellElements.map((cell) => {
-          // Extract plain text only - intentionally ignore <b>, <i>, <span>, etc.
-          const text = cell.textContent || '';
-          return text
-            .replace(/\r?\n+/g, ' ')
-            .replace(/\|/g, '\\|')
-            .trim();
-        });
-
-        if (row.length > maxCols) maxCols = row.length;
-        rows.push(row);
-      }
-    } else {
-      // Regex fallback (e.g. Node.js unit tests without DOMParser)
-      const trMatches = html.match(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi);
-      if (!trMatches || trMatches.length === 0) return null;
-
-      for (const tr of trMatches) {
-        const cellMatches = tr.match(/<(th|td)\b[^>]*>([\s\S]*?)<\/(th|td)>/gi);
-        if (!cellMatches) continue;
-
-        const row = cellMatches.map((c) =>
-          c
-            .replace(/<[^>]+>/g, '')
-            .replace(/\r?\n+/g, ' ')
-            .replace(/\|/g, '\\|')
-            .trim()
-        );
-
-        if (row.length > maxCols) maxCols = row.length;
-        rows.push(row);
-      }
-    }
-
-    if (rows.length === 0 || maxCols === 0) return null;
-
-    // Pad uneven rows
-    for (const r of rows) {
-      while (r.length < maxCols) {
-        r.push('');
-      }
-    }
-
-    const header = rows[0];
-    const separator = new Array(maxCols).fill('---');
-    const dataRows = rows.slice(1);
-    const formatRow = (r: string[]) => `| ${r.join(' | ')} |`;
-
-    return [formatRow(header), formatRow(separator), ...dataRows.map(formatRow)].join('\n');
-  } catch (err) {
-    console.error('Failed to convert HTML table to markdown:', err);
-    return null;
-  }
+  return convertTableElementToMarkdown(table);
 }
 
 export function tsvToMarkdownTable(text: string): string | null {
@@ -131,21 +77,335 @@ export function tsvToMarkdownTable(text: string): string | null {
 }
 
 /**
- * Inspects a paste event's DataTransfer for table content (HTML <table> or TSV data)
- * and returns the converted Markdown table string, or null if the clipboard content is not a table.
+ * Converts rich HTML content into clean GitHub-flavored Markdown.
+ * Returns null if the HTML has no rich semantic formatting (allowing default plain-text paste).
  */
-export function tryParseClipboardTable(clipboardData: DataTransfer): string | null {
+export function htmlToMarkdown(html: string): string | null {
+  if (!html || typeof html !== 'string') return null;
+
+  // Ignore VS Code internal copy containing syntax highlighting spans
+  if (
+    html.includes('data-vscode') ||
+    html.includes('name="generator" content="vscode"') ||
+    html.includes('class="vscode-')
+  ) {
+    return null;
+  }
+
+  // Check if HTML has any semantic formatting
+  const hasFormatting =
+    /<(?:b|strong|i|em|code|pre|blockquote|h[1-6]|a|ul|ol|table|s|del|strike|hr)\b|font-weight:\s*(?:bold|[6-9]00)|font-style:\s*italic/i.test(
+      html
+    );
+  if (!hasFormatting) {
+    return null;
+  }
+
+  const doc = getParsedDocument(html);
+  if (!doc) return null;
+
+  // Remove non-content elements
+  const removable = doc.body.querySelectorAll('script, style, meta, link, noscript');
+  removable.forEach((el: any) => el.remove());
+
+  function processNode(node: any, listContext: { isOrdered: boolean; index: number; depth: number } | null = null): string {
+    if (node.nodeType === 3) {
+      // Text node
+      return node.textContent || '';
+    }
+
+    if (node.nodeType !== 1) {
+      return '';
+    }
+
+    const el = node;
+    const tag = el.tagName.toLowerCase();
+
+    // Check style attribute for bold / italic
+    const style = (el.getAttribute('style') || '').toLowerCase();
+    const isBoldStyle = /font-weight:\s*(?:bold|[6-9]00)/.test(style);
+    const isItalicStyle = /font-style:\s*italic/.test(style);
+
+    // 1. Code blocks (<pre>)
+    if (tag === 'pre') {
+      const codeEl = el.querySelector('code');
+      let lang = '';
+      if (codeEl) {
+        const cls = codeEl.getAttribute('class') || '';
+        const match = cls.match(/(?:language|lang)-(\w+)/i);
+        if (match) lang = match[1];
+      }
+      const text = el.textContent || '';
+      const cleanText = text.replace(/^\n+|\n+$/g, '');
+      return `\n\n\`\`\`${lang}\n${cleanText}\n\`\`\`\n\n`;
+    }
+
+    // 2. Inline Code (<code>, <kbd>, <tt>)
+    if (tag === 'code' || tag === 'kbd' || tag === 'tt') {
+      const text = el.textContent || '';
+      return `\`${text.trim()}\``;
+    }
+
+    // 3. Headings (<h1> to <h6>)
+    if (/^h[1-6]$/.test(tag)) {
+      const level = parseInt(tag[1], 10);
+      const prefix = '#'.repeat(level);
+      const childrenText = processChildren(el).trim();
+      return `\n\n${prefix} ${childrenText}\n\n`;
+    }
+
+    // 4. Blockquotes (<blockquote>)
+    if (tag === 'blockquote') {
+      const inner = processChildren(el).trim();
+      const quoted = inner
+        .replace(/\n{3,}/g, '\n\n')
+        .split('\n')
+        .map((line) => (line.trim() ? `> ${line}` : '>'))
+        .join('\n');
+      return `\n\n${quoted}\n\n`;
+    }
+
+    // 5. Tables (<table>)
+    if (tag === 'table') {
+      return `\n\n${convertTableElementToMarkdown(el)}\n\n`;
+    }
+
+    // 6. Lists (<ul>, <ol>)
+    if (tag === 'ul' || tag === 'ol') {
+      const isOrdered = tag === 'ol';
+      const depth = listContext ? listContext.depth + 1 : 0;
+      const start = parseInt(el.getAttribute('start') || '1', 10);
+      let index = isNaN(start) ? 1 : start;
+
+      const items = Array.from(el.children).filter(
+        (c: any) => c.tagName.toLowerCase() === 'li'
+      );
+
+      const res = items
+        .map((li: any) => processListItem(li, { isOrdered, index: index++, depth }))
+        .join('\n');
+
+      return depth === 0 ? `\n\n${res}\n\n` : `\n${res}`;
+    }
+
+    // 7. Links (<a>)
+    if (tag === 'a') {
+      const href = el.getAttribute('href') || '';
+      const text = processChildren(el).trim();
+      if (!href || href === '#' || href.startsWith('javascript:')) {
+        return text;
+      }
+      return text ? `[${text}](${href})` : href;
+    }
+
+    // 8. Strikethrough (<s>, <del>, <strike>)
+    if (tag === 's' || tag === 'del' || tag === 'strike') {
+      const text = processChildren(el).trim();
+      return text ? `~~${text}~~` : '';
+    }
+
+    // 9. Horizontal Rule (<hr>)
+    if (tag === 'hr') {
+      return '\n\n---\n\n';
+    }
+
+    // 10. Images (<img>)
+    if (tag === 'img') {
+      const src = el.getAttribute('src') || '';
+      const alt = el.getAttribute('alt') || '';
+      if (src) {
+        return `![${alt}](${src})`;
+      }
+      return '';
+    }
+
+    // 11. Line breaks & Paragraphs
+    if (tag === 'br') {
+      return '\n';
+    }
+
+    if (tag === 'p') {
+      const text = processChildren(el).trim();
+      return text ? `\n\n${text}\n\n` : '';
+    }
+
+    if (tag === 'div') {
+      const text = processChildren(el);
+      return `\n${text}\n`;
+    }
+
+    // Children
+    let content = processChildren(el);
+
+    // Apply Bold / Italic
+    const isBold = tag === 'b' || tag === 'strong' || isBoldStyle;
+    const isItalic = tag === 'i' || tag === 'em' || isItalicStyle;
+
+    if (isBold && isItalic) {
+      content = wrapFormatting(content, '***');
+    } else if (isBold) {
+      content = wrapFormatting(content, '**');
+    } else if (isItalic) {
+      content = wrapFormatting(content, '*');
+    }
+
+    return content;
+  }
+
+  function wrapFormatting(text: string, marker: string): string {
+    if (!text || !text.trim()) return text;
+    const leadingSpaces = (text.match(/^\s*/) || [''])[0];
+    const trailingSpaces = (text.match(/\s*$/) || [''])[0];
+    const trimmed = text.slice(leadingSpaces.length, text.length - trailingSpaces.length);
+    return `${leadingSpaces}${marker}${trimmed}${marker}${trailingSpaces}`;
+  }
+
+  function processChildren(el: any): string {
+    let out = '';
+    for (const child of Array.from(el.childNodes)) {
+      out += processNode(child);
+    }
+    return out;
+  }
+
+  function processListItem(li: any, ctx: { isOrdered: boolean; index: number; depth: number }): string {
+    const indent = '  '.repeat(ctx.depth);
+    const bullet = ctx.isOrdered ? `${ctx.index}. ` : '- ';
+
+    // Extract nested sublists
+    const sublists = Array.from(li.children).filter((c: any) =>
+      ['ul', 'ol'].includes(c.tagName.toLowerCase())
+    );
+
+    let inlineContent = '';
+    for (const child of Array.from(li.childNodes)) {
+      if (
+        (child as any).nodeType === 1 &&
+        ['ul', 'ol'].includes(((child as any).tagName || '').toLowerCase())
+      ) {
+        continue;
+      }
+      inlineContent += processNode(child);
+    }
+    inlineContent = inlineContent.trim();
+
+    let sublistContent = '';
+    for (const sub of sublists) {
+      sublistContent += processNode(sub, { isOrdered: false, index: 1, depth: ctx.depth + 1 });
+    }
+
+    return `${indent}${bullet}${inlineContent}${sublistContent}`;
+  }
+
+  const rawMd = processNode(doc.body);
+
+  // Clean up excessive blank lines
+  const cleaned = rawMd
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return cleaned || null;
+}
+
+function convertTableElementToMarkdown(table: any): string {
+  const trElements = Array.from(table.querySelectorAll('tr'));
+  if (trElements.length === 0) return '';
+
+  const rows: string[][] = [];
+  let maxCols = 0;
+
+  for (const tr of trElements as any[]) {
+    const cellElements = Array.from(tr.querySelectorAll('th, td'));
+    if (cellElements.length === 0) continue;
+
+    const row = cellElements.map((cell: any) => {
+      let cellText = (cell.textContent || '').trim();
+      return cellText.replace(/\r?\n+/g, ' ').replace(/\|/g, '\\|');
+    });
+
+    if (row.length > maxCols) maxCols = row.length;
+    rows.push(row);
+  }
+
+  if (rows.length === 0 || maxCols === 0) return '';
+
+  for (const r of rows) {
+    while (r.length < maxCols) r.push('');
+  }
+
+  const header = rows[0];
+  const sep = new Array(maxCols).fill('---');
+  const data = rows.slice(1);
+  const fmt = (r: string[]) => `| ${r.join(' | ')} |`;
+
+  return [fmt(header), fmt(sep), ...data.map(fmt)].join('\n');
+}
+
+function getParsedDocument(html: string): any {
+  if (typeof DOMParser !== 'undefined') {
+    const parser = new DOMParser();
+    return parser.parseFromString(html, 'text/html');
+  }
+
+  // Fallback for tests running in Node environment
+  try {
+    const req = (globalThis as any).require;
+    if (typeof req === 'function') {
+      const { Window } = req('happy-dom');
+      const win = new Window();
+      const doc = win.document;
+      doc.body.innerHTML = html;
+      return doc;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Inspects a paste event's DataTransfer for rich text or table content.
+ * Returns the converted Markdown and a flag indicating whether a table was detected,
+ * or null if standard plain-text paste should occur.
+ */
+export function tryParseClipboardRichText(clipboardData: DataTransfer): {
+  markdown: string;
+  isTable: boolean;
+} | null {
   const html = clipboardData.getData('text/html');
   if (html) {
-    const fromHtml = htmlTableToMarkdown(html);
-    if (fromHtml) return fromHtml;
+    const hasTable = /<table\b[^>]*>/i.test(html);
+    const md = htmlToMarkdown(html);
+    if (md) {
+      return {
+        markdown: md,
+        isTable: hasTable,
+      };
+    }
   }
 
   const plain = clipboardData.getData('text/plain');
   if (plain) {
     const fromTsv = tsvToMarkdownTable(plain);
-    if (fromTsv) return fromTsv;
+    if (fromTsv) {
+      return {
+        markdown: fromTsv,
+        isTable: true,
+      };
+    }
   }
 
+  return null;
+}
+
+/**
+ * Backwards-compatibility wrapper for table-only parsing.
+ */
+export function tryParseClipboardTable(clipboardData: DataTransfer): string | null {
+  const parsed = tryParseClipboardRichText(clipboardData);
+  if (parsed && parsed.isTable) {
+    return parsed.markdown;
+  }
   return null;
 }

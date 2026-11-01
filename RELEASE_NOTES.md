@@ -1,3 +1,29 @@
+# Release Notes — BookMD v0.1.9
+
+**BookMD v0.1.9** introduces full **Rich-Text to Markdown Clipboard Conversion** (automatically formatting bold, italic, inline code, code blocks, blockquotes, headings, links, and nested lists from copied web pages, Word, or Google Docs), and redesigns **Settings Explanations** with clean, compact collapsible callout details.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 📝 1. Rich-Text to Markdown Clipboard Paste
+- **Full Formatting Recognition**: Copying formatted text from web pages, Google Docs, Microsoft Word, Notion, or ChatGPT and pasting directly into BookMD instantly translates into clean Markdown:
+  - **Bold & Italic**: `**bold**`, `*italic*`, and combined `***bold italic***` (with smart whitespace boundary preservation).
+  - **Inline Code & Code Blocks**: `` `inline code` `` and fenced code blocks with detected language tags (```ts).
+  - **Headings**: Automatically maps `<h1>` through `<h6>` to `#` through `######`.
+  - **Blockquotes**: Converts `<blockquote>` into clean single-prefixed Markdown quotes (`> quote`).
+  - **Links**: Converts `<a href="...">` to `[text](url)`.
+  - **Lists**: Formats both unordered (`- `) and numbered lists (`1. `), preserving nested indentation levels.
+  - **Strikethrough**: Converts `<s>`, `<del>`, and `<strike>` to `~~text~~`.
+  - **Tables**: Seamlessly handles tables from HTML or TSV spreadsheets.
+- **Developer-Friendly Filtering**: Detects internal VS Code editor copies to preserve raw code formatting without injecting unwanted styling tokens.
+
+### 🎨 2. Collapsible Settings UI with Elegant Details
+- **De-cluttered Settings Panel**: Replaced lengthy explanation paragraphs in Image Handling with a crisp 1-line summary and a modern collapsible disclosure (`▸ Xem chi tiết cách hoạt động`).
+- **Interactive Callout Cards**: Clicking reveals an indented, softly-bordered callout box detailing the naming formulas, custom overrides, and session-scoped persistence rules.
+
+---
+
 # Release Notes — BookMD v0.1.8
 
 **BookMD v0.1.8** brings a dedicated **Open Workspace Button** in the titlebar, introduces automatic **Smart Table Paste to Markdown** (converting Excel, Google Sheets, Word, and web tables into clean markdown tables), defaults **Image Naming** directly to the active document name without folder prefixes, and adds a persistent **Version Indicator** in the bottom status bar.

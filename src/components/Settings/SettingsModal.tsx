@@ -303,10 +303,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
                 <span className="settings-hint">
-                  Mặc định: Tự động tạo và lưu ảnh vào thư mục <code>images/</code> đặt ngay trong thư mục chứa file Markdown đang viết (thay vì lưu cố định ở gốc workspace).<br />
-                  Bạn có thể duyệt hoặc nhập thư mục khác cho phiên làm việc hiện tại.<br />
-                  <em>* Lưu ý: Cài đặt này chỉ áp dụng trong phiên hiện tại và sẽ tự động đặt lại về mặc định khi mở thư mục/workspace khác hoặc khởi động lại ứng dụng.</em>
+                  Mặc định: Tự động lưu vào thư mục <code>images/</code> đặt ngay cạnh file Markdown đang viết.
                 </span>
+                <details className="settings-hint-details">
+                  <summary className="settings-hint-summary">
+                    <span>Xem chi tiết cách hoạt động</span>
+                  </summary>
+                  <div className="settings-hint-card">
+                    <p style={{ margin: '0 0 6px 0' }}>
+                      • Ảnh chụp hoặc dán từ clipboard sẽ được lưu vào thư mục <code>images/</code> nằm cùng thư mục với file <code>.md</code> đang soạn thảo (thay vì dồn về gốc workspace).
+                    </p>
+                    <p style={{ margin: '0 0 6px 0' }}>
+                      • Bạn có thể bấm <strong>"Duyệt cây thư mục..."</strong> hoặc gõ đường dẫn tùy chỉnh nếu muốn gom ảnh về một thư mục riêng trong workspace.
+                    </p>
+                    <p className="settings-hint-note" style={{ margin: 0 }}>
+                      * <strong>Phạm vi phiên (Session):</strong> Cài đặt này chỉ áp dụng trong phiên hiện tại và sẽ tự động khôi phục về mặc định khi bạn mở workspace khác hoặc khởi động lại ứng dụng.
+                    </p>
+                  </div>
+                </details>
               </div>
 
               {/* Option 2: Naming Base Directory */}
@@ -335,11 +349,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
                 <span className="settings-hint">
-                  Mặc định: Tên ảnh được đặt trực tiếp theo tên file Markdown đang viết (<code>&lt;tên_file&gt;_&lt;số&gt;.png</code>), không kèm tiền tố thư mục từ workspace.<br />
-                  Nếu bạn nhập <code>/</code> hoặc chọn Thư mục gốc Workspace, tên ảnh sẽ được ghép từ toàn bộ cấu trúc thư mục: <code>&lt;folder con&gt;-...-&lt;tên file md&gt;_&lt;số&gt;</code>.<br />
-                  Nếu chọn một thư mục con mốc, tên ảnh sẽ được ghép từ các thư mục con bên dưới mốc đó.<br />
-                  <em>* Lưu ý: Cài đặt này chỉ áp dụng trong phiên hiện tại và sẽ tự động đặt lại về mặc định khi mở thư mục/workspace khác hoặc khởi động lại ứng dụng.</em>
+                  Mặc định: Tên ảnh được đặt trực tiếp theo tên file Markdown: <code>&lt;tên_file&gt;_1.png</code>.
                 </span>
+                <details className="settings-hint-details">
+                  <summary className="settings-hint-summary">
+                    <span>Xem chi tiết cách hoạt động</span>
+                  </summary>
+                  <div className="settings-hint-card">
+                    <p style={{ margin: '0 0 6px 0' }}>
+                      • <strong>Theo file Markdown (Mặc định):</strong> Tên ảnh là <code>&lt;tên_file_md&gt;_&lt;số&gt;.png</code> (ví dụ: <code>docker_1.png</code>), không kèm tiền tố thư mục từ workspace.
+                    </p>
+                    <p style={{ margin: '0 0 6px 0' }}>
+                      • <strong>Theo gốc Workspace (<code>/</code>):</strong> Tên ảnh sẽ ghép từ toàn bộ cấu trúc thư mục con từ gốc: <code>&lt;folder con&gt;-...-&lt;tên file md&gt;_&lt;số&gt;.png</code>.
+                    </p>
+                    <p style={{ margin: '0 0 6px 0' }}>
+                      • <strong>Theo thư mục mốc cụ thể:</strong> Tên ảnh chỉ tính từ các thư mục con bên dưới mốc đó.
+                    </p>
+                    <p className="settings-hint-note" style={{ margin: 0 }}>
+                      * <strong>Phạm vi phiên (Session):</strong> Cài đặt này chỉ áp dụng trong phiên hiện tại và sẽ tự động khôi phục về mặc định khi bạn mở workspace khác hoặc khởi động lại ứng dụng.
+                    </p>
+                  </div>
+                </details>
               </div>
 
               {/* Option 3: Image Reference Syntax (Relative vs Absolute) */}
