@@ -2,7 +2,9 @@ import MarkdownIt from 'markdown-it';
 import { resolveImageSource } from './imagePath';
 import { readImageData } from '../services/ipc';
 import { markdownMathPlugin } from './markdownMath';
+import { markdownMermaidPlugin } from './markdownMermaid';
 import footnote from 'markdown-it-footnote';
+import mermaid from 'mermaid';
 
 /**
  * Compiles markdown content to a standalone, print-optimized HTML string
@@ -27,6 +29,9 @@ export async function generatePrintHtml(
   // Enable Markdown Footnotes in export
   md.use(footnote);
 
+  // Enable Mermaid diagram blocks in export
+  md.use(markdownMermaidPlugin);
+
   // Render markdown to HTML
   let bodyHtml = md.render(markdownContent);
 
@@ -45,6 +50,37 @@ export async function generatePrintHtml(
     }
     const resolved = resolveImageSource(rawSrc, docRelativePath, workspacePath);
     bodyHtml = bodyHtml.replace(match[0], `<img${match[1]}${resolved}${match[3]}>`);
+  }
+
+  // Render Mermaid diagrams into clean vector SVGs for PDF export
+  const mermaidRegex = /<div class="mermaid-diagram"[^>]*data-mermaid-code="([^"]+)"[^>]*>[\s\S]*?<\/div>\s*<\/div>/g;
+  const mermaidMatches = Array.from(bodyHtml.matchAll(mermaidRegex));
+  if (mermaidMatches.length > 0 && typeof document !== 'undefined') {
+    try {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'default',
+        securityLevel: 'loose',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      });
+
+      for (let i = 0; i < mermaidMatches.length; i++) {
+        const match = mermaidMatches[i];
+        const rawCode = decodeURIComponent(match[1]).trim();
+        const id = `mermaid-pdf-${Date.now()}-${i}`;
+        try {
+          const { svg } = await mermaid.render(id, rawCode);
+          bodyHtml = bodyHtml.replace(
+            match[0],
+            `<div class="mermaid-print-diagram" style="margin: 14pt 0; text-align: center; page-break-inside: avoid;">${svg}</div>`
+          );
+        } catch (renderErr) {
+          console.warn('Failed to render mermaid diagram for PDF export:', renderErr);
+        }
+      }
+    } catch (initErr) {
+      console.warn('Failed to initialize mermaid for PDF export:', initErr);
+    }
   }
 
   return `<!DOCTYPE html>
@@ -231,6 +267,19 @@ export async function generatePrintHtml(
       color: #4f46e5;
       text-decoration: none;
       margin-left: 3pt;
+    }
+    /* Mermaid Diagrams in Print / PDF */
+    .mermaid-print-diagram {
+      margin: 16pt 0;
+      text-align: center;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .mermaid-print-diagram svg {
+      max-width: 100% !important;
+      height: auto !important;
+      display: inline-block;
+      margin: 0 auto;
     }
   </style>
 </head>

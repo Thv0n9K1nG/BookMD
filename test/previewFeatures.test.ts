@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import MarkdownIt from 'markdown-it';
 import footnote from 'markdown-it-footnote';
+import { markdownMermaidPlugin } from '../src/utils/markdownMermaid';
 import { normalizePathSegments } from '../src/utils/imagePath';
 
 describe('Preview Markdown Rules & Synchronized Features', () => {
@@ -111,6 +112,42 @@ This is a paragraph.
     expect(html).toContain('First footnote text.');
     expect(html).toContain('Second footnote text.');
     expect(html).toContain('class="footnote-backref"');
+  });
+
+  it('renders mermaid code fences to .mermaid-diagram with source lines and data-mermaid-code', () => {
+    const md = new MarkdownIt().use(markdownMermaidPlugin);
+    md.core.ruler.push('source_lines', (state) => {
+      state.tokens.forEach((token) => {
+        if (token.map && token.nesting >= 0) {
+          token.attrSet('data-source-line', String(token.map[0] + 1));
+          token.attrSet('data-source-end-line', String(token.map[1]));
+        }
+      });
+    });
+
+    const markdownText = `\`\`\`mermaid
+graph TD
+    A[Start] --> B[Process]
+    B --> C[End]
+\`\`\`
+
+\`\`\`python
+def hello():
+    return "world"
+\`\`\``;
+
+    const html = md.render(markdownText);
+
+    // Mermaid block rendered into custom container
+    expect(html).toContain('class="mermaid-diagram"');
+    expect(html).toContain('data-mermaid-code=');
+    expect(html).toContain('class="mermaid-target"');
+    expect(html).toContain('data-source-line="1"');
+
+    // Non-mermaid code fences remain standard pre/code
+    expect(html).toContain('<pre><code');
+    expect(html).toContain('class="language-python"');
+    expect(html).toContain('def hello():');
   });
 });
 

@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest';
 import {
   htmlTableToMarkdown,
@@ -42,6 +43,56 @@ describe('Rich Text & Table Paste Utilities', () => {
     expect(md).not.toBeNull();
     expect(md).toContain('Syntax \\| Symbol');
     expect(md).toContain('A \\| B');
+  });
+
+  it('preserves bold, italic, code, links, and strikethrough inside table cells', () => {
+    const html = `
+      <table>
+        <thead>
+          <tr>
+            <th><b>Feature</b></th>
+            <th><i>Status</i></th>
+            <th><code>Command</code></th>
+            <th>Reference</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Fast Search</strong></td>
+            <td><em>Active</em></td>
+            <td><code>Ctrl + F</code></td>
+            <td><a href="https://example.com/search">Docs</a></td>
+          </tr>
+          <tr>
+            <td><span style="font-weight: bold; font-style: italic">VIP Mode</span></td>
+            <td><s>Deprecated</s></td>
+            <td><code>git checkout -b main</code></td>
+            <td>Visit <a href="https://github.com">GitHub</a></td>
+          </tr>
+          <tr>
+            <td>Paragraphs</td>
+            <td><p>Part 1</p><p>Part 2</p></td>
+            <td><code>echo "a | b"</code></td>
+            <td>Normal</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    const md = htmlTableToMarkdown(html);
+    expect(md).not.toBeNull();
+    // Headers
+    expect(md).toContain('| **Feature** | *Status* | `Command` | Reference |');
+    // Row 1
+    expect(md).toContain('| **Fast Search** | *Active* | `Ctrl + F` | [Docs](https://example.com/search) |');
+    // Row 2
+    expect(md).toContain('***VIP Mode***');
+    expect(md).toContain('~~Deprecated~~');
+    expect(md).toContain('`git checkout -b main`');
+    expect(md).toContain('Visit [GitHub](https://github.com)');
+    // Row 3
+    expect(md).toContain('Part 1<br>Part 2');
+    expect(md).toContain('`echo "a \\| b"`');
   });
 
   it('converts tab-separated values (TSV) from spreadsheets into Markdown tables', () => {

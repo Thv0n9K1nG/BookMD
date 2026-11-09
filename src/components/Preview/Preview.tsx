@@ -9,7 +9,9 @@ import { ViewMode } from '../../types';
 import { CopyIcon } from '../common/Icons';
 import { generateHeadingSlug, findHeadingElement } from '../../utils/slug';
 import { markdownMathPlugin } from '../../utils/markdownMath';
+import { markdownMermaidPlugin } from '../../utils/markdownMermaid';
 import footnote from 'markdown-it-footnote';
+import mermaid from 'mermaid';
 
 interface PreviewProps {
   content: string;
@@ -17,6 +19,7 @@ interface PreviewProps {
   workspacePath?: string;
   activeLine?: number;
   viewMode?: ViewMode;
+  theme?: string;
   onNavigateToFile?: (relPath: string) => void;
   onToast?: (message: string, type?: 'info' | 'success' | 'error') => void;
 }
@@ -27,6 +30,7 @@ export const Preview: React.FC<PreviewProps> = ({
   workspacePath,
   activeLine,
   viewMode,
+  theme,
   onNavigateToFile,
   onToast,
 }) => {
@@ -34,6 +38,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const activeFocusElRef = useRef<HTMLElement | null>(null);
   const scrollTimeoutRef = useRef<any>(null);
   const prevDocPathRef = useRef<string>(relativePath);
+  const prevThemeRef = useRef<string | undefined>(theme);
   const [copyMenu, setCopyMenu] = useState<{
     x: number;
     y: number;
@@ -49,11 +54,14 @@ export const Preview: React.FC<PreviewProps> = ({
       breaks: true,
     });
 
-    // Support LaTeX math expressions ($...$ and $...$)
+    // Support LaTeX math expressions ($...$ and $$...$$)
     instance.use(markdownMathPlugin);
 
     // Support Markdown Footnotes ([^1] and [^1]: ...)
     instance.use(footnote);
+
+    // Support Mermaid diagram blocks (```mermaid ... ```)
+    instance.use(markdownMermaidPlugin);
 
     // 1. Map source lines to block tokens for split-view scroll sync and focus zooming
     instance.core.ruler.push('source_lines', (state) => {
@@ -171,9 +179,21 @@ export const Preview: React.FC<PreviewProps> = ({
     morphdom(container, temp, {
       childrenOnly: true,
       onBeforeElUpdated(fromEl, toEl) {
-        // Preserve code copy buttons inside <pre>
-        if (fromEl.classList && fromEl.classList.contains('code-copy-btn')) {
+        // Preserve code copy buttons inside <pre> and mermaid diagrams
+        if (
+          fromEl.classList &&
+          (fromEl.classList.contains('code-copy-btn') || fromEl.classList.contains('mermaid-copy-btn'))
+        ) {
           return false;
+        }
+
+        // Mermaid diagram stability: If code hasn't changed and diagram is already rendered, retain it untouched!
+        if (fromEl.classList && fromEl.classList.contains('mermaid-diagram')) {
+          const fromCode = fromEl.getAttribute('data-mermaid-code');
+          const toCode = toEl.getAttribute('data-mermaid-code');
+          if (fromCode && fromCode === toCode && fromEl.getAttribute('data-rendered') === 'true') {
+            return false;
+          }
         }
 
         // Image stability: If image source hasn't changed, retain the existing DOM node completely!
@@ -411,7 +431,102 @@ export const Preview: React.FC<PreviewProps> = ({
     });
   }, [renderedHtml, onToast]);
 
-  // 2. Right-click context menu for selected text or code blocks in preview pane
+  // 2. Render Mermaid diagrams into SVGs with DOM caching & error handling
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Invalidate rendered diagrams if theme changed
+    if (prevThemeRef.current !== theme) {
+      prevThemeRef.current = theme;
+      const allDiagrams = container.querySelectorAll<HTMLElement>('.mermaid-diagram');
+      allDiagrams.forEach((el) => {
+        el.removeAttribute('data-rendered');
+      });
+    }
+
+    const unrendered = Array.from(
+      container.querySelectorAll<HTMLElement>('.mermaid-diagram:not([data-rendered="true"])')
+    );
+    if (unrendered.length === 0) return;
+
+    let isCancelled = false;
+
+    const renderDiagrams = async () => {
+      const isDark =
+        theme === 'dark' || document.documentElement.getAttribute('data-theme') === 'dark';
+      try {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: isDark ? 'dark' : 'default',
+          securityLevel: 'loose',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        });
+      } catch (e) {
+        console.warn('Mermaid initialization warning:', e);
+      }
+
+      for (let i = 0; i < unrendered.length; i++) {
+        if (isCancelled) break;
+        const el = unrendered[i];
+        const rawCode = decodeURIComponent(el.getAttribute('data-mermaid-code') || '').trim();
+        if (!rawCode) continue;
+
+        const target = (el.querySelector('.mermaid-target') as HTMLElement) || el;
+        const id = `mermaid-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`;
+
+        try {
+          const { svg } = await mermaid.render(id, rawCode);
+          if (isCancelled) break;
+          target.innerHTML = svg;
+          el.setAttribute('data-rendered', 'true');
+          el.classList.remove('has-error');
+
+          // Attach copy button to mermaid diagram if not present
+          if (!el.querySelector('.mermaid-copy-btn')) {
+            const btn = document.createElement('button');
+            btn.className = 'mermaid-copy-btn';
+            btn.type = 'button';
+            btn.title = 'Sao chép mã Mermaid';
+            btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span>`;
+            btn.onclick = (e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(rawCode);
+              btn.innerHTML = `<span>Đã chép!</span>`;
+              btn.classList.add('copied');
+              onToast?.('Đã sao chép mã nguồn Mermaid', 'success');
+              setTimeout(() => {
+                btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span>`;
+                btn.classList.remove('copied');
+              }, 2000);
+            };
+            el.appendChild(btn);
+          }
+        } catch (err: any) {
+          if (isCancelled) break;
+          const stray = document.getElementById(id) || document.getElementById(`d${id}`);
+          if (stray) stray.remove();
+
+          el.setAttribute('data-rendered', 'error');
+          el.classList.add('has-error');
+          target.innerHTML = `
+            <div class="mermaid-error">
+              <div class="mermaid-error-title">⚠️ Lỗi cú pháp biểu đồ Mermaid</div>
+              <div class="mermaid-error-desc">${err?.message || 'Cú pháp không hợp lệ'}</div>
+            </div>
+          `;
+        }
+      }
+    };
+
+    renderDiagrams();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [renderedHtml, theme, onToast]);
+
+  // 3. Right-click context menu for selected text, code blocks, or mermaid diagrams
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -428,6 +543,21 @@ export const Preview: React.FC<PreviewProps> = ({
           label: 'Sao chép văn bản đã chọn (Ctrl+C)',
         });
         return;
+      }
+
+      const mermaidBlock = (e.target as HTMLElement)?.closest('.mermaid-diagram');
+      if (mermaidBlock) {
+        const rawCode = decodeURIComponent(mermaidBlock.getAttribute('data-mermaid-code') || '');
+        if (rawCode) {
+          e.preventDefault();
+          setCopyMenu({
+            x: e.clientX,
+            y: e.clientY,
+            text: rawCode,
+            label: 'Sao chép mã biểu đồ Mermaid',
+          });
+          return;
+        }
       }
 
       const preBlock = (e.target as HTMLElement)?.closest('pre');

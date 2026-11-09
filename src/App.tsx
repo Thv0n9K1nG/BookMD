@@ -1033,6 +1033,7 @@ export const App: React.FC = () => {
                   workspacePath={workspace?.path}
                   activeLine={cursorPos.line}
                   viewMode={viewMode}
+                  theme={settings.theme}
                   onNavigateToFile={handleNavigateToFile}
                   onToast={addToast}
                 />

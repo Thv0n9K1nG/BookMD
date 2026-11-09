@@ -252,14 +252,6 @@ export function htmlToMarkdown(html: string): string | null {
     return content;
   }
 
-  function wrapFormatting(text: string, marker: string): string {
-    if (!text || !text.trim()) return text;
-    const leadingSpaces = (text.match(/^\s*/) || [''])[0];
-    const trailingSpaces = (text.match(/\s*$/) || [''])[0];
-    const trimmed = text.slice(leadingSpaces.length, text.length - trailingSpaces.length);
-    return `${leadingSpaces}${marker}${trimmed}${marker}${trailingSpaces}`;
-  }
-
   function processChildren(el: any): string {
     let out = '';
     for (const child of Array.from(el.childNodes)) {
@@ -308,7 +300,109 @@ export function htmlToMarkdown(html: string): string | null {
   return cleaned || null;
 }
 
-function convertTableElementToMarkdown(table: any): string {
+export function wrapFormatting(text: string, marker: string): string {
+  if (!text || !text.trim()) return text;
+  const leadingSpaces = (text.match(/^\s*/) || [''])[0];
+  const trailingSpaces = (text.match(/\s*$/) || [''])[0];
+  const trimmed = text.slice(leadingSpaces.length, text.length - trailingSpaces.length);
+  return `${leadingSpaces}${marker}${trimmed}${marker}${trailingSpaces}`;
+}
+
+export function convertTableCellToMarkdown(cell: any): string {
+  function processInline(node: any): string {
+    if (node.nodeType === 3) {
+      // Text node
+      const text = node.textContent || '';
+      return text.replace(/\r?\n+/g, ' ').replace(/\|/g, '\\|');
+    }
+
+    if (node.nodeType !== 1) {
+      return '';
+    }
+
+    const el = node;
+    const tag = el.tagName.toLowerCase();
+    const style = (el.getAttribute('style') || '').toLowerCase();
+    const isBoldStyle = /font-weight:\s*(?:bold|[6-9]00)/.test(style);
+    const isItalicStyle = /font-style:\s*italic/.test(style);
+
+    // Code
+    if (tag === 'code' || tag === 'kbd' || tag === 'tt') {
+      const codeText = (el.textContent || '').replace(/\r?\n+/g, ' ').replace(/\|/g, '\\|').trim();
+      return codeText ? `\`${codeText}\`` : '';
+    }
+
+    // Link
+    if (tag === 'a') {
+      const href = el.getAttribute('href') || '';
+      const text = processChildren(el).trim();
+      if (!href || href === '#' || href.startsWith('javascript:')) {
+        return text;
+      }
+      return text ? `[${text}](${href})` : href;
+    }
+
+    // Strikethrough
+    if (tag === 's' || tag === 'del' || tag === 'strike') {
+      const text = processChildren(el).trim();
+      return text ? `~~${text}~~` : '';
+    }
+
+    // Image
+    if (tag === 'img') {
+      const src = el.getAttribute('src') || '';
+      const alt = el.getAttribute('alt') || '';
+      return src ? `![${alt}](${src})` : '';
+    }
+
+    // Line break
+    if (tag === 'br') {
+      return '<br>';
+    }
+
+    let content = processChildren(el);
+
+    if (tag === 'p' || tag === 'div') {
+      content = content.trim();
+    }
+
+    const isBold = tag === 'b' || tag === 'strong' || isBoldStyle;
+    const isItalic = tag === 'i' || tag === 'em' || isItalicStyle;
+
+    if (isBold && isItalic) {
+      content = wrapFormatting(content, '***');
+    } else if (isBold) {
+      content = wrapFormatting(content, '**');
+    } else if (isItalic) {
+      content = wrapFormatting(content, '*');
+    }
+
+    return content;
+  }
+
+  function processChildren(el: any): string {
+    if (!el || !el.childNodes) return '';
+    let out = '';
+    const children = Array.from(el.childNodes);
+    for (let i = 0; i < children.length; i++) {
+      const child: any = children[i];
+      const res = processInline(child);
+      if (child.nodeType === 1 && (child.tagName.toLowerCase() === 'p' || child.tagName.toLowerCase() === 'div')) {
+        if (out && !out.endsWith('<br>')) out += '<br>';
+        out += res;
+      } else {
+        out += res;
+      }
+    }
+    return out;
+  }
+
+  let text = processChildren(cell).trim();
+  text = text.replace(/\r?\n+/g, ' ');
+  return text;
+}
+
+export function convertTableElementToMarkdown(table: any): string {
   const trElements = Array.from(table.querySelectorAll('tr'));
   if (trElements.length === 0) return '';
 
@@ -319,10 +413,7 @@ function convertTableElementToMarkdown(table: any): string {
     const cellElements = Array.from(tr.querySelectorAll('th, td'));
     if (cellElements.length === 0) continue;
 
-    const row = cellElements.map((cell: any) => {
-      let cellText = (cell.textContent || '').trim();
-      return cellText.replace(/\r?\n+/g, ' ').replace(/\|/g, '\\|');
-    });
+    const row = cellElements.map((cell: any) => convertTableCellToMarkdown(cell));
 
     if (row.length > maxCols) maxCols = row.length;
     rows.push(row);

@@ -30,7 +30,7 @@ export default defineConfig(() => ({
     },
   },
   build: {
-    chunkSizeWarningLimit: 1200,
+    chunkSizeWarningLimit: 6000,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -39,6 +39,9 @@ export default defineConfig(() => ({
           }
           if (id.includes("markdown-it")) {
             return "markdown-it";
+          }
+          if (id.includes("mermaid")) {
+            return "mermaid";
           }
           if (id.includes("react")) {
             return "react-vendor";

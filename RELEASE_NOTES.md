@@ -1,3 +1,41 @@
+# Release Notes — BookMD v0.1.10
+
+**BookMD v0.1.10** introduces native **Mermaid.js Diagram Rendering** (supporting flowcharts, sequence diagrams, class diagrams, state machines, and ER models directly inside the live preview pane and PDF exports), and enhances **Table Clipboard Paste** by preserving bold, italic, inline code, links, and line breaks within table cells.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 📊 1. Native Mermaid.js Diagram Rendering (```mermaid)
+- **Interactive Visual Diagrams**: Write code blocks with ```` ```mermaid ```` and BookMD will instantly render them as crisp SVG diagrams:
+  ```markdown
+  \`\`\`mermaid
+  graph TD
+      A[Client Request] --> B{Router / Gateway}
+      B -->|Authenticated| C[BookMD Core Engine]
+      B -->|Public| D[Static Asset Server]
+      C --> E[Local Filesystem]
+  \`\`\`
+  ```
+- **Broad Diagram Support**: Seamlessly renders flowcharts (`graph` / `flowchart`), sequence diagrams, state diagrams, entity-relationship diagrams, class diagrams, Gantt charts, git graphs, and mindmaps.
+- **Flicker-Free DOM Reconciliation**: Built directly into BookMD's `morphdom` reconciliation pipeline. When typing elsewhere in your document, already rendered Mermaid diagrams are cached in memory and stay completely stable with zero flickering or re-renders.
+- **Theme-Synchronized Rendering**: Automatically synchronizes diagram themes with BookMD's Dark and Light modes.
+- **Quick Diagram Copy**: Added a 1-click "Sao chép" (Copy) button on hover and a right-click context menu option to instantly copy the raw Mermaid source code.
+- **Offline & Zero-Latency**: All rendering runs 100% locally on your machine without external web connections.
+- **PDF Vector Export**: Mermaid diagrams are automatically rendered and embedded as scalable vector SVGs when exporting documents to PDF.
+
+### 📋 2. Preserved Formatting Inside Pasted Table Cells
+- **Zero Data Loss in Table Cells**: Previously, copying tables from web pages, Word, or Google Docs stripped formatting within cells down to raw text. BookMD v0.1.10 faithfully preserves and converts inline styles inside each cell:
+  - **Bold & Strong**: `<b>` and `<strong>` are preserved as `**text**`.
+  - **Italic & Emphasis**: `<i>` and `<em>` are preserved as `*text*`.
+  - **Inline Code**: `<code>`, `<kbd>`, and `<tt>` are preserved as `` `code` ``.
+  - **Hyperlinks**: `<a href="...">` are converted to `[text](url)`.
+  - **Strikethrough**: `<s>`, `<del>`, and `<strike>` are converted to `~~text~~`.
+  - **Line Breaks & Paragraphs**: `<br>` and multi-paragraph cells are cleanly separated without breaking table row syntax.
+  - **Smart Pipe Escaping**: Literal pipe characters `|` inside cell text or code are automatically escaped as `\|` to preserve Markdown column alignments.
+
+---
+
 # Release Notes — BookMD v0.1.9
 
 **BookMD v0.1.9** introduces full **Rich-Text to Markdown Clipboard Conversion** (automatically formatting bold, italic, inline code, code blocks, blockquotes, headings, links, and nested lists from copied web pages, Word, or Google Docs), and redesigns **Settings Explanations** with clean, compact collapsible callout details.

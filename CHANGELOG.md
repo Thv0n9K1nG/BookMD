@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.10] - 2026-11-09
+
+### Added
+- **Mermaid.js Diagram Rendering**:
+  - Full native rendering for ```` ```mermaid ```` code blocks into interactive vector SVG diagrams directly in the Markdown preview pane.
+  - Supports flowcharts (`graph TD` / `flowchart LR`), sequence diagrams, state diagrams, class diagrams, entity-relationship diagrams, Gantt charts, git graphs, and mindmaps.
+  - Zero-latency, flicker-free image and diagram reconciliation using `morphdom` (unchanged Mermaid diagrams remain cached in memory during typing elsewhere in the document).
+  - Theme-aware styling: automatically syncs diagram theme between dark and light modes.
+  - Right-click context menu and one-click copy button on diagrams to copy raw Mermaid source code.
+  - Seamless PDF export: Mermaid diagrams render directly into sharp vector SVGs during print / PDF generation.
+- **Preserved Rich Formatting in Pasted Table Cells**:
+  - Table paste now faithfully preserves and translates all inline formatting inside table cells (`<th>` and `<td>`), including:
+    - Bold (`<b>`, `<strong>`, `font-weight: bold / >= 600`) -> `**text**`
+    - Italic (`<i>`, `<em>`, `font-style: italic`) -> `*text*`
+    - Bold + Italic -> `***text***`
+    - Inline code (`<code>`, `<kbd>`, `<tt>`) -> `` `text` ``
+    - Links (`<a href="...">`) -> `[text](url)`
+    - Strikethrough (`<s>`, `<del>`, `<strike>`) -> `~~text~~`
+    - Line breaks (`<br>`) and paragraphs (`<p>`, `<div>`) separated cleanly
+    - Automatic escaping of pipe symbols `|` inside cell text or code (`\|`) to prevent breaking Markdown table columns.
+
 ## [0.1.9] - 2026-11-01
 
 ### Added
