@@ -48,3 +48,4 @@ export async function renderMermaidSvg(
   const { svg } = await mermaid.render(id, code.trim());
   return svg;
 }
+

@@ -52,6 +52,10 @@ pub fn start_watcher(
                         .ok()
                         .map(|rel| rel.to_string_lossy().replace('\\', "/"))
                 })
+                .filter(|rel| {
+                    // Do not emit events for changes in ignored folders (node_modules, target, .git, etc.)
+                    !rel.split('/').any(crate::workspace::is_ignored_entry)
+                })
                 .collect();
 
             if !paths.is_empty() {

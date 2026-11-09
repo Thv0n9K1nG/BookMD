@@ -189,6 +189,16 @@ export async function getWorkspaceTree(): Promise<FileEntry[]> {
   return getMockTree();
 }
 
+export async function readDirectory(relativePath: string): Promise<FileEntry[]> {
+  if (isTauri) {
+    return await invoke<FileEntry[]>('directory_read', {
+      relativePath,
+      relative_path: relativePath,
+    });
+  }
+  return [];
+}
+
 export async function readFile(relativePath: string): Promise<string> {
   if (isTauri) {
     return await invoke<string>('file_read', { relativePath, relative_path: relativePath });

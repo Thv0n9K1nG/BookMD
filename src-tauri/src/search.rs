@@ -74,12 +74,15 @@ pub fn search_workspace(
 
     let mut results: Vec<SearchResult> = Vec::new();
     let max_results = 500;
+    let mut files_scanned = 0;
+    const MAX_FILES_TO_SCAN: usize = 15_000;
 
     // Common binary extensions to skip reading
     let binary_extensions = [
         "png", "jpg", "jpeg", "gif", "ico", "webp", "bmp", "tiff", "svg",
         "pdf", "exe", "dll", "so", "dylib", "zip", "tar", "gz", "7z", "rar",
         "woff", "woff2", "ttf", "eot", "mp3", "mp4", "wav", "avi", "mov",
+        "class", "jar", "dex", "smali", "apk", "bin", "dat",
     ];
 
     for entry in WalkDir::new(root)
@@ -89,16 +92,16 @@ pub fn search_workspace(
             let name = e.file_name().to_string_lossy();
             if e.file_type().is_dir() {
                 // Ignore heavy or hidden folders
-                !(name.starts_with('.')
-                    || name == "node_modules"
-                    || name == "target"
-                    || name == "dist"
-                    || name == "build")
+                !crate::workspace::is_ignored_entry(&name)
             } else {
                 !name.starts_with('.')
             }
         })
     {
+        if files_scanned >= MAX_FILES_TO_SCAN {
+            break;
+        }
+
         let entry = match entry {
             Ok(e) => e,
             Err(_) => continue,
@@ -107,6 +110,8 @@ pub fn search_workspace(
         if !entry.file_type().is_file() {
             continue;
         }
+
+        files_scanned += 1;
 
         let path = entry.path();
 

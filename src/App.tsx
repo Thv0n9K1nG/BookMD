@@ -15,6 +15,7 @@ import {
 import {
   openWorkspace,
   getWorkspaceTree,
+  readDirectory,
   readFile,
   writeFile,
   createFile,
@@ -191,20 +192,75 @@ export const App: React.FC = () => {
     }
   }, [addToast]);
 
-  // Reload File Tree
+  // Reload File Tree with currently expanded folders re-hydrated
   const handleRefreshTree = useCallback(async () => {
     if (!workspace) return;
     try {
-      const tree = await getWorkspaceTree();
+      let tree = await getWorkspaceTree();
+      for (const folderPath of expandedFolders) {
+        try {
+          const children = await readDirectory(folderPath);
+          const attach = (nodes: FileEntry[]): FileEntry[] => {
+            return nodes.map((node) => {
+              if (node.relativePath === folderPath) {
+                return { ...node, children };
+              }
+              if (node.children) {
+                return { ...node, children: attach(node.children) };
+              }
+              return node;
+            });
+          };
+          tree = attach(tree);
+        } catch {
+          // Ignore missing folders
+        }
+      }
       setFileTree(tree);
       addToast('Đã làm mới thư mục', 'info');
     } catch (err: any) {
       console.error('Refresh tree error:', err);
     }
-  }, [workspace, addToast]);
+  }, [workspace, expandedFolders, addToast]);
 
-  // Toggle folder expansion in tree
-  const handleToggleFolder = useCallback((folderPath: string) => {
+  // Toggle folder expansion in tree with lazy loading on demand
+  const handleToggleFolder = useCallback(async (folderPath: string) => {
+    const isExpanding = !expandedFolders.has(folderPath);
+
+    if (isExpanding) {
+      const findNode = (nodes: FileEntry[]): FileEntry | undefined => {
+        for (const node of nodes) {
+          if (node.relativePath === folderPath) return node;
+          if (node.children) {
+            const found = findNode(node.children);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+
+      const targetNode = findNode(fileTree);
+      if (targetNode && !targetNode.children) {
+        try {
+          const children = await readDirectory(folderPath);
+          const attachChildren = (nodes: FileEntry[]): FileEntry[] => {
+            return nodes.map((node) => {
+              if (node.relativePath === folderPath) {
+                return { ...node, children };
+              }
+              if (node.children) {
+                return { ...node, children: attachChildren(node.children) };
+              }
+              return node;
+            });
+          };
+          setFileTree((prev) => attachChildren(prev));
+        } catch (err) {
+          console.error('Failed to read directory children:', folderPath, err);
+        }
+      }
+    }
+
     setExpandedFolders((prev) => {
       const next = new Set(prev);
       if (next.has(folderPath)) {
@@ -214,20 +270,17 @@ export const App: React.FC = () => {
       }
       return next;
     });
-  }, []);
+  }, [expandedFolders, fileTree]);
 
   // Handle image pasted in editor: refresh file tree and expand image directory
   const handleImagePasted = useCallback(async (imageRelPath: string) => {
     try {
-      const tree = await getWorkspaceTree();
-      setFileTree(tree);
-
       const norm = imageRelPath.replace(/\\/g, '/');
       const lastSlash = norm.lastIndexOf('/');
+      const toExpand: string[] = [];
       if (lastSlash > 0) {
         const folder = norm.substring(0, lastSlash);
         const parts = folder.split('/');
-        const toExpand: string[] = [];
         let cur = '';
         for (const p of parts) {
           cur = cur ? `${cur}/${p}` : p;
@@ -239,6 +292,26 @@ export const App: React.FC = () => {
           return next;
         });
       }
+
+      let tree = await getWorkspaceTree();
+      for (const folder of toExpand) {
+        try {
+          const children = await readDirectory(folder);
+          const attach = (nodes: FileEntry[]): FileEntry[] => {
+            return nodes.map((node) => {
+              if (node.relativePath === folder) {
+                return { ...node, children };
+              }
+              if (node.children) {
+                return { ...node, children: attach(node.children) };
+              }
+              return node;
+            });
+          };
+          tree = attach(tree);
+        } catch {}
+      }
+      setFileTree(tree);
     } catch (err) {
       console.error('Failed to update tree after image paste:', err);
     }

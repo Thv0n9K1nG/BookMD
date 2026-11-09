@@ -45,16 +45,46 @@ pub fn open_workspace(path: &str) -> Result<WorkspaceInfo, AppError> {
     })
 }
 
-/// Build file tree recursively from workspace root
-pub fn get_file_tree(workspace_path: &str) -> Result<Vec<FileEntry>, AppError> {
-    let root = Path::new(workspace_path);
-    if !root.exists() {
-        return Err(AppError::WorkspaceNotOpen);
+/// Helper to determine if a directory or file should be skipped from workspace tree & search
+pub fn is_ignored_entry(name: &str) -> bool {
+    if name.starts_with('.') {
+        return true;
     }
-    build_tree(root, root)
+    matches!(
+        name.to_lowercase().as_str(),
+        "node_modules"
+            | "target"
+            | "dist"
+            | "build"
+            | "out"
+            | "bin"
+            | "obj"
+            | "venv"
+            | ".venv"
+            | "env"
+            | "__pycache__"
+            | ".pytest_cache"
+            | "vendor"
+            | ".gradle"
+            | ".idea"
+            | ".vscode"
+            | "pkg"
+            | ".turbo"
+            | ".next"
+            | ".nuxt"
+            | ".cache"
+            | "bower_components"
+            | ".cargo"
+            | ".rustup"
+    )
 }
 
-fn build_tree(dir: &Path, root: &Path) -> Result<Vec<FileEntry>, AppError> {
+/// Read direct children entries of a single directory
+pub fn read_dir_entries(dir: &Path, root: &Path) -> Result<Vec<FileEntry>, AppError> {
+    if !dir.exists() || !dir.is_dir() {
+        return Ok(Vec::new());
+    }
+
     let mut entries: Vec<FileEntry> = Vec::new();
     let mut read_dir: Vec<_> = fs::read_dir(dir)?
         .filter_map(|e| e.ok())
@@ -65,8 +95,7 @@ fn build_tree(dir: &Path, root: &Path) -> Result<Vec<FileEntry>, AppError> {
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
 
-        // Skip hidden files/dirs and node_modules
-        if name.starts_with('.') || name == "node_modules" {
+        if is_ignored_entry(&name) {
             continue;
         }
 
@@ -77,12 +106,11 @@ fn build_tree(dir: &Path, root: &Path) -> Result<Vec<FileEntry>, AppError> {
             .replace('\\', "/");
 
         if path.is_dir() {
-            let children = build_tree(&path, root)?;
             entries.push(FileEntry {
                 name,
                 relative_path: relative,
                 kind: FileKind::Directory,
-                children: Some(children),
+                children: None,
             });
         } else {
             entries.push(FileEntry {
@@ -92,9 +120,14 @@ fn build_tree(dir: &Path, root: &Path) -> Result<Vec<FileEntry>, AppError> {
                 children: None,
             });
         }
+
+        // Safety limit per folder to prevent UI lockup in abnormal folders
+        if entries.len() >= 2000 {
+            break;
+        }
     }
 
-    // Sort: directories first, then files
+    // Sort: directories first, then files alphabetically
     entries.sort_by(|a, b| {
         match (&a.kind, &b.kind) {
             (FileKind::Directory, FileKind::File) => std::cmp::Ordering::Less,
@@ -102,6 +135,52 @@ fn build_tree(dir: &Path, root: &Path) -> Result<Vec<FileEntry>, AppError> {
             _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
         }
     });
+
+    Ok(entries)
+}
+
+/// Read directory entries for on-demand lazy expansion
+pub fn read_directory(workspace_path: &str, relative_path: &str) -> Result<Vec<FileEntry>, AppError> {
+    let root = Path::new(workspace_path);
+    if !root.exists() {
+        return Err(AppError::WorkspaceNotOpen);
+    }
+    let target = if relative_path.is_empty() || relative_path == "." {
+        root.to_path_buf()
+    } else {
+        root.join(relative_path)
+    };
+    read_dir_entries(&target, root)
+}
+
+/// Build file tree with safe depth limit (default depth = 1)
+pub fn get_file_tree(workspace_path: &str) -> Result<Vec<FileEntry>, AppError> {
+    let root = Path::new(workspace_path);
+    if !root.exists() {
+        return Err(AppError::WorkspaceNotOpen);
+    }
+    build_tree(root, root, 0, 1)
+}
+
+fn build_tree(
+    dir: &Path,
+    root: &Path,
+    current_depth: usize,
+    max_depth: usize,
+) -> Result<Vec<FileEntry>, AppError> {
+    let mut entries = read_dir_entries(dir, root)?;
+
+    if current_depth < max_depth {
+        for entry in &mut entries {
+            if entry.kind == FileKind::Directory {
+                let sub_path = root.join(&entry.relative_path);
+                if sub_path.is_dir() {
+                    let children = build_tree(&sub_path, root, current_depth + 1, max_depth)?;
+                    entry.children = Some(children);
+                }
+            }
+        }
+    }
 
     Ok(entries)
 }
@@ -189,4 +268,60 @@ pub fn delete_entry(workspace_path: &str, relative_path: &str) -> Result<(), App
     }
     trash::delete(&full_path).map_err(|e| AppError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_ignored_entry() {
+        assert!(is_ignored_entry(".git"));
+        assert!(is_ignored_entry("node_modules"));
+        assert!(is_ignored_entry("target"));
+        assert!(is_ignored_entry("dist"));
+        assert!(is_ignored_entry(".vscode"));
+        assert!(is_ignored_entry("venv"));
+        assert!(!is_ignored_entry("src"));
+        assert!(!is_ignored_entry("README.md"));
+        assert!(!is_ignored_entry("notes"));
+    }
+
+    #[test]
+    fn test_get_file_tree_bounded_depth_and_lazy_read() {
+        let temp = std::env::temp_dir().join(format!("bookmd_tree_test_{}", uuid::Uuid::new_v4()));
+        let _ = fs::create_dir_all(temp.join("level1/level2/level3"));
+        fs::write(temp.join("README.md"), "hello").unwrap();
+        fs::write(temp.join("level1/note.md"), "level1").unwrap();
+        fs::write(temp.join("level1/level2/deep.md"), "deep").unwrap();
+
+        let tree = get_file_tree(&temp.to_string_lossy()).unwrap();
+        assert!(!tree.is_empty());
+        let l1 = tree.iter().find(|e| e.name == "level1").unwrap();
+        assert_eq!(l1.kind, FileKind::Directory);
+        // Level 1 children are present
+        let l1_children = l1.children.as_ref().unwrap();
+        let l2 = l1_children.iter().find(|e| e.name == "level2").unwrap();
+        // Level 2 directory has children deferred (None)
+        assert!(l2.children.is_none());
+
+        // Test on-demand reading of level2
+        let l2_entries = read_directory(&temp.to_string_lossy(), "level1/level2").unwrap();
+        assert!(l2_entries.iter().any(|e| e.name == "deep.md"));
+
+        let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn test_scan_user_nt213_project_speed() {
+        let path = r#"C:\Users\hongo\Documents\NT213\PROJECT"#;
+        if std::path::Path::new(path).exists() {
+            let start = std::time::Instant::now();
+            let tree = get_file_tree(path).unwrap();
+            let elapsed = start.elapsed();
+            println!("Scanned NT213/PROJECT in {:?}", elapsed);
+            assert!(elapsed.as_millis() < 500, "Should take under 500ms, took {:?}", elapsed);
+            assert!(!tree.is_empty());
+        }
+    }
 }

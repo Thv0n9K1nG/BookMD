@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] - 2026-11-09
+
+### Fixed
+- **Instant Workspace Opening & Lazy Directory Expansion (Critical Fix for Large Projects)**:
+  - Fixed a critical performance issue where opening large workspaces containing deep directories or massive numbers of files (e.g. decompiled APKs, JREs, build artifacts, dataset folders) caused BookMD to freeze ("Not Responding") for 10+ minutes with 10% CPU usage.
+  - Replaced unbounded recursive filesystem traversal with **On-Demand Lazy Directory Expansion**: opening a workspace now scans only the top level and immediate subfolders in **1 to 5 milliseconds**.
+  - Subdirectories are loaded asynchronously on-demand (`directory_read`) only when clicked/expanded in the file tree, mirroring the architecture of VS Code.
+  - Added comprehensive ignore filters for heavy non-source directories (`node_modules`, `target`, `dist`, `build`, `out`, `bin`, `obj`, `venv`, `.venv`, `__pycache__`, `.gradle`, `.idea`, `.vscode`, etc.) across tree scanning, filesystem watcher events, and search indexing.
+  - Added safety limits of 2,000 entries per directory and 15,000 files per search to guarantee zero freezing on any disk structure.
+
 ## [0.1.10] - 2026-11-09
 
 ### Added

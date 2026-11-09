@@ -67,6 +67,15 @@ fn workspace_tree(state: State<AppState>) -> Result<Vec<workspace::FileEntry>, S
     workspace::get_file_tree(&ws).map_err(String::from)
 }
 
+#[tauri::command]
+fn directory_read(
+    relative_path: String,
+    state: State<AppState>,
+) -> Result<Vec<workspace::FileEntry>, String> {
+    let ws = get_workspace(&state)?;
+    workspace::read_directory(&ws, &relative_path).map_err(String::from)
+}
+
 // ─── File Commands ────────────────────────────────────────────
 
 #[tauri::command]
@@ -283,6 +292,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             workspace_open,
             workspace_tree,
+            directory_read,
             file_read,
             file_write,
             file_create,
