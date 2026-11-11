@@ -140,3 +140,23 @@ export interface OpenTargetResult {
   isFile: boolean;
 }
 
+export type BackupConflictStrategy = 'auto_rename' | 'timestamp' | 'overwrite';
+export type BackupScope = 'workspace' | 'folder' | 'file';
+
+export interface BackupOptions {
+  sourcePath: string;
+  destinationFolder: string;
+  conflictStrategy?: BackupConflictStrategy;
+  skipIgnored?: boolean;
+}
+
+export interface BackupResult {
+  success: boolean;
+  sourcePath: string;
+  destinationPath: string;
+  destinationName: string;
+  filesCopied: number;
+  isDirectory: boolean;
+}
+
+

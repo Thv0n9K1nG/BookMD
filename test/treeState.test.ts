@@ -118,3 +118,4 @@ describe('Tree State Preservation & Lazy Loading', () => {
     expect(updated[0].children?.[0].name).toBe('guide.md');
   });
 });
+

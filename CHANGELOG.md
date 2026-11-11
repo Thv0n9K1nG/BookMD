@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.13] - 2026-11-11
+
+### Added
+- **Integrated Backup Tool (`BackupModal`) for Maximum Data Safety**:
+  - Added a dedicated, full-featured Backup Tool to safeguard notes and code against accidental loss, filesystem corruption, or unintentional deletions.
+  - **3 Backup Scopes**:
+    1. **Toàn bộ Workspace**: Safely clones the entire active workspace directory.
+    2. **Thư mục tùy chọn**: Pick any folder inside or outside the workspace via native folder dialog.
+    3. **File tùy chọn**: Pick any single markdown document or technical note (defaults to the currently active file).
+  - **Flexible Destination Folder**: Choose any destination folder (local directory, external drive, or cloud sync folder) with automatic last-used path remembering.
+  - **Smart Name Collision Handling**:
+    - `auto_rename` (Default & Recommended): Automatically appends incrementing numbers `(1)`, `(2)` if an item with the same name already exists in the destination, completely preventing data loss.
+    - `timestamp`: Automatically appends ISO-like timestamps `_YYYYMMDD_HHMMSS`.
+    - `overwrite`: Explicitly allows replacing older copies if desired.
+  - **Recursive Loop Guard**: Backend strictly verifies that the destination folder is not inside the source directory being copied, preventing infinite recursive expansion.
+  - **Fast Build Exclusions**: Automatically skips heavy build directories (`node_modules`, `target`, `dist`, `.git`, `venv`, etc.) by default for instant backups.
+  - **Instant Verification**: Completed backups provide a 1-click "Mở thư mục sao lưu" button (reveals in OS Explorer) and "Sao chép đường dẫn".
+- **Unified "Tools" Header Dropdown Menu (`ToolsDropdown`)**:
+  - Replaced the single "Xuất PDF" button in the titlebar with an extensible **Tools (Công cụ)** dropdown menu.
+  - Seamlessly houses both **Xuất PDF** and the new **Sao lưu Dữ liệu (Backup Tool)**.
+  - Designed as an extensible dropdown component for easily incorporating future tools.
+
 ## [0.1.12] - 2026-11-11
 
 ### Added

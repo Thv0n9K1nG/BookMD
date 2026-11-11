@@ -1,3 +1,37 @@
+# Release Notes — BookMD v0.1.13
+
+**BookMD v0.1.13** introduces an **Integrated Backup Tool (`BackupModal`)** for comprehensive data protection (supporting 3 flexible backup scopes, smart duplicate name handling, and recursive loop guards), alongside a newly redesigned **Tools Dropdown Menu** in the titlebar uniting PDF export, backup utilities, and future tools.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 💾 1. Integrated Backup Tool for Bulletproof Data Safety
+- **3 Flexible Backup Scopes**:
+  - **Entire Workspace**: Quickly copy and clone your entire open workspace to a separate backup folder.
+  - **Selected Folder**: Choose any specific subfolder or directory on your system via a native folder picker dialog.
+  - **Selected File**: Back up individual Markdown documents or configuration files (defaults to your actively open note).
+- **Customizable Destination Folder**:
+  - Save backups to any local directory, secondary drive, external USB, or cloud-synced storage folder.
+  - The destination path is remembered in `localStorage` for effortless recurring backups.
+- **Smart Duplicate Name Collision Handling**:
+  - `auto_rename` (Default & Recommended): Automatically increments names (`name (1).md`, `name (2).md`, or `Folder (1)`) so previous backups are never overwritten or lost.
+  - `timestamp`: Automatically tags copies with precision timestamps (`_YYYYMMDD_HHMMSS`).
+  - `overwrite`: Optional in-place overwrite mode for users who desire fixed single-copy mirroring.
+- **Recursive Infinite-Loop Protection**:
+  - Prevents disaster scenarios where a backup directory is mistakenly chosen inside the source directory, automatically detecting and preventing infinite recursive copies.
+- **Fast Build Exclusions**:
+  - Automatically skips bulky build and cache directories (`node_modules`, `target`, `dist`, `.git`, `venv`, etc.) by default, ensuring backups finish in milliseconds.
+- **Instant Result Verification**:
+  - Directly open the backup destination in Windows Explorer / OS file manager with 1-click ("Mở thư mục sao lưu"), or copy the absolute destination path to clipboard.
+
+### 🛠️ 2. Unified "Tools" Dropdown in Titlebar
+- **Extensible Tools Hub**: Replaced the single "Xuất PDF" button with a modern, extensible **Tools (Công cụ)** dropdown menu.
+- **Centralized Utilities**: Houses both **Xuất PDF** and the new **Sao lưu Dữ liệu (Backup Tool)** with clear icons, action titles, and descriptive subtitles.
+- **Future-Ready**: Built as an extensible component, allowing new developer utilities to be added seamlessly in future updates.
+
+---
+
 # Release Notes — BookMD v0.1.12
 
 **BookMD v0.1.12** delivers critical data-safety and stability upgrades: introducing a **Mandatory User Confirmation Modal for File & Folder Deletions** (preventing accidental document loss with default Cancel focus and OS Recycle Bin safety), and resolving the **Vanishing Subfolder / Children Bug** in On-Demand Lazy Directory Expansion during background filesystem watcher refreshes.

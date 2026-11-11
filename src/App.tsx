@@ -42,6 +42,7 @@ import { StatusBar } from './components/StatusBar/StatusBar';
 import { ToastContainer } from './components/Toast/ToastContainer';
 import { PromptModal } from './components/common/PromptModal';
 import { ConfirmDeleteModal } from './components/common/ConfirmDeleteModal';
+import { BackupModal } from './components/Backup/BackupModal';
 import { generatePrintHtml, printHtmlViaIframe } from './utils/exportPdf';
 import {
   getKeybinding,
@@ -127,6 +128,7 @@ export const App: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'general' | 'image' | 'keybindings'>('general');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -908,6 +910,11 @@ export const App: React.FC = () => {
         action: () => handleExportPdf(),
       },
       {
+        id: 'backup-data',
+        title: 'Sao lưu Dữ liệu (Backup Tool)...',
+        action: () => setIsBackupOpen(true),
+      },
+      {
         id: 'toggle-theme',
         title: `Đổi giao diện sang ${settings.theme === 'dark' ? 'Sáng (Light)' : 'Tối (Dark)'}`,
         action: () =>
@@ -1041,6 +1048,7 @@ export const App: React.FC = () => {
         onToggleSearch={() => setIsSearchOpen(true)}
         onToggleCommandPalette={() => setIsCommandPaletteOpen(true)}
         onExportPdf={handleExportPdf}
+        onOpenBackup={() => setIsBackupOpen(true)}
         onToggleTheme={() =>
           setSettings((prev) => ({
             ...prev,
@@ -1268,6 +1276,15 @@ export const App: React.FC = () => {
           onSubmit={promptDialog.onSubmit}
         />
       )}
+
+      <BackupModal
+        isOpen={isBackupOpen}
+        onClose={() => setIsBackupOpen(false)}
+        workspace={workspace}
+        activeFile={activePath || undefined}
+        tree={fileTree}
+        addToast={addToast}
+      />
 
       <ToastContainer toasts={toasts} />
     </div>

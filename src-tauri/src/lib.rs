@@ -1,3 +1,4 @@
+mod backup;
 mod error;
 mod export;
 mod image;
@@ -191,6 +192,17 @@ fn export_pdf(
     export::export_pdf(&ws, &markdown_file, &html_content, &destination).map_err(String::from)
 }
 
+// ─── Backup Commands ────────────────────────────────────────────
+
+#[tauri::command]
+fn backup_copy(
+    options: backup::BackupOptions,
+    state: State<AppState>,
+) -> Result<backup::BackupResult, String> {
+    let ws_opt = state.workspace_path.lock().unwrap().clone();
+    backup::execute_backup(ws_opt.as_deref(), options)
+}
+
 // ─── CLI & Launch Path Handling ─────────────────────────────────
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -303,6 +315,7 @@ pub fn run() {
             image_read_data,
             image_rename_for_document,
             export_pdf,
+            backup_copy,
             get_cli_launch_path,
             resolve_path_target,
         ])

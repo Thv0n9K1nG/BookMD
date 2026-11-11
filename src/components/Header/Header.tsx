@@ -1,11 +1,11 @@
 import React from 'react';
 import { Theme } from '../../types';
+import { ToolsDropdown } from './ToolsDropdown';
 import {
   BookIcon,
   SearchIcon,
   SunIcon,
   MoonIcon,
-  PdfIcon,
   SettingsIcon,
   SidebarToggleIcon,
   FileIcon,
@@ -23,6 +23,7 @@ interface HeaderProps {
   onToggleSearch: () => void;
   onToggleCommandPalette: () => void;
   onExportPdf: () => void;
+  onOpenBackup: () => void;
   onToggleTheme: () => void;
   onOpenSettings: () => void;
   onOpenImageSettings?: () => void;
@@ -38,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSearch,
   onToggleCommandPalette,
   onExportPdf,
+  onOpenBackup,
   onToggleTheme,
   onOpenSettings,
   onOpenImageSettings,
@@ -134,13 +136,10 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="titlebar-actions">
-        <button
-          className="btn btn-icon"
-          onClick={onExportPdf}
-          title="Xuất tài liệu sang PDF"
-        >
-          <PdfIcon size={15} />
-        </button>
+        <ToolsDropdown
+          onExportPdf={onExportPdf}
+          onOpenBackup={onOpenBackup}
+        />
 
         <button
           className="btn btn-icon"

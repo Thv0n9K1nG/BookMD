@@ -8,6 +8,8 @@ import {
   ImageResult,
   ImageSaveOptions,
   OpenTargetResult,
+  BackupOptions,
+  BackupResult,
 } from '../types';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -414,4 +416,71 @@ export async function promptSavePdfPath(defaultName: string): Promise<string | n
     }
   }
   return prompt('Đường dẫn xuất PDF:', defaultName.replace(/\.md$/i, '') + '.pdf');
+}
+
+export async function selectFolderDialog(title = 'Chọn thư mục'): Promise<string | null> {
+  if (isTauri) {
+    try {
+      const selected = await openDialog({
+        directory: true,
+        multiple: false,
+        title,
+      });
+      if (typeof selected === 'string') return selected;
+      if (Array.isArray(selected) && (selected as string[]).length > 0) return (selected as string[])[0];
+      return null;
+    } catch (err) {
+      console.warn('Folder dialog open failed:', err);
+    }
+  }
+  return prompt(title, '');
+}
+
+export async function selectFileDialog(
+  title = 'Chọn file',
+  extensions?: string[]
+): Promise<string | null> {
+  if (isTauri) {
+    try {
+      const selected = await openDialog({
+        directory: false,
+        multiple: false,
+        title,
+        filters: extensions ? [{ name: 'Allowed Files', extensions }] : undefined,
+      });
+      if (typeof selected === 'string') return selected;
+      if (Array.isArray(selected) && (selected as string[]).length > 0) return (selected as string[])[0];
+      return null;
+    } catch (err) {
+      console.warn('File dialog open failed:', err);
+    }
+  }
+  return prompt(title, '');
+}
+
+export async function executeBackupCopy(options: BackupOptions): Promise<BackupResult> {
+  if (isTauri) {
+    return await invoke<BackupResult>('backup_copy', {
+      options: {
+        sourcePath: options.sourcePath,
+        source_path: options.sourcePath,
+        destinationFolder: options.destinationFolder,
+        destination_folder: options.destinationFolder,
+        conflictStrategy: options.conflictStrategy || 'auto_rename',
+        conflict_strategy: options.conflictStrategy || 'auto_rename',
+        skipIgnored: options.skipIgnored ?? true,
+        skip_ignored: options.skipIgnored ?? true,
+      },
+    });
+  }
+  // Mock fallback for browser environment
+  const itemName = options.sourcePath.split(/[\/\\]/).pop() || 'backup';
+  return {
+    success: true,
+    sourcePath: options.sourcePath,
+    destinationPath: `${options.destinationFolder}/${itemName}`,
+    destinationName: itemName,
+    filesCopied: 1,
+    isDirectory: false,
+  };
 }
