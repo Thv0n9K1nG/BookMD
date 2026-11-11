@@ -41,12 +41,19 @@ import { SettingsModal } from './components/Settings/SettingsModal';
 import { StatusBar } from './components/StatusBar/StatusBar';
 import { ToastContainer } from './components/Toast/ToastContainer';
 import { PromptModal } from './components/common/PromptModal';
+import { ConfirmDeleteModal } from './components/common/ConfirmDeleteModal';
 import { generatePrintHtml, printHtmlViaIframe } from './utils/exportPdf';
 import {
   getKeybinding,
   matchKeybinding,
   DEFAULT_KEYBINDINGS_MAP,
 } from './utils/keybindings';
+import {
+  mergeTreePreservingChildren,
+  attachChildrenToPath,
+  loadPersistedExpandedFolders,
+  savePersistedExpandedFolders,
+} from './utils/treeState';
 
 export const App: React.FC = () => {
   // Settings
@@ -93,12 +100,21 @@ export const App: React.FC = () => {
   // Workspace & Files
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const [fileTree, setFileTree] = useState<FileEntry[]>([]);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    () => new Set(['TryHackMe', 'images', 'assets', 'img'])
-  );
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => new Set());
   const [sidebarWidth, setSidebarWidth] = useState(250);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('files');
+
+  // Keep live refs for background events (watcher, auto-saves)
+  const fileTreeRef = useRef<FileEntry[]>([]);
+  useEffect(() => {
+    fileTreeRef.current = fileTree;
+  }, [fileTree]);
+
+  const expandedFoldersRef = useRef<Set<string>>(expandedFolders);
+  useEffect(() => {
+    expandedFoldersRef.current = expandedFolders;
+  }, [expandedFolders]);
 
   // Tabs & Editor
   const [tabs, setTabs] = useState<OpenTab[]>([]);
@@ -114,6 +130,12 @@ export const App: React.FC = () => {
   const [settingsTab, setSettingsTab] = useState<'general' | 'image' | 'keybindings'>('general');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    targetPath: string;
+    name: string;
+    isFolder: boolean;
+  } | null>(null);
   const [promptDialog, setPromptDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -160,8 +182,20 @@ export const App: React.FC = () => {
         imageDir: 'images',
         imageNamingBaseDir: '',
       }));
-      const tree = await getWorkspaceTree();
+
+      // Restore persisted expanded folders for this workspace
+      const persistedExpanded = loadPersistedExpandedFolders(selectedPath);
+      setExpandedFolders(persistedExpanded);
+
+      let tree = await getWorkspaceTree();
+      for (const folderPath of persistedExpanded) {
+        try {
+          const children = await readDirectory(folderPath);
+          tree = attachChildrenToPath(tree, folderPath, children);
+        } catch {}
+      }
       setFileTree(tree);
+
       if (!isInitialAutoOpen) {
         addToast(`Đã mở workspace: ${wsInfo.name}`, 'success');
       }
@@ -192,26 +226,26 @@ export const App: React.FC = () => {
     }
   }, [addToast]);
 
+  // Load directory children on demand for lazy expansion
+  const handleLoadFolderChildren = useCallback(async (folderPath: string) => {
+    try {
+      const children = await readDirectory(folderPath);
+      setFileTree((prev) => attachChildrenToPath(prev, folderPath, children));
+    } catch (err) {
+      console.error('Failed to read directory children:', folderPath, err);
+    }
+  }, []);
+
   // Reload File Tree with currently expanded folders re-hydrated
   const handleRefreshTree = useCallback(async () => {
     if (!workspace) return;
     try {
-      let tree = await getWorkspaceTree();
-      for (const folderPath of expandedFolders) {
+      const rawTree = await getWorkspaceTree();
+      let tree = mergeTreePreservingChildren(rawTree, fileTreeRef.current);
+      for (const folderPath of expandedFoldersRef.current) {
         try {
           const children = await readDirectory(folderPath);
-          const attach = (nodes: FileEntry[]): FileEntry[] => {
-            return nodes.map((node) => {
-              if (node.relativePath === folderPath) {
-                return { ...node, children };
-              }
-              if (node.children) {
-                return { ...node, children: attach(node.children) };
-              }
-              return node;
-            });
-          };
-          tree = attach(tree);
+          tree = attachChildrenToPath(tree, folderPath, children);
         } catch {
           // Ignore missing folders
         }
@@ -221,11 +255,11 @@ export const App: React.FC = () => {
     } catch (err: any) {
       console.error('Refresh tree error:', err);
     }
-  }, [workspace, expandedFolders, addToast]);
+  }, [workspace, addToast]);
 
   // Toggle folder expansion in tree with lazy loading on demand
   const handleToggleFolder = useCallback(async (folderPath: string) => {
-    const isExpanding = !expandedFolders.has(folderPath);
+    const isExpanding = !expandedFoldersRef.current.has(folderPath);
 
     if (isExpanding) {
       const findNode = (nodes: FileEntry[]): FileEntry | undefined => {
@@ -239,25 +273,9 @@ export const App: React.FC = () => {
         return undefined;
       };
 
-      const targetNode = findNode(fileTree);
-      if (targetNode && !targetNode.children) {
-        try {
-          const children = await readDirectory(folderPath);
-          const attachChildren = (nodes: FileEntry[]): FileEntry[] => {
-            return nodes.map((node) => {
-              if (node.relativePath === folderPath) {
-                return { ...node, children };
-              }
-              if (node.children) {
-                return { ...node, children: attachChildren(node.children) };
-              }
-              return node;
-            });
-          };
-          setFileTree((prev) => attachChildren(prev));
-        } catch (err) {
-          console.error('Failed to read directory children:', folderPath, err);
-        }
+      const targetNode = findNode(fileTreeRef.current);
+      if (!targetNode || !targetNode.children) {
+        await handleLoadFolderChildren(folderPath);
       }
     }
 
@@ -268,9 +286,12 @@ export const App: React.FC = () => {
       } else {
         next.add(folderPath);
       }
+      if (workspace?.path) {
+        savePersistedExpandedFolders(workspace.path, next);
+      }
       return next;
     });
-  }, [expandedFolders, fileTree]);
+  }, [workspace, handleLoadFolderChildren]);
 
   // Handle image pasted in editor: refresh file tree and expand image directory
   const handleImagePasted = useCallback(async (imageRelPath: string) => {
@@ -289,33 +310,27 @@ export const App: React.FC = () => {
         setExpandedFolders((prev) => {
           const next = new Set(prev);
           toExpand.forEach((f) => next.add(f));
+          if (workspace?.path) {
+            savePersistedExpandedFolders(workspace.path, next);
+          }
           return next;
         });
       }
 
-      let tree = await getWorkspaceTree();
-      for (const folder of toExpand) {
+      const rawTree = await getWorkspaceTree();
+      let tree = mergeTreePreservingChildren(rawTree, fileTreeRef.current);
+      const allToExpand = new Set([...Array.from(expandedFoldersRef.current), ...toExpand]);
+      for (const folder of allToExpand) {
         try {
           const children = await readDirectory(folder);
-          const attach = (nodes: FileEntry[]): FileEntry[] => {
-            return nodes.map((node) => {
-              if (node.relativePath === folder) {
-                return { ...node, children };
-              }
-              if (node.children) {
-                return { ...node, children: attach(node.children) };
-              }
-              return node;
-            });
-          };
-          tree = attach(tree);
+          tree = attachChildrenToPath(tree, folder, children);
         } catch {}
       }
       setFileTree(tree);
     } catch (err) {
       console.error('Failed to update tree after image paste:', err);
     }
-  }, []);
+  }, [workspace]);
 
   // Listen to background filesystem change events (watcher)
   useEffect(() => {
@@ -326,7 +341,14 @@ export const App: React.FC = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(async () => {
         try {
-          const tree = await getWorkspaceTree();
+          const rawTree = await getWorkspaceTree();
+          let tree = mergeTreePreservingChildren(rawTree, fileTreeRef.current);
+          for (const folderPath of expandedFoldersRef.current) {
+            try {
+              const children = await readDirectory(folderPath);
+              tree = attachChildrenToPath(tree, folderPath, children);
+            } catch {}
+          }
           setFileTree(tree);
         } catch (err) {
           console.error('Error refreshing tree from fs-change:', err);
@@ -695,24 +717,32 @@ export const App: React.FC = () => {
     [settings.imageDir, activePath, handleRefreshTree, addToast]
   );
 
-  // Delete File / Folder
-  const handleDelete = useCallback(
-    async (targetPath: string, name: string) => {
-      const confirmDelete = window.confirm(`Bạn có chắc chắn muốn xóa "${name}" không?`);
-      if (!confirmDelete) return;
+  // Request Delete File / Folder (Opens Confirmation Modal)
+  const handleRequestDelete = useCallback((targetPath: string, name: string, isFolder = false) => {
+    setDeleteModalState({
+      isOpen: true,
+      targetPath,
+      name,
+      isFolder,
+    });
+  }, []);
 
-      try {
-        await deleteFile(targetPath);
-        handleCloseTab(targetPath);
-        await handleRefreshTree();
-        addToast(`Đã xóa: ${name}`, 'success');
-      } catch (err: any) {
-        console.error('Delete error:', err);
-        addToast(`Lỗi xóa: ${err?.message || err}`, 'error');
-      }
-    },
-    [handleCloseTab, handleRefreshTree, addToast]
-  );
+  // Execute Confirmed Delete
+  const handleExecuteDelete = useCallback(async () => {
+    if (!deleteModalState) return;
+    const { targetPath, name } = deleteModalState;
+    setDeleteModalState(null);
+
+    try {
+      await deleteFile(targetPath);
+      handleCloseTab(targetPath);
+      await handleRefreshTree();
+      addToast(`Đã chuyển vào Thùng rác: ${name}`, 'success');
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      addToast(`Lỗi xóa: ${err?.message || err}`, 'error');
+    }
+  }, [deleteModalState, handleCloseTab, handleRefreshTree, addToast]);
 
   // Export Current Markdown Document to PDF
   const isExportingPdfRef = useRef(false);
@@ -1037,6 +1067,7 @@ export const App: React.FC = () => {
           sidebarTab={sidebarTab}
           expandedFolders={expandedFolders}
           onToggleFolder={handleToggleFolder}
+          onLoadChildren={handleLoadFolderChildren}
           onSelectSidebarTab={setSidebarTab}
           onSelectFile={handleOpenFile}
           onRefresh={handleRefreshTree}
@@ -1206,12 +1237,23 @@ export const App: React.FC = () => {
         onNewFile={(parent) => handleCreateNew(parent, 'file')}
         onNewFolder={(parent) => handleCreateNew(parent, 'directory')}
         onRename={handleRename}
-        onDelete={handleDelete}
+        onDelete={handleRequestDelete}
         onCopyRelativePath={(path) => {
           navigator.clipboard.writeText(path);
           addToast(`Đã sao chép: ${path}`, 'info');
         }}
       />
+
+      {deleteModalState && (
+        <ConfirmDeleteModal
+          isOpen={deleteModalState.isOpen}
+          targetPath={deleteModalState.targetPath}
+          name={deleteModalState.name}
+          isFolder={deleteModalState.isFolder}
+          onClose={() => setDeleteModalState(null)}
+          onConfirm={handleExecuteDelete}
+        />
+      )}
 
       {promptDialog && (
         <PromptModal

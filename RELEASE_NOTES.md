@@ -1,3 +1,28 @@
+# Release Notes — BookMD v0.1.12
+
+**BookMD v0.1.12** delivers critical data-safety and stability upgrades: introducing a **Mandatory User Confirmation Modal for File & Folder Deletions** (preventing accidental document loss with default Cancel focus and OS Recycle Bin safety), and resolving the **Vanishing Subfolder / Children Bug** in On-Demand Lazy Directory Expansion during background filesystem watcher refreshes.
+
+---
+
+## 🚀 Key Highlights & Critical Fixes
+
+### 🛡️ 1. Mandatory User Confirmation Modal for File & Folder Deletion
+- **Zero Accidental Deletions**: In previous versions, deletion relied on browser-native confirmation prompts (`window.confirm`), which could be dismissed or triggered unintentionally. BookMD v0.1.12 introduces an explicit, high-visibility confirmation modal (`ConfirmDeleteModal`) that requires conscious user intent before any file or directory is deleted.
+- **Fail-Safe Focus Architecture**: When the modal opens, focus is automatically pinned to the **"Hủy bỏ" (Cancel)** button. Pressing `Enter` or `Space` safely aborts the deletion rather than executing it.
+- **Instant Escape / Outside Dismissal**: Pressing the `Escape` key or clicking outside the dialog immediately closes the modal without performing any action.
+- **Clear Metadata & Warning**: The modal displays the item's target path and type icon. When deleting a directory, a clear warning indicates that all nested subfolders and files will be removed.
+- **Safe Trash Mechanism**: BookMD utilizes OS-native trash management (`trash::delete`). Deleted items are moved to your operating system's **Recycle Bin (Thùng rác)** rather than permanently erased, allowing immediate restoration if an item is ever deleted by mistake.
+
+### 🌲 2. Fixed Disappearing Children in On-Demand Lazy Directory Expansion
+- **The Bug**: After v0.1.11 introduced On-Demand Lazy Directory Expansion (loading directory depth 1 on initial load to achieve sub-5ms opening times on massive codebases), users noticed that folders expanded in the sidebar explorer would suddenly lose their child files when interacting with files outside BookMD (e.g. in Windows Explorer, Git CLI) or during automatic saving. Users had to collapse and re-expand the folder to bring them back.
+- **The Root Cause**: Background filesystem watcher events (`fs-change`) triggered a tree reload using a shallow 1-depth scan from the backend. Setting this shallow tree into component state inadvertently overwrote loaded children for all subfolders at depth $\ge 2$ with `null`.
+- **Deep Tree Reconciliation (`mergeTreePreservingChildren`)**: BookMD now performs deep tree reconciliation during every tree refresh, preserving all loaded child arrays and node states across updates.
+- **Automatic Multi-Level Re-hydration**: Every background watcher update queries and re-hydrates child files for all actively open folders (`expandedFolders`), keeping your working context completely intact.
+- **Auto-Healing Lazy Loader**: If any expanded tree node is rendered without its children populated, it automatically invokes an asynchronous background load without toggling or collapsing the folder.
+- **Workspace State Persistence**: Your expanded folder paths are remembered in `localStorage` across application reloads for each workspace.
+
+---
+
 # Release Notes — BookMD v0.1.11
 
 **BookMD v0.1.11** resolves a critical performance bottleneck when opening large folders and complex codebases, introducing **Instant Workspace Opening & On-Demand Lazy Directory Expansion** (matching VS Code's architecture) to reduce opening times from 10+ minutes down to **1 to 5 milliseconds** with 0% idle CPU usage.

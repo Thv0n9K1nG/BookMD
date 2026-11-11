@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileEntry, SidebarTab } from '../../types';
 import {
   FolderIcon,
@@ -22,6 +22,7 @@ interface FileTreeProps {
   sidebarTab?: SidebarTab;
   expandedFolders?: Set<string>;
   onToggleFolder?: (folderPath: string) => void;
+  onLoadChildren?: (folderPath: string) => void;
   onSelectSidebarTab?: (tab: SidebarTab) => void;
   onSelectFile: (file: FileEntry) => void;
   onRefresh: () => void;
@@ -36,6 +37,7 @@ interface TreeItemProps {
   activeFile?: string;
   expandedFolders: Set<string>;
   toggleFolder: (path: string) => void;
+  onLoadChildren?: (path: string) => void;
   onSelectFile: (file: FileEntry) => void;
   onContextMenu: (e: React.MouseEvent, entry: FileEntry) => void;
 }
@@ -46,12 +48,22 @@ const TreeItem: React.FC<TreeItemProps> = ({
   activeFile,
   expandedFolders,
   toggleFolder,
+  onLoadChildren,
   onSelectFile,
   onContextMenu,
 }) => {
   const isDir = entry.kind === 'directory';
   const isExpanded = isDir && expandedFolders.has(entry.relativePath);
   const isActive = entry.relativePath === activeFile;
+
+  // Auto-heal / Lazy-load on mount or render if folder is expanded but children are not loaded yet
+  useEffect(() => {
+    if (isDir && isExpanded && !entry.children) {
+      if (onLoadChildren) {
+        onLoadChildren(entry.relativePath);
+      }
+    }
+  }, [isDir, isExpanded, entry.children, entry.relativePath, onLoadChildren]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -102,21 +114,38 @@ const TreeItem: React.FC<TreeItemProps> = ({
         <span className="tree-item-label">{entry.name}</span>
       </div>
 
-      {isDir && isExpanded && entry.children && (
-        <div>
-          {entry.children.map((child) => (
-            <TreeItem
-              key={child.relativePath}
-              entry={child}
-              depth={depth + 1}
-              activeFile={activeFile}
-              expandedFolders={expandedFolders}
-              toggleFolder={toggleFolder}
-              onSelectFile={onSelectFile}
-              onContextMenu={onContextMenu}
-            />
-          ))}
-        </div>
+      {isDir && isExpanded && (
+        entry.children ? (
+          <div>
+            {entry.children.map((child) => (
+              <TreeItem
+                key={child.relativePath}
+                entry={child}
+                depth={depth + 1}
+                activeFile={activeFile}
+                expandedFolders={expandedFolders}
+                toggleFolder={toggleFolder}
+                onLoadChildren={onLoadChildren}
+                onSelectFile={onSelectFile}
+                onContextMenu={onContextMenu}
+              />
+            ))}
+          </div>
+        ) : (
+          <div
+            className="tree-item-loading"
+            style={{
+              paddingLeft: `${(depth + 1) * 14 + 10}px`,
+              fontSize: '11px',
+              color: 'var(--text-tertiary)',
+              fontStyle: 'italic',
+              paddingTop: '3px',
+              paddingBottom: '3px',
+            }}
+          >
+            Đang tải...
+          </div>
+        )
       )}
     </div>
   );
@@ -131,6 +160,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   sidebarTab,
   expandedFolders,
   onToggleFolder,
+  onLoadChildren,
   onSelectSidebarTab,
   onSelectFile,
   onRefresh,
@@ -247,6 +277,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 activeFile={activeFile}
                 expandedFolders={activeExpanded}
                 toggleFolder={toggleFolder}
+                onLoadChildren={onLoadChildren}
                 onSelectFile={onSelectFile}
                 onContextMenu={(e, itm) => onContextMenu(e, itm, itm.relativePath)}
               />

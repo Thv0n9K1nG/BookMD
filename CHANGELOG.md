@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.12] - 2026-11-11
+
+### Added
+- **Mandatory User Confirmation Modal for File & Folder Deletion**:
+  - Introduced a dedicated, high-visibility `ConfirmDeleteModal` for all delete operations across the application, completely replacing browser-native dialogs.
+  - Fail-safe design: The "Hủy bỏ" (Cancel) button is focused by default on modal display, ensuring that accidental `Enter` or `Space` keypresses safely dismiss the prompt without deleting anything.
+  - `Escape` key and outside clicks safely cancel immediately.
+  - Shows clear item metadata: type icon (file or directory), complete relative path, and folder-specific warnings when deleting directories.
+  - Reassurance notice: Informs users that deleted items are safely moved to the OS Recycle Bin (`Thùng rác hệ thống`) via `trash::delete`, allowing full restoration if needed.
+
+### Fixed
+- **Fixed File & Folder Disappearing Bug in On-Demand Lazy Directory Expansion**:
+  - Resolved an issue where expanded directories in the sidebar file explorer suddenly collapsed or lost their child contents when interacting with files externally (e.g. in Windows Explorer, Git commands) or during document auto-saves.
+  - Root cause: Filesystem watcher events (`fs-change`) previously reloaded the workspace using a shallow 1-depth tree, wiping out in-memory children for subdirectories at depth $\ge 2$.
+  - Implemented `mergeTreePreservingChildren` algorithm: seamlessly preserves all previously loaded child branches while incorporating updated filesystem changes.
+  - Automated re-hydration: Background refreshes automatically re-read child entries for all actively expanded folders (`expandedFoldersRef`).
+  - Auto-healing lazy loader: If an expanded folder has unpopulated children, it triggers an on-demand background read without collapsing the folder.
+  - Workspace expansion persistence: The list of expanded folder paths is persisted in `localStorage` per workspace, restoring tree state upon reopening.
+
 ## [0.1.11] - 2026-11-09
 
 ### Fixed

@@ -7,7 +7,7 @@ interface ContextMenuProps {
   onNewFile: (parentPath: string) => void;
   onNewFolder: (parentPath: string) => void;
   onRename: (path: string, currentName: string) => void;
-  onDelete: (path: string, name: string) => void;
+  onDelete: (path: string, name: string, isFolder?: boolean) => void;
   onCopyRelativePath: (path: string) => void;
 }
 
@@ -88,7 +88,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             className="context-menu-item"
             style={{ color: 'var(--error)' }}
             onClick={() => {
-              onDelete(entry.relativePath, entry.name);
+              onDelete(entry.relativePath, entry.name, entry.kind === 'directory');
               onClose();
             }}
           >
