@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ToolsIcon, PdfIcon, BackupIcon } from '../common/Icons';
+import { ToolsIcon, PdfIcon, BackupIcon, ImagesStackIcon } from '../common/Icons';
 
 export interface ToolItem {
   id: string;
@@ -13,11 +13,13 @@ export interface ToolItem {
 interface ToolsDropdownProps {
   onExportPdf: () => void;
   onOpenBackup: () => void;
+  onOpenConsolidateImages: () => void;
 }
 
 export const ToolsDropdown: React.FC<ToolsDropdownProps> = ({
   onExportPdf,
   onOpenBackup,
+  onOpenConsolidateImages,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -64,6 +66,16 @@ export const ToolsDropdown: React.FC<ToolsDropdownProps> = ({
       onClick: () => {
         setIsOpen(false);
         onOpenBackup();
+      },
+    },
+    {
+      id: 'consolidate-images',
+      label: 'Đồng bộ & Tổ chức lại ảnh',
+      description: 'Gom toàn bộ ảnh trong tài liệu về một thư mục và chuẩn hóa tên file',
+      icon: <ImagesStackIcon size={16} style={{ color: '#3b82f6' }} />,
+      onClick: () => {
+        setIsOpen(false);
+        onOpenConsolidateImages();
       },
       badge: 'Mới',
     },
@@ -187,3 +199,4 @@ export const ToolsDropdown: React.FC<ToolsDropdownProps> = ({
     </div>
   );
 };
+

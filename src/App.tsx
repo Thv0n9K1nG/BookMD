@@ -43,6 +43,7 @@ import { ToastContainer } from './components/Toast/ToastContainer';
 import { PromptModal } from './components/common/PromptModal';
 import { ConfirmDeleteModal } from './components/common/ConfirmDeleteModal';
 import { BackupModal } from './components/Backup/BackupModal';
+import { ConsolidateImagesModal } from './components/ImageConsolidate/ConsolidateImagesModal';
 import { generatePrintHtml, printHtmlViaIframe } from './utils/exportPdf';
 import {
   getKeybinding,
@@ -129,6 +130,7 @@ export const App: React.FC = () => {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const [isConsolidateImagesOpen, setIsConsolidateImagesOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'general' | 'image' | 'keybindings'>('general');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -915,6 +917,11 @@ export const App: React.FC = () => {
         action: () => setIsBackupOpen(true),
       },
       {
+        id: 'consolidate-images',
+        title: 'Đồng bộ & Tổ chức lại ảnh trong tài liệu (Consolidate Images)...',
+        action: () => setIsConsolidateImagesOpen(true),
+      },
+      {
         id: 'toggle-theme',
         title: `Đổi giao diện sang ${settings.theme === 'dark' ? 'Sáng (Light)' : 'Tối (Dark)'}`,
         action: () =>
@@ -1049,6 +1056,13 @@ export const App: React.FC = () => {
         onToggleCommandPalette={() => setIsCommandPaletteOpen(true)}
         onExportPdf={handleExportPdf}
         onOpenBackup={() => setIsBackupOpen(true)}
+        onOpenConsolidateImages={() => {
+          if (!activePath) {
+            addToast('Vui lòng mở một file Markdown để sử dụng tính năng này', 'info');
+            return;
+          }
+          setIsConsolidateImagesOpen(true);
+        }}
         onToggleTheme={() =>
           setSettings((prev) => ({
             ...prev,
@@ -1283,6 +1297,28 @@ export const App: React.FC = () => {
         workspace={workspace}
         activeFile={activePath || undefined}
         tree={fileTree}
+        addToast={addToast}
+      />
+
+      <ConsolidateImagesModal
+        isOpen={isConsolidateImagesOpen}
+        onClose={() => setIsConsolidateImagesOpen(false)}
+        markdownFile={activePath}
+        content={activeTab?.content || ''}
+        imageDir={settings.imageDir}
+        imageNamingBaseDir={settings.imageNamingBaseDir}
+        onSuccess={(updatedContent) => {
+          if (activePath) {
+            setTabs((prev) =>
+              prev.map((t) =>
+                t.relativePath === activePath
+                  ? { ...t, content: updatedContent, isDirty: true }
+                  : t
+              )
+            );
+            handleRefreshTree();
+          }
+        }}
         addToast={addToast}
       />
 

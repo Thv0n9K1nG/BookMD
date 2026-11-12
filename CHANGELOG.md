@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.14] - 2026-11-12
+
+### Added
+- **Document Image Consolidation & Standardization Tool (`ConsolidateImagesModal`)**:
+  - Solves the problem of scattered image locations and inconsistent naming across Markdown documents by consolidating all referenced images into a unified directory with standardized naming.
+  - **Automatic Document Scanning**: Parses the active Markdown file to extract all image paths from both standard Markdown `![alt](src)` and HTML `<img src="..." />` tags in exact document order.
+  - **Smart Validation**: Automatically verifies file existence on disk, skipping missing local files or remote web URLs (`http://`, `https://`, `data:`).
+  - **2 Target Folder Options**:
+    1. **Thư mục tự động theo cài đặt (Default)**: Consolidates images into the configured directory (e.g. `images/` located right next to the current Markdown document).
+    2. **Thư mục tùy chọn**: Allows picking any custom target folder inside the workspace or anywhere on disk.
+  - **Standardized Image Naming (`<stem>_N.<ext>`)**:
+    - Automatically numbers and renames images sequentially (e.g. `note_1.png`, `note_2.jpg`, etc.) based on the document stem and active Naming Base Directory setting.
+    - Prominently displays the current Naming Base rule in a read-only badge with guidance on how to adjust it in Settings.
+  - **Interactive Preview Table**:
+    - Shows an in-depth preview of all detected images, their source paths, their target standardized filenames/paths, and status badges (Ready, Already in place, Missing, Online).
+  - **Automated Editor Synchronization**:
+    - Safely copies (default) or moves images to the target folder and automatically updates all image references in the editor so the document stays completely in sync.
+- **Added to Tools Menu & Command Palette**:
+  - Available directly from the titlebar **Tools** dropdown menu (`ToolsDropdown`) and Command Palette (`Ctrl+Shift+P` -> *Đồng bộ & Tổ chức lại ảnh trong tài liệu*).
+
 ## [0.1.13] - 2026-11-11
 
 ### Added

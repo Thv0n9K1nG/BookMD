@@ -1,3 +1,33 @@
+# Release Notes — BookMD v0.1.14
+
+**BookMD v0.1.14** introduces the **Document Image Consolidation & Standardization Tool (`ConsolidateImagesModal`)**, resolving scattered and inconsistently named images in Markdown documents by gathering them into a standardized folder with uniform sequential naming (`<stem>_1.png`, `<stem>_2.png`, etc.) and automatically synchronizing the document's references in real-time.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 🖼️ 1. Document Image Consolidation & Standardization
+- **The Problem**: When drafting technical notes over extended periods or importing notes from multiple tools, images often end up scattered across arbitrary folders (e.g. `assets/`, `../temp/`, downloads) with irregular names (e.g. `screenshot123.png`, `pasted_img.png`, `diagram.jpg`).
+- **Automatic Document Scanning**: Scans the currently edited Markdown document and parses all image references across both Markdown `![alt](path)` and HTML `<img src="..." />` tags in exact document order.
+- **Smart Path Verification**: Automatically verifies each image's existence on disk and skips missing paths or remote web URLs (`http://`, `https://`, `data:image/`).
+- **2 Flexible Target Folder Options**:
+  - **Option 1 (Default)**: Automatically places all images into your configured image directory (`images/` located right next to the current Markdown document).
+  - **Option 2 (Custom Folder)**: Select any custom directory via a native OS directory picker.
+- **Sequential Standardized Naming (`<stem>_N.<ext>`)**:
+  - Automatically numbers and renames images sequentially (e.g. `note_1.png`, `note_2.jpg`) according to your document name and active Naming Base Directory setting.
+  - Displays the active Naming Base rule in a read-only informational badge so you always know how file stems are derived.
+- **Interactive Live Preview Table**:
+  - Inspect all detected images before taking action: see source paths, target standardized names/locations, and status badges (Ready, Already in place, Missing - Skipped, Online - Skipped).
+- **Safe Execution & Document Synchronization**:
+  - Safely copies (default) or moves images to the target folder.
+  - Automatically updates the Markdown text in the editor, replacing old paths with the new standardized relative paths so all images render seamlessly without broken links.
+
+### 🛠️ 2. Expanded Tools Menu Integration
+- Directly accessible from the **Tools (Công cụ)** dropdown in the titlebar alongside **Xuất PDF** and **Sao lưu Dữ liệu (Backup Tool)**.
+- Integrated into the **Command Palette** (`Ctrl+Shift+P` -> *Đồng bộ & Tổ chức lại ảnh trong tài liệu*).
+
+---
+
 # Release Notes — BookMD v0.1.13
 
 **BookMD v0.1.13** introduces an **Integrated Backup Tool (`BackupModal`)** for comprehensive data protection (supporting 3 flexible backup scopes, smart duplicate name handling, and recursive loop guards), alongside a newly redesigned **Tools Dropdown Menu** in the titlebar uniting PDF export, backup utilities, and future tools.

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const APP_VERSION = 'v0.1.13';
+export const APP_VERSION = 'v0.1.14';
 
 interface StatusBarProps {
   activeFile?: string;

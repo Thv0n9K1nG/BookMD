@@ -43,3 +43,4 @@ describe('Backup Tool IPC & Options', () => {
     expect(result.destinationName).toBe('notes.md');
   });
 });
+

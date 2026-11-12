@@ -159,4 +159,50 @@ export interface BackupResult {
   isDirectory: boolean;
 }
 
+export interface ConsolidateScanItem {
+  rawSrc: string;
+  decodedSrc: string;
+  resolvedPath?: string | null;
+  exists: boolean;
+  isRemote: boolean;
+  isAlreadyInPlace: boolean;
+  newFilename: string;
+  newRelativePath: string;
+}
+
+export interface ConsolidateScanResult {
+  markdownFile: string;
+  namePrefix: string;
+  namingBaseDirDisplay: string;
+  targetDirPath: string;
+  targetDirDisplay: string;
+  items: ConsolidateScanItem[];
+  validCount: number;
+}
+
+export interface ConsolidateScanOptions {
+  markdownFile: string;
+  content: string;
+  imageDir?: string;
+  namingBaseDir?: string;
+  customTargetDir?: string;
+}
+
+export interface ConsolidateExecuteOptions {
+  markdownFile: string;
+  content: string;
+  imageDir?: string;
+  namingBaseDir?: string;
+  customTargetDir?: string;
+  operation?: 'copy' | 'move';
+}
+
+export interface ConsolidateExecuteResult {
+  updatedContent: string;
+  processedCount: number;
+  targetDirPath: string;
+  items: ConsolidateScanItem[];
+}
+
+
 

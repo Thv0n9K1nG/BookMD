@@ -179,6 +179,24 @@ fn image_rename_for_document(
     .map_err(String::from)
 }
 
+#[tauri::command]
+fn image_consolidate_scan(
+    options: image::ConsolidateScanOptions,
+    state: State<AppState>,
+) -> Result<image::ConsolidateScanResult, String> {
+    let ws = get_workspace(&state)?;
+    image::scan_document_images(&ws, options).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn image_consolidate_execute(
+    options: image::ConsolidateExecuteOptions,
+    state: State<AppState>,
+) -> Result<image::ConsolidateExecuteResult, String> {
+    let ws = get_workspace(&state)?;
+    image::execute_consolidate_images(&ws, options).map_err(|e| e.to_string())
+}
+
 // ─── Export Commands ────────────────────────────────────────────
 
 #[tauri::command]
@@ -314,6 +332,8 @@ pub fn run() {
             image_save,
             image_read_data,
             image_rename_for_document,
+            image_consolidate_scan,
+            image_consolidate_execute,
             export_pdf,
             backup_copy,
             get_cli_launch_path,

@@ -10,6 +10,10 @@ import {
   OpenTargetResult,
   BackupOptions,
   BackupResult,
+  ConsolidateScanOptions,
+  ConsolidateScanResult,
+  ConsolidateExecuteOptions,
+  ConsolidateExecuteResult,
 } from '../types';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -482,5 +486,66 @@ export async function executeBackupCopy(options: BackupOptions): Promise<BackupR
     destinationName: itemName,
     filesCopied: 1,
     isDirectory: false,
+  };
+}
+
+export async function scanConsolidateImages(
+  options: ConsolidateScanOptions
+): Promise<ConsolidateScanResult> {
+  if (isTauri) {
+    return await invoke<ConsolidateScanResult>('image_consolidate_scan', {
+      options: {
+        markdownFile: options.markdownFile,
+        markdown_file: options.markdownFile,
+        content: options.content,
+        imageDir: options.imageDir,
+        image_dir: options.imageDir,
+        namingBaseDir: options.namingBaseDir,
+        naming_base_dir: options.namingBaseDir,
+        customTargetDir: options.customTargetDir,
+        custom_target_dir: options.customTargetDir,
+      },
+    });
+  }
+
+  // Mock fallback
+  const stem = options.markdownFile.replace(/\.md$/i, '').split(/[\/\\]/).pop() || 'note';
+  return {
+    markdownFile: options.markdownFile,
+    namePrefix: stem,
+    namingBaseDirDisplay: 'Mặc định (theo tên file Markdown đang viết)',
+    targetDirPath: 'images',
+    targetDirDisplay: 'images',
+    items: [],
+    validCount: 0,
+  };
+}
+
+export async function executeConsolidateImages(
+  options: ConsolidateExecuteOptions
+): Promise<ConsolidateExecuteResult> {
+  if (isTauri) {
+    return await invoke<ConsolidateExecuteResult>('image_consolidate_execute', {
+      options: {
+        markdownFile: options.markdownFile,
+        markdown_file: options.markdownFile,
+        content: options.content,
+        imageDir: options.imageDir,
+        image_dir: options.imageDir,
+        namingBaseDir: options.namingBaseDir,
+        naming_base_dir: options.namingBaseDir,
+        customTargetDir: options.customTargetDir,
+        custom_target_dir: options.customTargetDir,
+        operation: options.operation || 'copy',
+      },
+    });
+  }
+
+  // Mock fallback
+  return {
+    updatedContent: options.content,
+    processedCount: 0,
+    targetDirPath: 'images',
+    items: [],
   };
 }

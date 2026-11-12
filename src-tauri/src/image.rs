@@ -381,6 +381,308 @@ fn read_file_as_data_uri(path: &Path) -> Result<String, AppError> {
     Ok(format!("data:{};base64,{}", mime, b64))
 }
 
+// ─── Document Image Consolidation & Standardization ──────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsolidateScanItem {
+    pub raw_src: String,
+    pub decoded_src: String,
+    pub resolved_path: Option<String>,
+    pub exists: bool,
+    pub is_remote: bool,
+    pub is_already_in_place: bool,
+    pub new_filename: String,
+    pub new_relative_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsolidateScanResult {
+    pub markdown_file: String,
+    pub name_prefix: String,
+    pub naming_base_dir_display: String,
+    pub target_dir_path: String,
+    pub target_dir_display: String,
+    pub items: Vec<ConsolidateScanItem>,
+    pub valid_count: usize,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsolidateScanOptions {
+    pub markdown_file: String,
+    pub content: String,
+    pub image_dir: Option<String>,
+    pub naming_base_dir: Option<String>,
+    pub custom_target_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsolidateExecuteOptions {
+    pub markdown_file: String,
+    pub content: String,
+    pub image_dir: Option<String>,
+    pub naming_base_dir: Option<String>,
+    pub custom_target_dir: Option<String>,
+    pub operation: Option<String>, // "copy" (default) or "move"
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsolidateExecuteResult {
+    pub updated_content: String,
+    pub processed_count: usize,
+    pub target_dir_path: String,
+    pub items: Vec<ConsolidateScanItem>,
+}
+
+fn extract_image_references(content: &str) -> Vec<String> {
+    let mut matches = Vec::new();
+
+    // 1. Markdown syntax: ![alt](src "title") or ![alt](src)
+    let md_re = regex::Regex::new(r#"!\[[^\]]*\]\((?P<src>[^)\s]+)(?:\s+["'][^"']*["'])?\)"#).unwrap();
+    for cap in md_re.captures_iter(content) {
+        if let Some(src_match) = cap.name("src") {
+            let start = cap.get(0).unwrap().start();
+            matches.push((start, src_match.as_str().trim().to_string()));
+        }
+    }
+
+    // 2. HTML syntax: <img ... src="..." ...>
+    let html_re = regex::Regex::new(r#"(?i)<img\b[^>]*?\bsrc=["'](?P<src>[^"']+)["'][^>]*?>"#).unwrap();
+    for cap in html_re.captures_iter(content) {
+        if let Some(src_match) = cap.name("src") {
+            let start = cap.get(0).unwrap().start();
+            matches.push((start, src_match.as_str().trim().to_string()));
+        }
+    }
+
+    // Sort by position in document
+    matches.sort_by_key(|(pos, _)| *pos);
+
+    let mut seen = std::collections::HashSet::new();
+    let mut images = Vec::new();
+    for (_, src) in matches {
+        if !src.is_empty() && seen.insert(src.clone()) {
+            images.push(src);
+        }
+    }
+
+    images
+}
+
+pub fn scan_document_images(
+    workspace_path: &str,
+    options: ConsolidateScanOptions,
+) -> Result<ConsolidateScanResult, AppError> {
+    let workspace = Path::new(workspace_path);
+    let md_path = Path::new(&options.markdown_file);
+
+    let (folders, md_stem) = build_naming_context(md_path, options.naming_base_dir.as_deref());
+    let name_prefix = if folders.is_empty() {
+        md_stem.clone()
+    } else {
+        format!("{}-{}", folders.join("-"), md_stem)
+    };
+
+    let naming_base_dir_display = match options.naming_base_dir.as_deref() {
+        Some(s) if !s.trim().is_empty() => {
+            let trimmed = s.trim();
+            if trimmed == "/" || trimmed == "." {
+                "Thư mục gốc Workspace (/)".to_string()
+            } else {
+                format!("Thư mục ({})", trimmed)
+            }
+        }
+        _ => "Mặc định (theo tên file Markdown đang viết)".to_string(),
+    };
+
+    // Determine target directory
+    let target_dir = if let Some(ref custom) = options.custom_target_dir {
+        let trimmed = custom.trim().replace('\\', "/");
+        if Path::new(&trimmed).is_absolute() {
+            PathBuf::from(&trimmed)
+        } else {
+            workspace.join(trimmed)
+        }
+    } else {
+        resolve_image_dir(workspace, md_path, options.image_dir.as_deref())
+    };
+
+    let target_dir_path = target_dir.to_string_lossy().replace('\\', "/");
+    let target_dir_display = if target_dir.starts_with(workspace) {
+        target_dir
+            .strip_prefix(workspace)
+            .unwrap_or(&target_dir)
+            .to_string_lossy()
+            .replace('\\', "/")
+    } else {
+        target_dir_path.clone()
+    };
+
+    let raw_sources = extract_image_references(&options.content);
+    let mut items = Vec::new();
+    let mut valid_counter = 1;
+
+    let md_abs = workspace.join(md_path);
+    let md_dir = md_abs.parent().unwrap_or(workspace);
+
+    for raw_src in raw_sources {
+        let clean = raw_src.trim();
+        let is_remote = clean.starts_with("http://")
+            || clean.starts_with("https://")
+            || clean.starts_with("data:")
+            || clean.starts_with("blob:")
+            || clean.starts_with("asset:")
+            || clean.starts_with("tauri:");
+
+        let decoded_src = clean.replace("%20", " ");
+
+        let mut resolved_path = None;
+        let mut exists = false;
+
+        if !is_remote {
+            let candidate = if Path::new(&decoded_src).is_absolute() {
+                PathBuf::from(&decoded_src)
+            } else if decoded_src.starts_with('/') || decoded_src.starts_with('\\') {
+                workspace.join(decoded_src.trim_start_matches(|c| c == '/' || c == '\\'))
+            } else {
+                md_dir.join(&decoded_src)
+            };
+
+            if candidate.exists() && candidate.is_file() {
+                resolved_path = Some(candidate.to_string_lossy().replace('\\', "/"));
+                exists = true;
+            } else {
+                // Try workspace root fallback
+                let root_try = workspace.join(decoded_src.trim_start_matches(|c| c == '/' || c == '\\'));
+                if root_try.exists() && root_try.is_file() {
+                    resolved_path = Some(root_try.to_string_lossy().replace('\\', "/"));
+                    exists = true;
+                }
+            }
+        }
+
+        let mut is_already_in_place = false;
+        let mut new_filename = String::new();
+        let mut new_relative_path = String::new();
+
+        if exists && !is_remote {
+            let ext = resolved_path
+                .as_ref()
+                .and_then(|p| Path::new(p).extension().and_then(|e| e.to_str()))
+                .unwrap_or("png")
+                .to_lowercase();
+
+            new_filename = format!("{}_{}.{}", name_prefix, valid_counter, ext);
+            let target_file_path = target_dir.join(&new_filename);
+            new_relative_path = pathdiff_relative(md_dir, &target_file_path).replace('\\', "/");
+
+            if let Some(ref res_p) = resolved_path {
+                if normalize_path(Path::new(res_p)) == normalize_path(&target_file_path) {
+                    is_already_in_place = true;
+                }
+            }
+
+            valid_counter += 1;
+        }
+
+        items.push(ConsolidateScanItem {
+            raw_src,
+            decoded_src,
+            resolved_path,
+            exists,
+            is_remote,
+            is_already_in_place,
+            new_filename,
+            new_relative_path,
+        });
+    }
+
+    let valid_count = valid_counter - 1;
+
+    Ok(ConsolidateScanResult {
+        markdown_file: options.markdown_file,
+        name_prefix,
+        naming_base_dir_display,
+        target_dir_path,
+        target_dir_display,
+        items,
+        valid_count,
+    })
+}
+
+pub fn execute_consolidate_images(
+    workspace_path: &str,
+    options: ConsolidateExecuteOptions,
+) -> Result<ConsolidateExecuteResult, AppError> {
+    let scan_opts = ConsolidateScanOptions {
+        markdown_file: options.markdown_file.clone(),
+        content: options.content.clone(),
+        image_dir: options.image_dir.clone(),
+        naming_base_dir: options.naming_base_dir.clone(),
+        custom_target_dir: options.custom_target_dir.clone(),
+    };
+
+    let scan = scan_document_images(workspace_path, scan_opts)?;
+    let target_dir = Path::new(&scan.target_dir_path);
+
+    if scan.valid_count > 0 && !target_dir.exists() {
+        fs::create_dir_all(target_dir)?;
+    }
+
+    let is_move = options
+        .operation
+        .as_deref()
+        .map(|op| op.eq_ignore_ascii_case("move"))
+        .unwrap_or(false);
+
+    let mut processed_count = 0;
+    let mut updated_content = options.content.clone();
+
+    for item in &scan.items {
+        if item.exists && !item.is_remote {
+            let target_file = target_dir.join(&item.new_filename);
+            if let Some(ref src_str) = item.resolved_path {
+                let src_path = Path::new(src_str);
+                if src_path != target_file {
+                    fs::copy(src_path, &target_file)?;
+                    if is_move {
+                        let _ = trash::delete(src_path);
+                    }
+                }
+                processed_count += 1;
+            }
+
+            // Replace occurrences in markdown text
+            let search_paren = format!("({})", item.raw_src);
+            let replace_paren = format!("({})", item.new_relative_path);
+            updated_content = updated_content.replace(&search_paren, &replace_paren);
+
+            let search_paren_space = format!("({} ", item.raw_src);
+            let replace_paren_space = format!("({} ", item.new_relative_path);
+            updated_content = updated_content.replace(&search_paren_space, &replace_paren_space);
+
+            let search_src_double = format!(r#"src="{}""#, item.raw_src);
+            let replace_src_double = format!(r#"src="{}""#, item.new_relative_path);
+            updated_content = updated_content.replace(&search_src_double, &replace_src_double);
+
+            let search_src_single = format!(r#"src='{}'"#, item.raw_src);
+            let replace_src_single = format!(r#"src='{}'"#, item.new_relative_path);
+            updated_content = updated_content.replace(&search_src_single, &replace_src_single);
+        }
+    }
+
+    Ok(ConsolidateExecuteResult {
+        updated_content,
+        processed_count,
+        target_dir_path: scan.target_dir_path,
+        items: scan.items,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -560,6 +862,88 @@ mod tests {
         // Read via workspace-relative path
         let data_uri2 = read_image_data_uri(ws_str, "docs/test.md", &format!("img/{}", res.filename)).unwrap();
         assert!(data_uri2.starts_with("data:image/png;base64,"));
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_consolidate_images_scan_and_execute() {
+        let temp_dir = std::env::temp_dir().join(format!("bookmd_test_consolidate_{}", uuid::Uuid::new_v4()));
+        let ws_str = temp_dir.to_str().unwrap();
+
+        // Create doc dir and scattered images
+        let doc_dir = temp_dir.join("guides");
+        let scattered1 = temp_dir.join("assets").join("images");
+        let scattered2 = temp_dir.join("temp_photos");
+        fs::create_dir_all(&doc_dir).unwrap();
+        fs::create_dir_all(&scattered1).unwrap();
+        fs::create_dir_all(&scattered2).unwrap();
+
+        let img1 = scattered1.join("screen.png");
+        let img2 = scattered2.join("diagram.jpg");
+        fs::write(&img1, b"fake png").unwrap();
+        fs::write(&img2, b"fake jpg").unwrap();
+
+        let content = format!(
+            "# Note\n\n![Image 1](../assets/images/screen.png)\n<img src='../temp_photos/diagram.jpg' alt='Image 2' width='300'/>\n![Remote](https://example.com/logo.png)\n![Missing](not_found.png)"
+        );
+
+        // 1. Scan
+        let scan_res = scan_document_images(
+            ws_str,
+            ConsolidateScanOptions {
+                markdown_file: "guides/note.md".to_string(),
+                content: content.clone(),
+                image_dir: Some("images".to_string()),
+                naming_base_dir: None,
+                custom_target_dir: None,
+            },
+        ).unwrap();
+
+        assert_eq!(scan_res.name_prefix, "note");
+        assert_eq!(scan_res.valid_count, 2);
+        assert_eq!(scan_res.items.len(), 4);
+
+        // First item (screen.png)
+        assert_eq!(scan_res.items[0].exists, true);
+        assert_eq!(scan_res.items[0].new_filename, "note_1.png");
+        assert_eq!(scan_res.items[0].new_relative_path, "images/note_1.png");
+
+        // Second item (diagram.jpg)
+        assert_eq!(scan_res.items[1].exists, true);
+        assert_eq!(scan_res.items[1].new_filename, "note_2.jpg");
+        assert_eq!(scan_res.items[1].new_relative_path, "images/note_2.jpg");
+
+        // Remote item
+        assert_eq!(scan_res.items[2].is_remote, true);
+        assert_eq!(scan_res.items[2].exists, false);
+
+        // Missing item
+        assert_eq!(scan_res.items[3].exists, false);
+
+        // 2. Execute
+        let exec_res = execute_consolidate_images(
+            ws_str,
+            ConsolidateExecuteOptions {
+                markdown_file: "guides/note.md".to_string(),
+                content,
+                image_dir: Some("images".to_string()),
+                naming_base_dir: None,
+                custom_target_dir: None,
+                operation: Some("copy".to_string()),
+            },
+        ).unwrap();
+
+        assert_eq!(exec_res.processed_count, 2);
+        let target_dir = doc_dir.join("images");
+        assert!(target_dir.join("note_1.png").exists());
+        assert!(target_dir.join("note_2.jpg").exists());
+
+        // Check updated content
+        assert!(exec_res.updated_content.contains("![Image 1](images/note_1.png)"));
+        assert!(exec_res.updated_content.contains("src='images/note_2.jpg'"));
+        assert!(exec_res.updated_content.contains("https://example.com/logo.png"));
+        assert!(exec_res.updated_content.contains("not_found.png"));
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

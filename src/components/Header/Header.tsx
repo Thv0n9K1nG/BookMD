@@ -24,6 +24,7 @@ interface HeaderProps {
   onToggleCommandPalette: () => void;
   onExportPdf: () => void;
   onOpenBackup: () => void;
+  onOpenConsolidateImages: () => void;
   onToggleTheme: () => void;
   onOpenSettings: () => void;
   onOpenImageSettings?: () => void;
@@ -40,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleCommandPalette,
   onExportPdf,
   onOpenBackup,
+  onOpenConsolidateImages,
   onToggleTheme,
   onOpenSettings,
   onOpenImageSettings,
@@ -139,6 +141,7 @@ export const Header: React.FC<HeaderProps> = ({
         <ToolsDropdown
           onExportPdf={onExportPdf}
           onOpenBackup={onOpenBackup}
+          onOpenConsolidateImages={onOpenConsolidateImages}
         />
 
         <button
