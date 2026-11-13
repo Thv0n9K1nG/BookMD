@@ -1,3 +1,30 @@
+# Release Notes — BookMD v0.1.15
+
+**BookMD v0.1.15** brings critical hardening, atomic staging, and path normalization to the **Document Image Consolidation & Standardization Tool**. This release resolves permutation/cyclic renaming collisions, cascading text replacements, duplicate reference deduplication, and Windows OS Error 32 sharing violations.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 🛡️ 1. Two-Phase Staged Atomic Renaming (Zero Data Loss)
+- **Eliminating Permutation & Cycle Overwrite Collisions**: When reordering images inside a document (e.g., `note_3.png` -> `1`, `note_1.png` -> `2`, `note_2.png` -> `3`), direct in-place operations previously overwrote target files before their original content could be processed.
+- **Isolated Staging Area**: BookMD now stages all unique source images into an isolated temporary folder (`.bmd_staging_<uuid>`) before relocating them to their final standardized filenames. This mathematical guarantee completely eliminates in-place file collisions.
+- **Move by Default**: Changed default operation mode from Copy to **Move (Di chuyển)** to prevent duplicate file clutter and prevent disk space exhaustion.
+
+### 🔍 2. Reverse-Offset Markdown Text Replacement (Zero Cascading Clashes)
+- **Exact Span Slicing**: Replaced naive sequential string `.replace()` with exact reverse-order byte offset replacement (`replace_range`).
+- **No More Identical Index Bugs**: Previously, replacing `note_3.png` with `note_1.png` caused subsequent passes to inadvertently replace the newly placed `note_1.png` again, leading to catastrophic `3 3 3` or `1` cascades. With reverse-span slicing from document bottom to top, earlier character positions remain completely stable and untouched.
+
+### 🔄 3. Smart Deduplication for Repeated Image References
+- **Unified Naming for Shared Assets**: When an image is referenced multiple times in the same document (e.g., a diagram or logo appearing in multiple sections), BookMD assigns the exact same standardized target filename to every occurrence without incrementing the numeric sequence counter or generating redundant copies on disk.
+
+### 🪟 4. Windows Path Normalization & OS Error 32 Fixes
+- **UNC Extended Path (`\\?\`) Stripping**: Fixed path difference calculations where Windows canonical paths prepended with `\\?\` generated erroneous relative paths like `../../../../../../C:/...`. All relative links now resolve to clean paths like `images/note_1.png`.
+- **Self-Copy Sharing Violation Prevention**: Added `paths_are_same_file` check to bypass redundant file I/O when an image is already in place with the target name, preventing Windows `ERROR_SHARING_VIOLATION (os error 32)`.
+- **Retry Backoff Mechanism**: Added automatic retries for file locks and transient filesystem delays.
+
+---
+
 # Release Notes — BookMD v0.1.14
 
 **BookMD v0.1.14** introduces the **Document Image Consolidation & Standardization Tool (`ConsolidateImagesModal`)**, resolving scattered and inconsistently named images in Markdown documents by gathering them into a standardized folder with uniform sequential naming (`<stem>_1.png`, `<stem>_2.png`, etc.) and automatically synchronizing the document's references in real-time.

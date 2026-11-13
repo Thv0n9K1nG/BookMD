@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.15] - 2026-11-13
+
+### Fixed & Improved
+- **Robust Image Consolidation Engine (`image_consolidate_execute`)**:
+  - **Two-Phase Staged Atomic Renaming**: Fixed permutation and cyclic renames (e.g., reordering `note_3.png` -> `1`, `note_1.png` -> `2`, `note_2.png` -> `3`). Previously, direct in-place renames prematurely overwrote destination files and caused cascading text replacements resulting in identical filenames (`3 3 3`). Now, all source files are safely staged into an isolated temporary folder before moving to their final targets, guaranteeing zero overwrite collisions and zero data loss.
+  - **Collision-Free Reverse-Offset Markdown Replacement**: Replaced naive sequential `.replace()` with exact reverse-order span slicing. Prevents newly renamed links from accidentally triggering subsequent regex replacements.
+  - **Duplicate Image Reference Deduplication**: When the same physical image is referenced multiple times in the document (e.g. `images/logo.png` at the top and bottom), it is assigned the same standardized name (`<stem>_1.png`) across all references without advancing the numeric counter or duplicating disk copies.
+  - **Windows Path & Sharing Violation Fixes (OS Error 32)**:
+    - Fixed path diff computation when comparing canonical Windows UNC paths (`\\?\C:\...`) with normal paths (`C:\...`), eliminating bizarre `../../../../../../C:/...` relative paths.
+    - Added `paths_are_same_file` check to bypass redundant disk operations when a file is already at destination with the target name, preventing `os error 32` (sharing violation caused by self-copying).
+    - Added retry backoff for Windows filesystem locks.
+  - **Move by Default**: Changed default operation mode from Copy to **Move (Di chuyển)** to eliminate file clutter and prevent naming conflicts across folders.
+
 ## [0.1.14] - 2026-11-12
 
 ### Added

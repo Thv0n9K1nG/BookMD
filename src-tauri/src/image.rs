@@ -291,20 +291,60 @@ fn decode_image_data(data: &str) -> Result<(Vec<u8>, String), AppError> {
     }
 }
 
-/// Compute relative path from `from_dir` to `to_path`
-fn pathdiff_relative(from_dir: &Path, to_path: &Path) -> String {
-    // Normalize both paths
-    let from = normalize_path(from_dir);
-    let to = normalize_path(to_path);
+/// Strip Windows verbatim / extended-length prefixes (\\?\ and \\.\) and normalize to '/'
+pub fn clean_path_string(path: &Path) -> String {
+    let mut s = path.to_string_lossy().to_string();
+    if s.starts_with(r"\\?\") || s.starts_with(r"//?/") {
+        s = s[4..].to_string();
+    } else if s.starts_with(r"\\.\") || s.starts_with(r"//./") {
+        s = s[4..].to_string();
+    }
+    s.replace('\\', "/")
+}
 
-    let from_parts: Vec<&str> = from.split('/').filter(|s| !s.is_empty()).collect();
-    let to_parts: Vec<&str> = to.split('/').filter(|s| !s.is_empty()).collect();
+/// Check if two paths point to the exact same file on disk (case-insensitive on Windows)
+pub fn paths_are_same_file(p1: &Path, p2: &Path) -> bool {
+    if p1 == p2 {
+        return true;
+    }
+    let s1 = clean_path_string(p1);
+    let s2 = clean_path_string(p2);
+    if s1.eq_ignore_ascii_case(&s2) {
+        return true;
+    }
+    if let (Ok(c1), Ok(c2)) = (p1.canonicalize(), p2.canonicalize()) {
+        let clean1 = clean_path_string(&c1);
+        let clean2 = clean_path_string(&c2);
+        if clean1.eq_ignore_ascii_case(&clean2) {
+            return true;
+        }
+    }
+    false
+}
 
-    // Find common prefix length
+/// Compute relative path from `from_dir` to `to_path` with Windows drive & UNC prefix safety
+pub fn pathdiff_relative(from_dir: &Path, to_path: &Path) -> String {
+    let from_clean = clean_path_string(from_dir);
+    let to_clean = clean_path_string(to_path);
+
+    let from_parts: Vec<&str> = from_clean.split('/').filter(|s| !s.is_empty()).collect();
+    let to_parts: Vec<&str> = to_clean.split('/').filter(|s| !s.is_empty()).collect();
+
+    // Check if both paths specify Windows drive letters (e.g. "C:")
+    if let (Some(f_first), Some(t_first)) = (from_parts.first(), to_parts.first()) {
+        if f_first.ends_with(':') && t_first.ends_with(':') {
+            if !f_first.eq_ignore_ascii_case(t_first) {
+                // Different drives: cannot be relative, return clean absolute path
+                return to_clean;
+            }
+        }
+    }
+
+    // Find common prefix length (case-insensitive for Windows file paths)
     let common = from_parts
         .iter()
         .zip(to_parts.iter())
-        .take_while(|(a, b)| a == b)
+        .take_while(|(a, b)| a.eq_ignore_ascii_case(b))
         .count();
 
     let ups = from_parts.len() - common;
@@ -313,14 +353,14 @@ fn pathdiff_relative(from_dir: &Path, to_path: &Path) -> String {
         result.push("..");
     }
     for part in &to_parts[common..] {
-        result.push(part);
+        result.push(*part);
     }
 
-    result.join("/")
-}
-
-fn normalize_path(p: &Path) -> String {
-    p.to_string_lossy().replace('\\', "/")
+    if result.is_empty() {
+        ".".to_string()
+    } else {
+        result.join("/")
+    }
 }
 
 /// Read an image from disk and return as a data URI (data:image/...;base64,...)
@@ -438,15 +478,74 @@ pub struct ConsolidateExecuteResult {
     pub items: Vec<ConsolidateScanItem>,
 }
 
-fn extract_image_references(content: &str) -> Vec<String> {
+fn robust_copy_with_retry(src: &Path, dst: &Path) -> Result<(), AppError> {
+    let mut attempts = 0;
+    loop {
+        match fs::copy(src, dst) {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+                attempts += 1;
+                if attempts >= 5 {
+                    return Err(AppError::IoError(e));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(60));
+            }
+        }
+    }
+}
+
+fn robust_delete_file_with_retry(path: &Path) -> Result<(), AppError> {
+    let mut attempts = 0;
+    loop {
+        match fs::remove_file(path) {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+                attempts += 1;
+                if attempts >= 5 {
+                    if let Ok(_) = trash::delete(path) {
+                        return Ok(());
+                    }
+                    return Err(AppError::IoError(e));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(60));
+            }
+        }
+    }
+}
+
+fn robust_rename_or_copy_move(src: &Path, dst: &Path) -> Result<(), AppError> {
+    match fs::rename(src, dst) {
+        Ok(_) => Ok(()),
+        Err(_) => {
+            robust_copy_with_retry(src, dst)?;
+            let _ = robust_delete_file_with_retry(src);
+            Ok(())
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ImageRefMatch {
+    tag_start: usize,
+    src_start: usize,
+    src_end: usize,
+    raw_src: String,
+}
+
+fn find_all_image_references(content: &str) -> Vec<ImageRefMatch> {
     let mut matches = Vec::new();
 
     // 1. Markdown syntax: ![alt](src "title") or ![alt](src)
     let md_re = regex::Regex::new(r#"!\[[^\]]*\]\((?P<src>[^)\s]+)(?:\s+["'][^"']*["'])?\)"#).unwrap();
     for cap in md_re.captures_iter(content) {
         if let Some(src_match) = cap.name("src") {
-            let start = cap.get(0).unwrap().start();
-            matches.push((start, src_match.as_str().trim().to_string()));
+            let tag_start = cap.get(0).unwrap().start();
+            matches.push(ImageRefMatch {
+                tag_start,
+                src_start: src_match.start(),
+                src_end: src_match.end(),
+                raw_src: src_match.as_str().trim().to_string(),
+            });
         }
     }
 
@@ -454,23 +553,19 @@ fn extract_image_references(content: &str) -> Vec<String> {
     let html_re = regex::Regex::new(r#"(?i)<img\b[^>]*?\bsrc=["'](?P<src>[^"']+)["'][^>]*?>"#).unwrap();
     for cap in html_re.captures_iter(content) {
         if let Some(src_match) = cap.name("src") {
-            let start = cap.get(0).unwrap().start();
-            matches.push((start, src_match.as_str().trim().to_string()));
+            let tag_start = cap.get(0).unwrap().start();
+            matches.push(ImageRefMatch {
+                tag_start,
+                src_start: src_match.start(),
+                src_end: src_match.end(),
+                raw_src: src_match.as_str().trim().to_string(),
+            });
         }
     }
 
-    // Sort by position in document
-    matches.sort_by_key(|(pos, _)| *pos);
-
-    let mut seen = std::collections::HashSet::new();
-    let mut images = Vec::new();
-    for (_, src) in matches {
-        if !src.is_empty() && seen.insert(src.clone()) {
-            images.push(src);
-        }
-    }
-
-    images
+    // Sort by position in document (top to bottom)
+    matches.sort_by_key(|m| m.tag_start);
+    matches
 }
 
 pub fn scan_document_images(
@@ -511,7 +606,7 @@ pub fn scan_document_images(
         resolve_image_dir(workspace, md_path, options.image_dir.as_deref())
     };
 
-    let target_dir_path = target_dir.to_string_lossy().replace('\\', "/");
+    let target_dir_path = clean_path_string(&target_dir);
     let target_dir_display = if target_dir.starts_with(workspace) {
         target_dir
             .strip_prefix(workspace)
@@ -522,14 +617,17 @@ pub fn scan_document_images(
         target_dir_path.clone()
     };
 
-    let raw_sources = extract_image_references(&options.content);
-    let mut items = Vec::new();
-    let mut valid_counter = 1;
-
     let md_abs = workspace.join(md_path);
     let md_dir = md_abs.parent().unwrap_or(workspace);
 
-    for raw_src in raw_sources {
+    let all_matches = find_all_image_references(&options.content);
+
+    let mut items = Vec::new();
+    let mut assigned_canonical: std::collections::HashMap<String, (String, String)> = std::collections::HashMap::new();
+    let mut valid_counter = 0;
+
+    for m in &all_matches {
+        let raw_src = m.raw_src.clone();
         let clean = raw_src.trim();
         let is_remote = clean.starts_with("http://")
             || clean.starts_with("https://")
@@ -542,6 +640,7 @@ pub fn scan_document_images(
 
         let mut resolved_path = None;
         let mut exists = false;
+        let mut canon_key = String::new();
 
         if !is_remote {
             let candidate = if Path::new(&decoded_src).is_absolute() {
@@ -553,13 +652,17 @@ pub fn scan_document_images(
             };
 
             if candidate.exists() && candidate.is_file() {
-                resolved_path = Some(candidate.to_string_lossy().replace('\\', "/"));
+                resolved_path = Some(clean_path_string(&candidate));
+                let canon = candidate.canonicalize().unwrap_or_else(|_| candidate.clone());
+                canon_key = clean_path_string(&canon).to_lowercase();
                 exists = true;
             } else {
                 // Try workspace root fallback
                 let root_try = workspace.join(decoded_src.trim_start_matches(|c| c == '/' || c == '\\'));
                 if root_try.exists() && root_try.is_file() {
-                    resolved_path = Some(root_try.to_string_lossy().replace('\\', "/"));
+                    resolved_path = Some(clean_path_string(&root_try));
+                    let canon = root_try.canonicalize().unwrap_or_else(|_| root_try.clone());
+                    canon_key = clean_path_string(&canon).to_lowercase();
                     exists = true;
                 }
             }
@@ -570,23 +673,36 @@ pub fn scan_document_images(
         let mut new_relative_path = String::new();
 
         if exists && !is_remote {
-            let ext = resolved_path
-                .as_ref()
-                .and_then(|p| Path::new(p).extension().and_then(|e| e.to_str()))
-                .unwrap_or("png")
-                .to_lowercase();
-
-            new_filename = format!("{}_{}.{}", name_prefix, valid_counter, ext);
-            let target_file_path = target_dir.join(&new_filename);
-            new_relative_path = pathdiff_relative(md_dir, &target_file_path).replace('\\', "/");
-
-            if let Some(ref res_p) = resolved_path {
-                if normalize_path(Path::new(res_p)) == normalize_path(&target_file_path) {
-                    is_already_in_place = true;
+            if let Some((existing_fname, existing_rel)) = assigned_canonical.get(&canon_key) {
+                // Duplicate reference to the SAME image on disk: reuse the already assigned filename and relative path!
+                new_filename = existing_fname.clone();
+                new_relative_path = existing_rel.clone();
+                let target_file_path = target_dir.join(&new_filename);
+                if let Some(ref res_p) = resolved_path {
+                    if paths_are_same_file(Path::new(res_p), &target_file_path) {
+                        is_already_in_place = true;
+                    }
                 }
-            }
+            } else {
+                valid_counter += 1;
+                let ext = resolved_path
+                    .as_ref()
+                    .and_then(|p| Path::new(p).extension().and_then(|e| e.to_str()))
+                    .unwrap_or("png")
+                    .to_lowercase();
 
-            valid_counter += 1;
+                new_filename = format!("{}_{}.{}", name_prefix, valid_counter, ext);
+                let target_file_path = target_dir.join(&new_filename);
+                new_relative_path = pathdiff_relative(md_dir, &target_file_path).replace('\\', "/");
+
+                if let Some(ref res_p) = resolved_path {
+                    if paths_are_same_file(Path::new(res_p), &target_file_path) {
+                        is_already_in_place = true;
+                    }
+                }
+
+                assigned_canonical.insert(canon_key.clone(), (new_filename.clone(), new_relative_path.clone()));
+            }
         }
 
         items.push(ConsolidateScanItem {
@@ -601,7 +717,7 @@ pub fn scan_document_images(
         });
     }
 
-    let valid_count = valid_counter - 1;
+    let valid_count = valid_counter;
 
     Ok(ConsolidateScanResult {
         markdown_file: options.markdown_file,
@@ -633,45 +749,92 @@ pub fn execute_consolidate_images(
         fs::create_dir_all(target_dir)?;
     }
 
+    // Default operation is "move" (unless explicitly set to "copy")
     let is_move = options
         .operation
         .as_deref()
-        .map(|op| op.eq_ignore_ascii_case("move"))
-        .unwrap_or(false);
+        .map(|op| !op.eq_ignore_ascii_case("copy"))
+        .unwrap_or(true);
 
-    let mut processed_count = 0;
-    let mut updated_content = options.content.clone();
+    // 1. Collect unique disk tasks: (canonical_src_path) -> (src_path, target_filename, target_file_path)
+    let mut unique_tasks: Vec<(PathBuf, String, PathBuf)> = Vec::new();
+    let mut seen_task_keys: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for item in &scan.items {
-        if item.exists && !item.is_remote {
-            let target_file = target_dir.join(&item.new_filename);
+        if item.exists && !item.is_remote && !item.new_filename.is_empty() {
             if let Some(ref src_str) = item.resolved_path {
-                let src_path = Path::new(src_str);
-                if src_path != target_file {
-                    fs::copy(src_path, &target_file)?;
-                    if is_move {
-                        let _ = trash::delete(src_path);
-                    }
+                let src_path = PathBuf::from(src_str);
+                let target_file = target_dir.join(&item.new_filename);
+                let task_key = clean_path_string(&src_path.canonicalize().unwrap_or_else(|_| src_path.clone())).to_lowercase();
+                if seen_task_keys.insert(task_key) {
+                    unique_tasks.push((src_path, item.new_filename.clone(), target_file));
                 }
-                processed_count += 1;
             }
+        }
+    }
 
-            // Replace occurrences in markdown text
-            let search_paren = format!("({})", item.raw_src);
-            let replace_paren = format!("({})", item.new_relative_path);
-            updated_content = updated_content.replace(&search_paren, &replace_paren);
+    // 2. Perform disk operations using Two-Phase Staging to prevent overwrite collisions
+    let tasks_needing_disk_op: Vec<&(PathBuf, String, PathBuf)> = unique_tasks
+        .iter()
+        .filter(|(src, _, dst)| !paths_are_same_file(src, dst))
+        .collect();
 
-            let search_paren_space = format!("({} ", item.raw_src);
-            let replace_paren_space = format!("({} ", item.new_relative_path);
-            updated_content = updated_content.replace(&search_paren_space, &replace_paren_space);
+    if !tasks_needing_disk_op.is_empty() {
+        // Create staging directory inside target_dir
+        let stage_dir = target_dir.join(format!(".bmd_staging_{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&stage_dir)?;
 
-            let search_src_double = format!(r#"src="{}""#, item.raw_src);
-            let replace_src_double = format!(r#"src="{}""#, item.new_relative_path);
-            updated_content = updated_content.replace(&search_src_double, &replace_src_double);
+        let mut staged_files: Vec<(PathBuf, PathBuf)> = Vec::new();
+        // (temp_staged_path, final_target_path)
 
-            let search_src_single = format!(r#"src='{}'"#, item.raw_src);
-            let replace_src_single = format!(r#"src='{}'"#, item.new_relative_path);
-            updated_content = updated_content.replace(&search_src_single, &replace_src_single);
+        // Phase 1: Move/copy all source files into stage_dir
+        for (idx, (src_path, target_fname, target_path)) in tasks_needing_disk_op.iter().enumerate() {
+            let temp_staged = stage_dir.join(format!("stage_{}_{}", idx, target_fname));
+            let same_dir = src_path
+                .parent()
+                .map(|p| paths_are_same_file(p, target_dir))
+                .unwrap_or(false);
+
+            if is_move && same_dir {
+                // Move within same directory: rename into staging folder
+                robust_rename_or_copy_move(src_path, &temp_staged)?;
+            } else if is_move {
+                // Move across directories: copy to staging folder, delete source
+                robust_copy_with_retry(src_path, &temp_staged)?;
+                let _ = robust_delete_file_with_retry(src_path);
+            } else {
+                // Copy mode: copy to staging folder, keep source
+                robust_copy_with_retry(src_path, &temp_staged)?;
+            }
+            staged_files.push((temp_staged, target_path.clone()));
+        }
+
+        // Phase 2: Move all staged files to their final destinations
+        for (temp_staged, final_target) in &staged_files {
+            if final_target.exists() {
+                let _ = robust_delete_file_with_retry(final_target);
+            }
+            robust_rename_or_copy_move(temp_staged, final_target)?;
+        }
+
+        // Clean up staging directory
+        let _ = fs::remove_dir_all(&stage_dir);
+    }
+
+    let processed_count = unique_tasks.len();
+
+    // 3. Update Markdown content without cascading collisions
+    let all_matches = find_all_image_references(&options.content);
+    let mut updated_content = options.content.clone();
+
+    // Iterate matches in REVERSE order (from bottom of document to top)
+    for (idx, m) in all_matches.iter().enumerate().rev() {
+        if let Some(item) = scan.items.get(idx) {
+            if item.exists && !item.is_remote && !item.new_relative_path.is_empty() {
+                if m.src_start <= m.src_end && m.src_end <= updated_content.len() {
+                    updated_content.replace_range(m.src_start..m.src_end, &item.new_relative_path);
+                }
+            }
         }
     }
 
@@ -946,5 +1109,191 @@ mod tests {
         assert!(exec_res.updated_content.contains("not_found.png"));
 
         let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_pathdiff_with_unc_and_windows_drive() {
+        let from_unc = Path::new(r"\\?\C:\Users\hongo\Downloads\test\test\a");
+        let to_normal = Path::new(r"C:\Users\hongo\Downloads\test\test\a\images\a_1.png");
+        let rel = pathdiff_relative(from_unc, to_normal);
+        assert_eq!(rel, "images/a_1.png");
+
+        let from_lower = Path::new(r"c:\Users\hongo\docs");
+        let to_upper = Path::new(r"C:\Users\hongo\docs\images\pic.png");
+        let rel2 = pathdiff_relative(from_lower, to_upper);
+        assert_eq!(rel2, "images/pic.png");
+    }
+
+    #[test]
+    fn test_consolidate_permutation_move_and_duplicates() {
+        let temp_dir = std::env::temp_dir().join(format!("bookmd_test_perm_{}", uuid::Uuid::new_v4()));
+        let ws_str = temp_dir.to_str().unwrap();
+
+        let doc_dir = temp_dir.join("docs");
+        let images_dir = doc_dir.join("images");
+        fs::create_dir_all(&images_dir).unwrap();
+
+        // 3 images currently in images/: note_3.png, note_1.png, note_2.png
+        let img1 = images_dir.join("note_1.png");
+        let img2 = images_dir.join("note_2.png");
+        let img3 = images_dir.join("note_3.png");
+
+        fs::write(&img1, b"CONTENT OF OLD NOTE_1").unwrap();
+        fs::write(&img2, b"CONTENT OF OLD NOTE_2").unwrap();
+        fs::write(&img3, b"CONTENT OF OLD NOTE_3").unwrap();
+
+        // Document references them in permutation order: 3, then 1, then 2, plus duplicate 1!
+        let content = format!(
+            "# Test Permutation\n\n![Third](images/note_3.png)\n![First](images/note_1.png)\n![Second](images/note_2.png)\n![First Again](images/note_1.png)\n"
+        );
+
+        // 1. Scan:
+        // note_3 -> note_1.png
+        // note_1 -> note_2.png
+        // note_2 -> note_3.png
+        // note_1 (duplicate) -> note_2.png!
+        let scan = scan_document_images(
+            ws_str,
+            ConsolidateScanOptions {
+                markdown_file: "docs/note.md".to_string(),
+                content: content.clone(),
+                image_dir: Some("images".to_string()),
+                naming_base_dir: None,
+                custom_target_dir: None,
+            },
+        ).unwrap();
+
+        assert_eq!(scan.valid_count, 3); // 3 unique valid files
+        assert_eq!(scan.items.len(), 4); // 4 references in doc
+
+        assert_eq!(scan.items[0].new_filename, "note_1.png");
+        assert_eq!(scan.items[1].new_filename, "note_2.png");
+        assert_eq!(scan.items[2].new_filename, "note_3.png");
+        // Duplicate reference reuses note_2.png
+        assert_eq!(scan.items[3].new_filename, "note_2.png");
+
+        // 2. Execute with move = true
+        let exec = execute_consolidate_images(
+            ws_str,
+            ConsolidateExecuteOptions {
+                markdown_file: "docs/note.md".to_string(),
+                content: content.clone(),
+                image_dir: Some("images".to_string()),
+                naming_base_dir: None,
+                custom_target_dir: None,
+                operation: Some("move".to_string()),
+            },
+        ).unwrap();
+
+        // Check updated Markdown:
+        assert!(exec.updated_content.contains("![Third](images/note_1.png)"));
+        assert!(exec.updated_content.contains("![First](images/note_2.png)"));
+        assert!(exec.updated_content.contains("![Second](images/note_3.png)"));
+        assert!(exec.updated_content.contains("![First Again](images/note_2.png)"));
+
+        // Verify content integrity of physical files on disk:
+        // note_1.png MUST have old note_3's content!
+        let c1 = fs::read_to_string(images_dir.join("note_1.png")).unwrap();
+        assert_eq!(c1, "CONTENT OF OLD NOTE_3");
+
+        // note_2.png MUST have old note_1's content!
+        let c2 = fs::read_to_string(images_dir.join("note_2.png")).unwrap();
+        assert_eq!(c2, "CONTENT OF OLD NOTE_1");
+
+        // note_3.png MUST have old note_2's content!
+        let c3 = fs::read_to_string(images_dir.join("note_3.png")).unwrap();
+        assert_eq!(c3, "CONTENT OF OLD NOTE_2");
+
+        // 3. Execute a SECOND TIME on the updated content:
+        // Must be stable (already in place), zero corruption!
+        let exec_second = execute_consolidate_images(
+            ws_str,
+            ConsolidateExecuteOptions {
+                markdown_file: "docs/note.md".to_string(),
+                content: exec.updated_content.clone(),
+                image_dir: Some("images".to_string()),
+                naming_base_dir: None,
+                custom_target_dir: None,
+                operation: Some("move".to_string()),
+            },
+        ).unwrap();
+
+        assert_eq!(exec_second.updated_content, exec.updated_content);
+        assert_eq!(fs::read_to_string(images_dir.join("note_1.png")).unwrap(), "CONTENT OF OLD NOTE_3");
+        assert_eq!(fs::read_to_string(images_dir.join("note_2.png")).unwrap(), "CONTENT OF OLD NOTE_1");
+        assert_eq!(fs::read_to_string(images_dir.join("note_3.png")).unwrap(), "CONTENT OF OLD NOTE_2");
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_consolidate_on_user_tmp_directory() {
+        let tmp_root = Path::new(r"C:\Users\hongo\tmp");
+        if !tmp_root.exists() {
+            return;
+        }
+
+        let test_folder = tmp_root.join(format!("bookmd_test_{}", uuid::Uuid::new_v4()));
+        let doc_dir = test_folder.join("nested").join("docs");
+        let images_dir = doc_dir.join("images");
+        fs::create_dir_all(&images_dir).unwrap();
+
+        let img_a = images_dir.join("a_3.png");
+        let img_b = images_dir.join("a_1.png");
+        let img_c = images_dir.join("a_2.png");
+
+        fs::write(&img_a, b"IMG_A_DATA_ORIGINAL_3").unwrap();
+        fs::write(&img_b, b"IMG_B_DATA_ORIGINAL_1").unwrap();
+        fs::write(&img_c, b"IMG_C_DATA_ORIGINAL_2").unwrap();
+
+        let md_content = "# Doc\n\n![A](images/a_3.png)\n![B](images/a_1.png)\n![C](images/a_2.png)\n![B duplicate](images/a_1.png)\n";
+        let md_file_path = doc_dir.join("a.md");
+        fs::write(&md_file_path, md_content).unwrap();
+
+        let ws_str = test_folder.to_str().unwrap();
+
+        // Scan
+        let scan = scan_document_images(
+            ws_str,
+            ConsolidateScanOptions {
+                markdown_file: "nested/docs/a.md".to_string(),
+                content: md_content.to_string(),
+                image_dir: Some("images".to_string()),
+                naming_base_dir: None,
+                custom_target_dir: None,
+            },
+        ).unwrap();
+
+        assert_eq!(scan.valid_count, 3);
+        assert_eq!(scan.items.len(), 4);
+        assert_eq!(scan.items[0].new_filename, "a_1.png");
+        assert_eq!(scan.items[1].new_filename, "a_2.png");
+        assert_eq!(scan.items[2].new_filename, "a_3.png");
+        assert_eq!(scan.items[3].new_filename, "a_2.png"); // duplicate reuses a_2.png
+
+        // Execute move
+        let exec = execute_consolidate_images(
+            ws_str,
+            ConsolidateExecuteOptions {
+                markdown_file: "nested/docs/a.md".to_string(),
+                content: md_content.to_string(),
+                image_dir: Some("images".to_string()),
+                naming_base_dir: None,
+                custom_target_dir: None,
+                operation: Some("move".to_string()),
+            },
+        ).unwrap();
+
+        assert_eq!(fs::read_to_string(images_dir.join("a_1.png")).unwrap(), "IMG_A_DATA_ORIGINAL_3");
+        assert_eq!(fs::read_to_string(images_dir.join("a_2.png")).unwrap(), "IMG_B_DATA_ORIGINAL_1");
+        assert_eq!(fs::read_to_string(images_dir.join("a_3.png")).unwrap(), "IMG_C_DATA_ORIGINAL_2");
+
+        assert!(exec.updated_content.contains("![A](images/a_1.png)"));
+        assert!(exec.updated_content.contains("![B](images/a_2.png)"));
+        assert!(exec.updated_content.contains("![C](images/a_3.png)"));
+        assert!(exec.updated_content.contains("![B duplicate](images/a_2.png)"));
+
+        // Clean up test folder
+        let _ = fs::remove_dir_all(&test_folder);
     }
 }

@@ -14,13 +14,13 @@ describe('Image Consolidation Tool', () => {
     expect(res.namingBaseDirDisplay).toContain('Mặc định');
   });
 
-  it('should execute consolidation fallback in mock mode', async () => {
-    const content = '# Test\n![Image](old_assets/pic.png)';
+  it('should execute consolidation fallback in mock mode with move default', async () => {
+    const content = '# Test\n![Image](old_assets/pic.png)\n![Image 2](old_assets/pic2.png)';
     const res = await executeConsolidateImages({
       markdownFile: 'guides/note.md',
       content,
       imageDir: 'images',
-      operation: 'copy',
+      operation: 'move',
     });
 
     expect(res.updatedContent).toBe(content);

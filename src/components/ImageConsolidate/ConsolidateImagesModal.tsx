@@ -38,7 +38,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
 }) => {
   const [folderMode, setFolderMode] = useState<'default' | 'custom'>('default');
   const [customFolder, setCustomFolder] = useState<string>('');
-  const [operation, setOperation] = useState<'copy' | 'move'>('copy');
+  const [operation, setOperation] = useState<'copy' | 'move'>('move');
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [scanResult, setScanResult] = useState<ConsolidateScanResult | null>(null);
@@ -398,18 +398,9 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
             </div>
           </div>
 
-          {/* Section: Operation Option (Copy vs Move) */}
+          {/* Section: Operation Option (Move vs Copy) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12.5px' }}>
             <span style={{ color: 'var(--text-tertiary)' }}>Phương thức:</span>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name="operation"
-                checked={operation === 'copy'}
-                onChange={() => setOperation('copy')}
-              />
-              <span>Sao chép (Giữ lại file ảnh gốc) — <span style={{ color: '#10b981' }}>Khuyên dùng</span></span>
-            </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
               <input
                 type="radio"
@@ -417,7 +408,16 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                 checked={operation === 'move'}
                 onChange={() => setOperation('move')}
               />
-              <span>Di chuyển (Chuyển hẳn sang thư mục mới)</span>
+              <span>Di chuyển (Chuyển hẳn sang thư mục mới) — <span style={{ color: '#10b981' }}>Mặc định</span></span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="operation"
+                checked={operation === 'copy'}
+                onChange={() => setOperation('copy')}
+              />
+              <span>Sao chép (Giữ lại file ảnh gốc)</span>
             </label>
           </div>
 
