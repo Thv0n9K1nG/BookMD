@@ -71,12 +71,28 @@ pre {{
     color: #e2e8f0;
     padding: 16px;
     border-radius: 8px;
-    overflow-x: auto;
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+    overflow: visible !important;
 }}
 pre code {{
     background: none;
     color: inherit;
     padding: 0;
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+}}
+.code-block-wrapper {{
+    margin: 1em 0;
+    overflow: visible !important;
+}}
+.code-block-wrapper pre {{
+    margin: 0;
+}}
+.code-copy-btn, .mermaid-copy-btn {{
+    display: none !important;
 }}
 blockquote {{
     border-left: 4px solid #6366f1;

@@ -32,6 +32,7 @@ interface EditorProps {
   theme: Theme;
   settings: Settings;
   targetLine?: number;
+  isVisible?: boolean;
   onChange: (value: string) => void;
   onSave: () => void;
   onCursorChange?: (line: number, col: number) => void;
@@ -46,6 +47,7 @@ export const Editor: React.FC<EditorProps> = ({
   theme,
   settings,
   targetLine,
+  isVisible = true,
   onChange,
   onSave,
   onCursorChange,
@@ -54,6 +56,7 @@ export const Editor: React.FC<EditorProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const savedScrollTopRef = useRef<number>(0);
   const contentRef = useRef(content);
   contentRef.current = content;
 
@@ -469,11 +472,36 @@ export const Editor: React.FC<EditorProps> = ({
 
     viewRef.current = view;
 
+    const scroller = view.scrollDOM;
+    const handleScroll = () => {
+      if (scroller.scrollTop > 0) {
+        savedScrollTopRef.current = scroller.scrollTop;
+      }
+    };
+    scroller.addEventListener('scroll', handleScroll, { passive: true });
+
     return () => {
+      scroller.removeEventListener('scroll', handleScroll);
       view.destroy();
       viewRef.current = null;
     };
   }, [relativePath]);
+
+  // Restore measurements and scroll position when view becomes visible (mode switch)
+  useEffect(() => {
+    if (viewRef.current && isVisible) {
+      const view = viewRef.current;
+      view.requestMeasure();
+      const prevScroll = savedScrollTopRef.current;
+      if (prevScroll > 0) {
+        requestAnimationFrame(() => {
+          if (view.scrollDOM) {
+            view.scrollDOM.scrollTop = prevScroll;
+          }
+        });
+      }
+    }
+  }, [isVisible]);
 
   // Dynamically reconfigure theme and font size without recreating EditorView
   useEffect(() => {
@@ -521,5 +549,11 @@ export const Editor: React.FC<EditorProps> = ({
     }
   }, [targetLine]);
 
-  return <div className="editor-pane" ref={containerRef} />;
+  return (
+    <div
+      className="editor-pane"
+      ref={containerRef}
+      style={{ display: isVisible ? 'flex' : 'none' }}
+    />
+  );
 };

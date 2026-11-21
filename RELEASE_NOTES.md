@@ -1,3 +1,25 @@
+# Release Notes — BookMD v0.1.17
+
+**BookMD v0.1.17** delivers targeted UX refinements across view mode switching, code block interactions, and PDF export quality: preserving editor cursor and scroll state when toggling between Editor, Split, and Preview modes; pinning a sleek, icon-only copy button that never drifts during horizontal scrolling; and ensuring all code blocks in exported PDFs wrap completely without clipping or printing scrollbars.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 🎯 1. Persistent Cursor Position & Scroll Offset Across View Modes
+- **The Problem**: Previously, switching to Preview mode unmounted the CodeMirror editor instance. Returning to Split or Editor mode re-instantiated the editor at position 0, frustratingly jumping the user back to the top of the document.
+- **The Solution**: Both `<Editor>` and `<Preview>` now persist in the DOM and are toggled via visibility rather than unmounting. The active line, character column, text selection, and pixel scroll offsets are 100% preserved when switching between Editor, Split, and Preview modes.
+
+### 📌 2. Pinned, Icon-Only Code Block Copy Button
+- **Fixed Drift During Horizontal Scrolling**: Previously, the copy button was nested directly inside the horizontally scrolling `<pre>` element. Scrolling wide code lines caused the button to drag across the text. Now, code blocks are wrapped in a non-scrolling `.code-block-wrapper`, guaranteeing that the copy button stays permanently pinned at the top-right corner.
+- **Clean, Icon-Only Design**: Removed the text label "Sao chép" in favor of a sleek, compact square icon button with subtle hover transitions and animated checkmark feedback on copy.
+
+### 📄 3. Flawless PDF Code Block Rendering (Zero Scrollbars, No Clipped Code)
+- **The Problem**: In PDF export, code lines exceeding page width caused the browser print engine to print the physical horizontal scrollbar onto the page while clipping the hidden text.
+- **The Solution**: Configured PDF export styles with `white-space: pre-wrap !important; word-break: break-all !important; overflow: visible !important;`. Long code lines wrap cleanly and seamlessly across the printable page with no clipping, zero scrollbars, and optimal readability.
+
+---
+
 # Release Notes — BookMD v0.1.16
 
 **BookMD v0.1.16** introduces seamless **Automatic SVG to PNG Image Paste Conversion**, specifically solving the issue where vector images copied from web platforms like **TryHackMe** (or any web page / SVG file) fail to paste into the editor. Pasted SVGs are now automatically converted into crisp PNG images and routed through BookMD's image handling pipeline with automatic naming, folder organization, and file tree synchronization.

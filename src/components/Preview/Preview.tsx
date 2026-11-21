@@ -19,6 +19,7 @@ interface PreviewProps {
   workspacePath?: string;
   activeLine?: number;
   viewMode?: ViewMode;
+  isVisible?: boolean;
   theme?: string;
   onNavigateToFile?: (relPath: string) => void;
   onToast?: (message: string, type?: 'info' | 'success' | 'error') => void;
@@ -30,6 +31,7 @@ export const Preview: React.FC<PreviewProps> = ({
   workspacePath,
   activeLine,
   viewMode,
+  isVisible,
   theme,
   onNavigateToFile,
   onToast,
@@ -39,6 +41,8 @@ export const Preview: React.FC<PreviewProps> = ({
   const scrollTimeoutRef = useRef<any>(null);
   const prevDocPathRef = useRef<string>(relativePath);
   const prevThemeRef = useRef<string | undefined>(theme);
+  const savedScrollTopRef = useRef<number>(0);
+  const isEffectiveVisible = isVisible ?? (viewMode === 'preview' || viewMode === 'split');
   const [copyMenu, setCopyMenu] = useState<{
     x: number;
     y: number;
@@ -62,6 +66,23 @@ export const Preview: React.FC<PreviewProps> = ({
 
     // Support Mermaid diagram blocks (```mermaid ... ```)
     instance.use(markdownMermaidPlugin);
+
+    // Wrap code blocks (fences) in a dedicated non-scrolling wrapper so the copy button stays pinned in place
+    const prevFence =
+      instance.renderer.rules.fence ||
+      function (tokens, idx, options, _env, self) {
+        return self.renderToken(tokens, idx, options);
+      };
+
+    instance.renderer.rules.fence = (tokens, idx, options, env, self) => {
+      const token = tokens[idx];
+      const info = token.info ? token.info.trim() : '';
+      if (info === 'mermaid') {
+        return prevFence(tokens, idx, options, env, self);
+      }
+      const rawFence = prevFence(tokens, idx, options, env, self);
+      return `<div class="code-block-wrapper">${rawFence}</div>`;
+    };
 
     // 1. Map source lines to block tokens for split-view scroll sync and focus zooming
     instance.core.ruler.push('source_lines', (state) => {
@@ -408,26 +429,41 @@ export const Preview: React.FC<PreviewProps> = ({
 
     const preElements = container.querySelectorAll<HTMLPreElement>('pre');
     preElements.forEach((pre) => {
-      if (pre.querySelector('.code-copy-btn')) return;
+      if (pre.closest('.mermaid-diagram')) return;
+
+      // Ensure pre is enclosed in a dedicated .code-block-wrapper so the copy button stays pinned in place during horizontal scrolling
+      let wrapper = pre.parentElement;
+      if (!wrapper || !wrapper.classList.contains('code-block-wrapper')) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'code-block-wrapper';
+        pre.parentNode?.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+      }
+
+      if (wrapper.querySelector('.code-copy-btn')) return;
+
       const btn = document.createElement('button');
       btn.className = 'code-copy-btn';
       btn.type = 'button';
-      btn.title = 'Sao chép mã nguồn';
-      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span>`;
+      btn.title = 'Sao chép';
+      btn.setAttribute('aria-label', 'Sao chép');
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
       btn.onclick = (e) => {
         e.stopPropagation();
         const code = pre.querySelector('code');
         const codeText = code ? code.innerText : pre.innerText;
         navigator.clipboard.writeText(codeText);
-        btn.innerHTML = `<span>Đã chép!</span>`;
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
         btn.classList.add('copied');
+        btn.title = 'Đã chép!';
         onToast?.('Đã sao chép mã nguồn', 'success');
         setTimeout(() => {
-          btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span>`;
+          btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
           btn.classList.remove('copied');
+          btn.title = 'Sao chép';
         }, 2000);
       };
-      pre.appendChild(btn);
+      wrapper.appendChild(btn);
     });
   }, [renderedHtml, onToast]);
 
@@ -487,17 +523,20 @@ export const Preview: React.FC<PreviewProps> = ({
             const btn = document.createElement('button');
             btn.className = 'mermaid-copy-btn';
             btn.type = 'button';
-            btn.title = 'Sao chép mã Mermaid';
-            btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span>`;
+            btn.title = 'Sao chép';
+            btn.setAttribute('aria-label', 'Sao chép mã Mermaid');
+            btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
             btn.onclick = (e) => {
               e.stopPropagation();
               navigator.clipboard.writeText(rawCode);
-              btn.innerHTML = `<span>Đã chép!</span>`;
+              btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
               btn.classList.add('copied');
+              btn.title = 'Đã chép!';
               onToast?.('Đã sao chép mã nguồn Mermaid', 'success');
               setTimeout(() => {
-                btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span>`;
+                btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
                 btn.classList.remove('copied');
+                btn.title = 'Sao chép';
               }, 2000);
             };
             el.appendChild(btn);
@@ -593,12 +632,38 @@ export const Preview: React.FC<PreviewProps> = ({
     };
   }, [copyMenu]);
 
+  // Track scroll position in preview
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (el.scrollTop > 0) {
+        savedScrollTopRef.current = el.scrollTop;
+      }
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Restore scroll position when becoming visible (e.g. switching back from editor mode)
+  useEffect(() => {
+    if (isEffectiveVisible && containerRef.current && savedScrollTopRef.current > 0) {
+      const prevScroll = savedScrollTopRef.current;
+      requestAnimationFrame(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollTop = prevScroll;
+        }
+      });
+    }
+  }, [isEffectiveVisible]);
+
   return (
     <>
       <div
         className="preview-pane"
         id="bookmd-preview"
         ref={containerRef}
+        style={{ display: isEffectiveVisible ? undefined : 'none' }}
       />
 
       {copyMenu && (

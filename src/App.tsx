@@ -1134,36 +1134,34 @@ export const App: React.FC = () => {
 
           {activeTab ? (
             <div className="editor-area">
-              {(viewMode === 'editor' || viewMode === 'split') && (
-                <Editor
-                  content={activeTab.content}
-                  relativePath={activeTab.relativePath}
-                  workspacePath={workspace?.path}
-                  theme={settings.theme}
-                  settings={settings}
-                  targetLine={targetLine}
-                  onChange={handleContentChange}
-                  onSave={handleSaveActiveFile}
-                  onCursorChange={(line, col) => setCursorPos({ line, col })}
-                  onToast={addToast}
-                  onImagePasted={handleImagePasted}
-                />
-              )}
+              <Editor
+                content={activeTab.content}
+                relativePath={activeTab.relativePath}
+                workspacePath={workspace?.path}
+                theme={settings.theme}
+                settings={settings}
+                targetLine={targetLine}
+                isVisible={viewMode === 'editor' || viewMode === 'split'}
+                onChange={handleContentChange}
+                onSave={handleSaveActiveFile}
+                onCursorChange={(line, col) => setCursorPos({ line, col })}
+                onToast={addToast}
+                onImagePasted={handleImagePasted}
+              />
 
               {viewMode === 'split' && <div className="split-divider" />}
 
-              {(viewMode === 'preview' || viewMode === 'split') && (
-                <Preview
-                  content={activeTab.content}
-                  relativePath={activeTab.relativePath}
-                  workspacePath={workspace?.path}
-                  activeLine={cursorPos.line}
-                  viewMode={viewMode}
-                  theme={settings.theme}
-                  onNavigateToFile={handleNavigateToFile}
-                  onToast={addToast}
-                />
-              )}
+              <Preview
+                content={activeTab.content}
+                relativePath={activeTab.relativePath}
+                workspacePath={workspace?.path}
+                activeLine={cursorPos.line}
+                viewMode={viewMode}
+                isVisible={viewMode === 'preview' || viewMode === 'split'}
+                theme={settings.theme}
+                onNavigateToFile={handleNavigateToFile}
+                onToast={addToast}
+              />
             </div>
           ) : (
             <div className="welcome">

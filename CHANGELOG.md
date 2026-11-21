@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.17] - 2026-11-21
+
+### Fixed & Improved
+- **Preserved Cursor Position & Scroll Offset Across View Modes**:
+  - Fixed an issue where switching between Editor, Split, and Preview modes caused the active document to reset its cursor and scroll position to the very beginning of the file.
+  - Both `<Editor>` and `<Preview>` components now remain mounted during mode transitions and are toggled via CSS visibility, preventing CodeMirror state destruction and preserving exact cursor locations, selections, and scroll offsets.
+- **Pinned, Icon-Only Code Block & Mermaid Copy Buttons**:
+  - Enclosed code blocks within a dedicated `.code-block-wrapper` container to fix an issue where horizontal scrolling in wide code blocks dragged the "Sao chép" button across the code. The copy button now stays cleanly pinned at the top-right corner regardless of horizontal scroll position.
+  - Simplified the button into a compact, icon-only button (removing the text label "Sao chép") with checkmark confirmation feedback on copy.
+- **Clean PDF & Print Code Block Rendering**:
+  - Fixed an issue in PDF export where long lines in code blocks generated horizontal scrollbars and cut off overflow text in the generated PDF.
+  - Added `white-space: pre-wrap !important; word-break: break-all !important; overflow: visible !important;` to ensure all code wraps naturally onto subsequent lines without clipping or printing unwanted scrollbars.
+
 ## [0.1.16] - 2026-11-21
 
 ### Added & Improved

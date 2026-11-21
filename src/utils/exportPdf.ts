@@ -153,7 +153,11 @@ export async function generatePrintHtml(
       color: #f8fafc !important;
       padding: 12pt 14pt;
       border-radius: 6px;
-      overflow-x: auto;
+      overflow: visible !important;
+      overflow-x: visible !important;
+      white-space: pre-wrap !important;
+      word-break: break-all !important;
+      overflow-wrap: break-word !important;
       page-break-inside: avoid;
       break-inside: avoid;
       margin: 12pt 0;
@@ -165,6 +169,21 @@ export async function generatePrintHtml(
       padding: 0 !important;
       font-size: 9.5pt;
       line-height: 1.5;
+      white-space: pre-wrap !important;
+      word-break: break-all !important;
+      overflow-wrap: break-word !important;
+    }
+    .code-block-wrapper {
+      margin: 12pt 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      overflow: visible !important;
+    }
+    .code-block-wrapper pre {
+      margin: 0;
+    }
+    .code-copy-btn, .mermaid-copy-btn {
+      display: none !important;
     }
     blockquote {
       border-left: 4px solid #6366f1;

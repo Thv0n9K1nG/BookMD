@@ -722,16 +722,25 @@ body {
   -webkit-user-select: text;
 }
 
+.preview-pane .code-block-wrapper {
+  position: relative;
+  margin: 1em 0;
+}
+
+.preview-pane .code-block-wrapper pre {
+  margin: 0;
+}
+
 .preview-pane .code-copy-btn {
   position: absolute;
   top: 8px;
   right: 8px;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  font-size: 11px;
-  font-family: var(--font-sans);
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   color: var(--text-tertiary);
   background: var(--bg-surface);
   border: 1px solid var(--border-primary);
@@ -744,6 +753,7 @@ body {
   z-index: 2;
 }
 
+.preview-pane .code-block-wrapper:hover .code-copy-btn,
 .preview-pane pre:hover .code-copy-btn {
   opacity: 1;
 }
@@ -2313,6 +2323,30 @@ body {
     background: transparent !important;
     transform: none !important;
   }
+
+  .preview-pane pre,
+  .code-block-wrapper,
+  .code-block-wrapper pre {
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .preview-pane pre code,
+  .code-block-wrapper pre code {
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+  }
+
+  .code-copy-btn,
+  .mermaid-copy-btn {
+    display: none !important;
+  }
 }
 
 /* ─── Keybindings Settings UI ────────────────────────────────────── */
@@ -2691,10 +2725,10 @@ body {
   right: 8px;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  font-size: 11px;
-  font-family: var(--font-sans);
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   color: var(--text-tertiary);
   background: var(--bg-surface);
   border: 1px solid var(--border-primary);
