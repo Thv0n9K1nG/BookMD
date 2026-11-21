@@ -19,6 +19,11 @@ import {
   executeFormattingCommand,
 } from '../../utils/keybindings';
 import { tryParseClipboardRichText } from '../../utils/tablePaste';
+import {
+  hasSvgInClipboard,
+  extractSvgFromClipboard,
+  convertSvgXmlToPngBase64,
+} from '../../utils/svgPaste';
 
 interface EditorProps {
   content: string;
@@ -135,88 +140,147 @@ export const Editor: React.FC<EditorProps> = ({
     // Paste handler for automatic image management
     const pasteHandler = EditorView.domEventHandlers({
       paste: (event, view) => {
-        const items = event.clipboardData?.items;
-        if (!items) return false;
+        const clipboardData = event.clipboardData;
+        if (!clipboardData) return false;
 
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          if (item.type.startsWith('image/')) {
-            const file = item.getAsFile();
-            if (!file) continue;
+        // 1. Check if clipboard contains an SVG image (inline <svg>, HTML <img src="...svg">, or SVG file)
+        if (hasSvgInClipboard(clipboardData)) {
+          event.preventDefault();
+          extractSvgFromClipboard(clipboardData).then(async (svgXml) => {
+            if (!svgXml) {
+              onToastRef.current?.('Không thể trích xuất nội dung ảnh SVG từ clipboard', 'error');
+              return;
+            }
 
-            event.preventDefault();
-            const blobUrl = URL.createObjectURL(file);
-            getImageNaturalWidth(blobUrl).then(async (naturalWidth) => {
-              URL.revokeObjectURL(blobUrl);
-              try {
-                // Read image settings directly from settingsRef to avoid stale closures
-                const currentImageDir = settingsRef.current.imageDir;
-                const currentNamingBaseDir = settingsRef.current.imageNamingBaseDir;
-                const currentReferenceType = settingsRef.current.imageReferenceType || 'relative';
+            try {
+              const { base64, naturalWidth } = await convertSvgXmlToPngBase64(svgXml);
 
-                const base64 = await fileToBase64(file);
-                const res = await saveImage(relativePath, base64, {
-                  imageDir: currentImageDir,
-                  namingBaseDir: currentNamingBaseDir,
-                  referenceType: currentReferenceType,
-                });
+              // Read image settings directly from settingsRef to avoid stale closures
+              const currentImageDir = settingsRef.current.imageDir;
+              const currentNamingBaseDir = settingsRef.current.imageNamingBaseDir;
+              const currentReferenceType = settingsRef.current.imageReferenceType || 'relative';
 
-                if (naturalWidth) {
-                  cacheImageWidth(res.relativePath, naturalWidth);
-                }
+              const res = await saveImage(relativePath, base64, {
+                imageDir: currentImageDir,
+                namingBaseDir: currentNamingBaseDir,
+                referenceType: currentReferenceType,
+              });
 
-                // Insert HTML <img> tag: if referenceType is 'absolute', use full path, otherwise use docRelativePath
-                const refSrc =
-                  currentReferenceType === 'absolute'
-                    ? res.path.replace(/\\/g, '/')
-                    : (res.docRelativePath || res.relativePath);
-
-                const selection = view.state.selection.main;
-                const refText = buildImageHtmlTag(refSrc, '', '', naturalWidth);
-
-                view.dispatch({
-                  changes: {
-                    from: selection.from,
-                    to: selection.to,
-                    insert: refText,
-                  },
-                  selection: { anchor: selection.from + refText.length },
-                });
-
-                onToastRef.current?.(`Đã lưu ảnh: ${res.filename}`, 'success');
-
-                // Notify parent to refresh the workspace file tree and auto-expand the image folder
-                onImagePastedRef.current?.(res.relativePath);
-              } catch (err: any) {
-                console.error('Save image error:', err);
-                onToastRef.current?.(`Lỗi lưu ảnh: ${err?.message || err}`, 'error');
+              if (naturalWidth) {
+                cacheImageWidth(res.relativePath, naturalWidth);
               }
-            });
-            return true;
+
+              // Insert HTML <img> tag: if referenceType is 'absolute', use full path, otherwise use docRelativePath
+              const refSrc =
+                currentReferenceType === 'absolute'
+                  ? res.path.replace(/\\/g, '/')
+                  : (res.docRelativePath || res.relativePath);
+
+              const selection = view.state.selection.main;
+              const refText = buildImageHtmlTag(refSrc, '', '', naturalWidth);
+
+              view.dispatch({
+                changes: {
+                  from: selection.from,
+                  to: selection.to,
+                  insert: refText,
+                },
+                selection: { anchor: selection.from + refText.length },
+              });
+
+              onToastRef.current?.(`Đã chuyển đổi SVG sang PNG & lưu: ${res.filename}`, 'success');
+
+              // Notify parent to refresh the workspace file tree and auto-expand the image folder
+              onImagePastedRef.current?.(res.relativePath);
+            } catch (err: any) {
+              console.error('SVG paste convert error:', err);
+              onToastRef.current?.(`Lỗi xử lý ảnh SVG: ${err?.message || err}`, 'error');
+            }
+          });
+          return true;
+        }
+
+        // 2. Normal bitmap image paste
+        const items = clipboardData.items;
+        if (items) {
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (item.type.startsWith('image/')) {
+              const file = item.getAsFile();
+              if (!file) continue;
+
+              event.preventDefault();
+              const blobUrl = URL.createObjectURL(file);
+              getImageNaturalWidth(blobUrl).then(async (naturalWidth) => {
+                URL.revokeObjectURL(blobUrl);
+                try {
+                  // Read image settings directly from settingsRef to avoid stale closures
+                  const currentImageDir = settingsRef.current.imageDir;
+                  const currentNamingBaseDir = settingsRef.current.imageNamingBaseDir;
+                  const currentReferenceType = settingsRef.current.imageReferenceType || 'relative';
+
+                  const base64 = await fileToBase64(file);
+                  const res = await saveImage(relativePath, base64, {
+                    imageDir: currentImageDir,
+                    namingBaseDir: currentNamingBaseDir,
+                    referenceType: currentReferenceType,
+                  });
+
+                  if (naturalWidth) {
+                    cacheImageWidth(res.relativePath, naturalWidth);
+                  }
+
+                  // Insert HTML <img> tag: if referenceType is 'absolute', use full path, otherwise use docRelativePath
+                  const refSrc =
+                    currentReferenceType === 'absolute'
+                      ? res.path.replace(/\\/g, '/')
+                      : (res.docRelativePath || res.relativePath);
+
+                  const selection = view.state.selection.main;
+                  const refText = buildImageHtmlTag(refSrc, '', '', naturalWidth);
+
+                  view.dispatch({
+                    changes: {
+                      from: selection.from,
+                      to: selection.to,
+                      insert: refText,
+                    },
+                    selection: { anchor: selection.from + refText.length },
+                  });
+
+                  onToastRef.current?.(`Đã lưu ảnh: ${res.filename}`, 'success');
+
+                  // Notify parent to refresh the workspace file tree and auto-expand the image folder
+                  onImagePastedRef.current?.(res.relativePath);
+                } catch (err: any) {
+                  console.error('Save image error:', err);
+                  onToastRef.current?.(`Lỗi lưu ảnh: ${err?.message || err}`, 'error');
+                }
+              });
+              return true;
+            }
           }
         }
 
-        // Check for rich text or table paste (HTML tables, bold, italic, code, quotes, headings, links, lists)
-        if (event.clipboardData) {
-          const parsed = tryParseClipboardRichText(event.clipboardData);
-          if (parsed) {
-            event.preventDefault();
-            const selection = view.state.selection.main;
-            view.dispatch({
-              changes: {
-                from: selection.from,
-                to: selection.to,
-                insert: parsed.markdown,
-              },
-              selection: { anchor: selection.from + parsed.markdown.length },
-              userEvent: 'input.paste',
-            });
-            const toastMsg = parsed.isTable
-              ? 'Đã chuyển bảng thành Markdown table'
-              : 'Đã nhận diện và chuyển sang định dạng Markdown';
-            onToastRef.current?.(toastMsg, 'success');
-            return true;
-          }
+        // 3. Check for rich text or table paste (HTML tables, bold, italic, code, quotes, headings, links, lists)
+        const parsed = tryParseClipboardRichText(clipboardData);
+        if (parsed) {
+          event.preventDefault();
+          const selection = view.state.selection.main;
+          view.dispatch({
+            changes: {
+              from: selection.from,
+              to: selection.to,
+              insert: parsed.markdown,
+            },
+            selection: { anchor: selection.from + parsed.markdown.length },
+            userEvent: 'input.paste',
+          });
+          const toastMsg = parsed.isTable
+            ? 'Đã chuyển bảng thành Markdown table'
+            : 'Đã nhận diện và chuyển sang định dạng Markdown';
+          onToastRef.current?.(toastMsg, 'success');
+          return true;
         }
 
         return false;

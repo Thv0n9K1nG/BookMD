@@ -375,6 +375,18 @@ export async function renameImagesForDocument(
   return [];
 }
 
+export async function fetchSvgText(url: string): Promise<string> {
+  if (isTauri) {
+    return await invoke<string>('image_fetch_svg', { url });
+  }
+  try {
+    const res = await fetch(url);
+    return await res.text();
+  } catch {
+    return '';
+  }
+}
+
 export async function readImageData(
   imageSrc: string,
   markdownFile: string

@@ -197,6 +197,11 @@ fn image_consolidate_execute(
     image::execute_consolidate_images(&ws, options).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn image_fetch_svg(url: String) -> Result<String, String> {
+    image::fetch_svg_text(&url).map_err(|e| e.to_string())
+}
+
 // ─── Export Commands ────────────────────────────────────────────
 
 #[tauri::command]
@@ -334,6 +339,7 @@ pub fn run() {
             image_rename_for_document,
             image_consolidate_scan,
             image_consolidate_execute,
+            image_fetch_svg,
             export_pdf,
             backup_copy,
             get_cli_launch_path,

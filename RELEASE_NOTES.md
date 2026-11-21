@@ -1,3 +1,37 @@
+# Release Notes — BookMD v0.1.16
+
+**BookMD v0.1.16** introduces seamless **Automatic SVG to PNG Image Paste Conversion**, specifically solving the issue where vector images copied from web platforms like **TryHackMe** (or any web page / SVG file) fail to paste into the editor. Pasted SVGs are now automatically converted into crisp PNG images and routed through BookMD's image handling pipeline with automatic naming, folder organization, and file tree synchronization.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 🎨 1. Automatic SVG to PNG Conversion on Paste
+- **The Problem**: Web platforms like TryHackMe, GitHub, and various documentation sites render diagrams as vector SVGs. When using "Copy Image" in Chromium browsers on an SVG element, the browser does not create a standard bitmap image in the clipboard, but instead places an HTML snippet with an `<img src="...svg">` tag (or inline SVG markup). Previously, BookMD only handled clipboard items with standard image MIME types (`image/png`, `image/jpeg`), ignoring SVG pastes completely.
+- **Unified SVG Detection**:
+  - Detects HTML containing `<img src="...svg">` references (remote HTTP/HTTPS or `data:image/svg+xml`).
+  - Detects inline `<svg>...</svg>` markup in clipboard HTML.
+  - Detects raw SVG markup pasted as plain text.
+  - Detects SVG file objects (`image/svg+xml` or `.svg` files) pasted directly.
+
+### ⚡ 2. Safe & Reliable Vector Fetching Engine (`image_fetch_svg`)
+- **Backend Fetch Fallback**: Added a dedicated Tauri backend command `image_fetch_svg` that uses system `curl` to securely fetch remote SVG content without CORS or client-side webview restrictions.
+- **Data URI Decoding**: Automatically parses and decodes both Base64 and percent-encoded SVG data URIs.
+
+### 📐 3. High-Fidelity Canvas Rasterization with `viewBox` Support
+- **Full Transparency Preservation**: Renders vector graphics onto an HTML5 Canvas preserving full alpha channel transparency.
+- **Smart Dimension Extraction**: Many web SVGs omit explicit `width` and `height` attributes and rely strictly on `viewBox` (e.g., `viewBox="0 0 1200 620"`). BookMD parses the `viewBox` coordinate ratio to automatically assign proper rendering dimensions, preventing clipped or blank canvases.
+- **Safe Dimension Clamping**: Restricts excessively huge SVGs to a maximum dimension of 2400px to maintain crisp readability while preventing memory bloat.
+
+### 📁 4. Seamless Integration with BookMD Image Management
+- Converted PNGs immediately enter BookMD's existing image pipeline:
+  - Saved to the configured `imageDir` (e.g. `images/` adjacent to the document).
+  - Automatically numbered and named according to the active `imageNamingBaseDir` setting (e.g. `my_note_1.png`).
+  - Automatically inserted into the editor with proper `<img>` syntax and dimension attributes.
+  - File tree is instantly refreshed so the new image is immediately visible.
+
+---
+
 # Release Notes — BookMD v0.1.15
 
 **BookMD v0.1.15** brings critical hardening, atomic staging, and path normalization to the **Document Image Consolidation & Standardization Tool**. This release resolves permutation/cyclic renaming collisions, cascading text replacements, duplicate reference deduplication, and Windows OS Error 32 sharing violations.

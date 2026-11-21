@@ -398,6 +398,83 @@ pub fn read_image_data_uri(
     read_file_as_data_uri(&image_path)
 }
 
+/// Fetch SVG content from a URL (remote HTTP/HTTPS, data URI, or local file)
+pub fn fetch_svg_text(url: &str) -> Result<String, AppError> {
+    let trimmed = url.trim();
+
+    // 1. Data URI
+    if trimmed.starts_with("data:") {
+        if let Some(comma_pos) = trimmed.find(',') {
+            let meta = &trimmed[..comma_pos];
+            let data = &trimmed[comma_pos + 1..];
+            if meta.contains(";base64") {
+                let engine = base64::engine::general_purpose::STANDARD;
+                let bytes = engine.decode(data).map_err(|e| AppError::InvalidPath(e.to_string()))?;
+                return String::from_utf8(bytes).map_err(|e| AppError::InvalidPath(e.to_string()));
+            } else {
+                let mut decoded = Vec::new();
+                let bytes = data.as_bytes();
+                let mut i = 0;
+                while i < bytes.len() {
+                    if bytes[i] == b'%' && i + 2 < bytes.len() {
+                        if let Ok(byte_val) = u8::from_str_radix(&data[i + 1..i + 3], 16) {
+                            decoded.push(byte_val);
+                            i += 3;
+                            continue;
+                        }
+                    }
+                    decoded.push(bytes[i]);
+                    i += 1;
+                }
+                return String::from_utf8(decoded)
+                    .map_err(|e| AppError::InvalidPath(format!("Invalid UTF-8 in data URI: {}", e)));
+            }
+        }
+    }
+
+    // 2. Remote HTTP/HTTPS URL
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        let output = std::process::Command::new("curl.exe")
+            .args(["-s", "-L", "--max-time", "15", trimmed])
+            .output()
+            .or_else(|_| {
+                std::process::Command::new("curl")
+                    .args(["-s", "-L", "--max-time", "15", trimmed])
+                    .output()
+            })
+            .map_err(|e| AppError::InvalidPath(format!("Failed to execute curl: {}", e)))?;
+
+        if !output.status.success() {
+            return Err(AppError::InvalidPath(format!(
+                "Curl exited with status: {}",
+                output.status
+            )));
+        }
+
+        let body = String::from_utf8(output.stdout)
+            .map_err(|e| AppError::InvalidPath(format!("Invalid UTF-8 in SVG: {}", e)))?;
+
+        if body.trim().is_empty() {
+            return Err(AppError::InvalidPath("Empty response from remote server".to_string()));
+        }
+
+        return Ok(body);
+    }
+
+    // 3. Local file path or file://
+    let clean_path = if let Some(stripped) = trimmed.strip_prefix("file://") {
+        stripped.trim_start_matches('/')
+    } else {
+        trimmed
+    };
+    let path = Path::new(clean_path);
+    if path.exists() && path.is_file() {
+        return Ok(fs::read_to_string(path)?);
+    }
+
+    Err(AppError::FileNotFound(url.to_string()))
+}
+
 fn read_file_as_data_uri(path: &Path) -> Result<String, AppError> {
     let bytes = fs::read(path)?;
     let ext = path
@@ -1295,5 +1372,22 @@ mod tests {
 
         // Clean up test folder
         let _ = fs::remove_dir_all(&test_folder);
+    }
+
+    #[test]
+    fn test_fetch_svg_text_data_uri_and_file() {
+        let b64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxjaXJjbGUvPjwvc3ZnPg==";
+        let res = fetch_svg_text(b64).unwrap();
+        assert_eq!(res, r#"<svg xmlns="http://www.w3.org/2000/svg"><circle/></svg>"#);
+
+        let url_enc = "data:image/svg+xml;utf8,%3Csvg%20viewBox=%220%200%2010%2010%22%3E%3Crect/%3E%3C/svg%3E";
+        let res2 = fetch_svg_text(url_enc).unwrap();
+        assert!(res2.contains("<svg viewBox=\"0 0 10 10\"><rect/></svg>"));
+
+        let tmp_file = std::env::temp_dir().join("test_bookmd_fetch.svg");
+        fs::write(&tmp_file, "<svg><polygon/></svg>").unwrap();
+        let res3 = fetch_svg_text(&tmp_file.to_string_lossy()).unwrap();
+        assert_eq!(res3, "<svg><polygon/></svg>");
+        let _ = fs::remove_file(tmp_file);
     }
 }

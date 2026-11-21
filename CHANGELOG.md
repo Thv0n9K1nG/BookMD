@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.16] - 2026-11-21
+
+### Added & Improved
+- **Automatic SVG to PNG Image Paste Conversion**:
+  - Automatically rasterizes pasted SVG vector images into high-resolution PNG bitmap images on the fly before saving and linking in Markdown documents.
+  - **TryHackMe & Web Diagram Compatibility**: When copying images directly from web platforms like TryHackMe (which copy `<img src="...svg">` as HTML format without bitmap payloads into the clipboard), BookMD seamlessly detects the SVG reference, downloads or decodes the vector XML data via a dedicated backend fetch command (`image_fetch_svg`), and processes it as an image paste.
+  - **Support for All SVG Paste Variants**:
+    - HTML `<img src="...svg">` (remote URLs or data URIs).
+    - Inline `<svg>...</svg>` elements from web pages.
+    - Plain text containing raw `<svg>` markup.
+    - Direct SVG files (`image/svg+xml`) copied from explorer or applications.
+  - **High-Fidelity Rasterization via HTML5 Canvas**: Preserves full alpha transparency, extracts proportional dimensions from `viewBox` attributes when explicit `width`/`height` are omitted, and clamps to optimal max dimensions (2400px) to prevent canvas memory overflow.
+  - **Seamless Image Pipeline Integration**: Converted PNGs automatically follow all existing user preferences (auto-naming via `imageNamingBaseDir`, target `imageDir`, Markdown `<img>` tag generation with dimensions, and instant file tree refresh).
+
 ## [0.1.15] - 2026-11-13
 
 ### Fixed & Improved
