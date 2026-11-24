@@ -434,15 +434,26 @@ pub fn fetch_svg_text(url: &str) -> Result<String, AppError> {
 
     // 2. Remote HTTP/HTTPS URL
     if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
-        let output = std::process::Command::new("curl.exe")
-            .args(["-s", "-L", "--max-time", "15", trimmed])
-            .output()
-            .or_else(|_| {
-                std::process::Command::new("curl")
-                    .args(["-s", "-L", "--max-time", "15", trimmed])
-                    .output()
-            })
-            .map_err(|e| AppError::InvalidPath(format!("Failed to execute curl: {}", e)))?;
+        let mut cmd = std::process::Command::new("curl.exe");
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+        cmd.args(["-s", "-L", "--compressed", "--connect-timeout", "5", "--max-time", "10", trimmed]);
+
+        let output = cmd.output().or_else(|_| {
+            let mut cmd2 = std::process::Command::new("curl");
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                cmd2.creation_flags(CREATE_NO_WINDOW);
+            }
+            cmd2.args(["-s", "-L", "--compressed", "--connect-timeout", "5", "--max-time", "10", trimmed]);
+            cmd2.output()
+        }).map_err(|e| AppError::InvalidPath(format!("Failed to execute curl: {}", e)))?;
 
         if !output.status.success() {
             return Err(AppError::InvalidPath(format!(

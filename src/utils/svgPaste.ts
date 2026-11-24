@@ -55,6 +55,42 @@ export function decodeSvgDataUri(dataUri: string): string {
 }
 
 /**
+ * Check if the HTML snippet represents a standalone/pure image paste
+ * (e.g. from "Copy Image" on a webpage or copying an isolated SVG element),
+ * rather than rich text containing paragraphs, headings, tables with embedded icons.
+ */
+export function isStandaloneImageHtml(html: string): boolean {
+  if (!html || typeof html !== 'string') return false;
+
+  // Extract content between StartFragment and EndFragment if present
+  let fragment = html;
+  const startFrag = html.indexOf('<!--StartFragment-->');
+  const endFrag = html.indexOf('<!--EndFragment-->');
+  if (startFrag !== -1 && endFrag !== -1 && endFrag > startFrag) {
+    fragment = html.substring(startFrag + '<!--StartFragment-->'.length, endFrag).trim();
+  }
+
+  // If fragment contains rich-text structural tags, it is rich text, NOT a standalone image
+  if (/<(p|h[1-6]|table|thead|tbody|tr|th|td|ul|ol|li|blockquote|pre)\b/i.test(fragment)) {
+    return false;
+  }
+
+  // Remove the <svg>...</svg> and <img...> tags from fragment to measure remaining non-image text
+  const stripped = fragment
+    .replace(/<svg\b[\s\S]*?<\/svg>/gi, '')
+    .replace(/<img\b[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, '') // strip remaining tags like <div>, <span>, <br>
+    .trim();
+
+  // If there's more than 15 characters of plain text outside the image, it's rich text
+  if (stripped.length > 15) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Synchronous check to determine if the clipboard contains an SVG image.
  * Used in paste event handler to synchronously call event.preventDefault().
  */
@@ -76,9 +112,9 @@ export function hasSvgInClipboard(clipboardData: DataTransfer): boolean {
     }
   }
 
-  // 2. Check HTML format (inline <svg> or <img ... src="...svg">, e.g. TryHackMe "Copy image")
+  // 2. Check HTML format: ONLY if it's a standalone image paste (not rich text with inline icons)
   const html = clipboardData.getData('text/html');
-  if (html) {
+  if (html && isStandaloneImageHtml(html)) {
     if (/<svg\b/i.test(html)) return true;
     if (/<img\b[^>]*?\bsrc=["'][^"']*?\.svg(?:[?#][^"']*)?["']/i.test(html)) return true;
     if (/<img\b[^>]*?\bsrc=["']data:image\/svg\+xml/i.test(html)) return true;
@@ -101,6 +137,9 @@ export function hasSvgInClipboard(clipboardData: DataTransfer): boolean {
  */
 export async function extractSvgFromHtml(html: string): Promise<string | null> {
   if (!html || typeof html !== 'string') return null;
+
+  // Ignore rich text containing inline decorative icons
+  if (!isStandaloneImageHtml(html)) return null;
 
   // 1. Direct inline <svg> check
   const svgTagMatch = html.match(/<svg\b[\s\S]*?<\/svg>/i);

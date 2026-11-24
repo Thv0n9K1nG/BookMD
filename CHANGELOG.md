@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.18] - 2026-11-24
+
+### Fixed & Improved
+- **Silent Background Fetching (No Terminal Popup on Windows)**:
+  - Added Windows process creation flag `CREATE_NO_WINDOW (0x08000000)` to `curl.exe` execution in `src-tauri/src/image.rs`.
+  - Completely eliminates the black command prompt/terminal window that previously flashed in the background when downloading remote SVGs.
+- **Optimized Network Performance & Connection Timeout**:
+  - Added `--compressed`, `--connect-timeout 5`, and reduced `--max-time` to 10s for remote SVG fetches, accelerating download speeds from international CDNs (such as TryHackMe / CloudFront) while preventing long network hangs.
+- **Smart SVG vs Rich Text Paste Discrimination**:
+  - Implemented `isStandaloneImageHtml` to distinguish between copying a pure image (e.g. "Copy Image" on web graphics or direct SVG elements) versus copying rich text selections containing paragraphs and decorative inline icons.
+  - When copying text with inline icons, BookMD now immediately processes it via the rich-text-to-markdown pipeline in ~2ms without losing the text paragraph or triggering unwanted SVG network fetches.
+- **Immediate UI Paste Feedback**:
+  - Added immediate visual toast feedback (`Đang tải & xử lý hình ảnh vector SVG...`) when pasting remote SVG images, preventing the editor from feeling frozen or unresponsive during network retrieval.
+
 ## [0.1.17] - 2026-11-21
 
 ### Fixed & Improved

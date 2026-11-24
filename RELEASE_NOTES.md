@@ -1,3 +1,27 @@
+# Release Notes — BookMD v0.1.18
+
+**BookMD v0.1.18** brings critical UX, performance, and process isolation improvements to the SVG image handling pipeline: permanently eliminating the flashing black terminal window on Windows, optimizing network transfer speeds, distinguishing between pure image pastes and rich-text selections with inline icons, and providing immediate visual feedback during remote vector fetches.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 🪟 1. Silent Background Vector Fetching (Zero Terminal Flashes)
+- **The Problem**: On Windows, spawning `curl.exe` from a GUI process without console flags caused Windows Kernel to spawn `conhost.exe`, flashing a black terminal window on the user's screen during remote image downloads.
+- **The Solution**: Configured Win32 `CREATE_NO_WINDOW (0x08000000)` process flags on all backend fetch commands. SVG downloads now execute 100% silently in the background with zero visible console windows.
+
+### ⚡ 2. Compressed CDN Transfers & Fast Connection Timeouts
+- **Network Acceleration**: Added `--compressed` HTTP compression and a strict `--connect-timeout 5` to remote vector downloads. SVG payloads transfer faster from international CDNs (such as TryHackMe / CloudFront) while preventing long network stalls.
+
+### 🧠 3. Smart SVG vs Rich Text Paste Discrimination
+- **Preserving Rich Text Selections**: Previously, copying a paragraph containing an inline SVG icon (e.g. TryHackMe room descriptions with difficulty icons) caused BookMD to treat the entire clipboard as an image, discarding the text paragraph.
+- **Seamless Separation**: BookMD now checks `isStandaloneImageHtml`. Standalone "Copy Image" operations are rasterized into PNGs, while rich-text selections containing inline icons immediately convert to Markdown in 2ms without text loss or network delay.
+
+### 💬 4. Immediate User Feedback on Paste
+- Added instant toast feedback (`Đang tải & xử lý hình ảnh vector SVG...`) when a vector image is being retrieved, ensuring the editor never feels frozen or unresponsive.
+
+---
+
 # Release Notes — BookMD v0.1.17
 
 **BookMD v0.1.17** delivers targeted UX refinements across view mode switching, code block interactions, and PDF export quality: preserving editor cursor and scroll state when toggling between Editor, Split, and Preview modes; pinning a sleek, icon-only copy button that never drifts during horizontal scrolling; and ensuring all code blocks in exported PDFs wrap completely without clipping or printing scrollbars.

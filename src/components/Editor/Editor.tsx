@@ -149,6 +149,10 @@ export const Editor: React.FC<EditorProps> = ({
         // 1. Check if clipboard contains an SVG image (inline <svg>, HTML <img src="...svg">, or SVG file)
         if (hasSvgInClipboard(clipboardData)) {
           event.preventDefault();
+
+          // Provide immediate user feedback so editor does not appear frozen while fetching
+          onToastRef.current?.('Đang tải & xử lý hình ảnh vector SVG...', 'info');
+
           extractSvgFromClipboard(clipboardData).then(async (svgXml) => {
             if (!svgXml) {
               onToastRef.current?.('Không thể trích xuất nội dung ảnh SVG từ clipboard', 'error');

@@ -4,6 +4,7 @@ import {
   isSvgUrl,
   isRawSvgString,
   decodeSvgDataUri,
+  isStandaloneImageHtml,
   hasSvgInClipboard,
   extractSvgFromHtml,
   extractSvgFromClipboard,
@@ -110,6 +111,41 @@ describe('SVG Paste Utility', () => {
       } as unknown as DataTransfer;
 
       expect(hasSvgInClipboard(mockClipboard)).toBe(false);
+    });
+
+    it('should return false for rich text containing paragraphs with inline decorative SVG icons', () => {
+      const mockClipboard = {
+        items: [],
+        getData: (format: string) => {
+          if (format === 'text/html') {
+            return `<html><body><!--StartFragment--><p class="desc">Learn how to defeat logins and other authentication mechanisms to allow you access to unpermitted areas.</p><div><svg class="svg-inline--fa fa-signal-bars-weak" viewBox="0 0 640 512"><path d="M192 304"/></svg></div><!--EndFragment--></body></html>`;
+          }
+          return '';
+        },
+      } as unknown as DataTransfer;
+
+      expect(hasSvgInClipboard(mockClipboard)).toBe(false);
+    });
+  });
+
+  describe('isStandaloneImageHtml', () => {
+    it('returns true for pure <img> tag or standalone <svg>', () => {
+      expect(isStandaloneImageHtml('<img src="https://example.com/pic.svg"/>')).toBe(true);
+      expect(
+        isStandaloneImageHtml(
+          '<html><body><!--StartFragment--><img src="https://cdn-images.tryhackme.com/pic.svg"/><!--EndFragment--></body></html>'
+        )
+      ).toBe(true);
+      expect(
+        isStandaloneImageHtml(
+          '<div><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg></div>'
+        )
+      ).toBe(true);
+    });
+
+    it('returns false for rich text containing paragraph and inline svg icon', () => {
+      const richText = `<html><body><!--StartFragment--><p>Learn how to defeat logins and other mechanisms.</p><div><svg viewBox="0 0 640 512"><path d="M0 0"/></svg></div><!--EndFragment--></body></html>`;
+      expect(isStandaloneImageHtml(richText)).toBe(false);
     });
   });
 
