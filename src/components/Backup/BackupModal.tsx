@@ -20,6 +20,7 @@ import {
   executeBackupCopy,
 } from '../../services/ipc';
 import { openPath } from '@tauri-apps/plugin-opener';
+import { useTranslation } from '../../i18n';
 
 interface BackupModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
   activeFile,
   addToast,
 }) => {
+  const { t } = useTranslation();
   const [scope, setScope] = useState<BackupScope>('workspace');
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<string>('');
@@ -88,7 +90,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
 
   // Browse destination directory
   const handleBrowseDestination = async () => {
-    const dest = await selectFolderDialog('Chọn thư mục đích chứa bản sao lưu');
+    const dest = await selectFolderDialog(t('backup.selectDestPrompt'));
     if (dest) {
       setDestinationFolder(dest);
       localStorage.setItem('bookmd_last_backup_dest', dest);
@@ -98,7 +100,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
 
   // Browse source folder
   const handleBrowseSourceFolder = async () => {
-    const folder = await selectFolderDialog('Chọn thư mục cần sao lưu');
+    const folder = await selectFolderDialog(t('backup.selectSourceFolderPrompt'));
     if (folder) {
       setSelectedFolder(folder);
       setErrorMsg(null);
@@ -107,7 +109,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
 
   // Browse source file
   const handleBrowseSourceFile = async () => {
-    const file = await selectFileDialog('Chọn file Markdown cần sao lưu', [
+    const file = await selectFileDialog(t('backup.selectSourceFilePrompt'), [
       'md',
       'markdown',
       'txt',
@@ -135,11 +137,11 @@ export const BackupModal: React.FC<BackupModalProps> = ({
   const handleStartBackup = async () => {
     setErrorMsg(null);
     if (!destinationFolder.trim()) {
-      setErrorMsg('Vui lòng chọn thư mục lưu trữ bản sao lưu.');
+      setErrorMsg(t('backup.errorNoDest'));
       return;
     }
     if (!currentSource.trim()) {
-      setErrorMsg('Vui lòng chọn đối tượng nguồn cần sao lưu.');
+      setErrorMsg(t('backup.errorNoSource'));
       return;
     }
 
@@ -155,14 +157,14 @@ export const BackupModal: React.FC<BackupModalProps> = ({
       setBackupResult(result);
       localStorage.setItem('bookmd_last_backup_dest', destinationFolder.trim());
       addToast(
-        `Sao lưu thành công: Đã sao chép ${result.filesCopied} file vào "${result.destinationName}"`,
+        t('backup.successToast', { count: result.filesCopied, dest: result.destinationName }),
         'success'
       );
     } catch (err: any) {
       console.error('Backup error:', err);
       const msg = typeof err === 'string' ? err : err?.message || 'Lỗi sao lưu không xác định';
       setErrorMsg(msg);
-      addToast(`Lỗi sao lưu: ${msg}`, 'error');
+      addToast(t('backup.errorToast', { error: msg }), 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -181,7 +183,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
   const handleCopyPath = () => {
     if (backupResult?.destinationPath) {
       navigator.clipboard.writeText(backupResult.destinationPath);
-      addToast('Đã sao chép đường dẫn bản sao lưu', 'info');
+      addToast(t('backup.copiedPathToast'), 'info');
     }
   };
 
@@ -221,10 +223,10 @@ export const BackupModal: React.FC<BackupModalProps> = ({
             </div>
             <div>
               <h3 className="prompt-modal-title" style={{ fontSize: '15px' }}>
-                Sao lưu Dữ liệu (Backup Tool)
+                {t('backup.title')}
               </h3>
               <div className="prompt-modal-subtitle" style={{ fontSize: '12px' }}>
-                Sao chép dự phòng dữ liệu sang thư mục an toàn phòng tránh mất mát
+                {t('backup.subtitle')}
               </div>
             </div>
           </div>
@@ -232,7 +234,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
             className="btn btn-icon prompt-close-btn"
             onClick={onClose}
             disabled={isProcessing}
-            title="Đóng (Esc)"
+            title={`${t('common.close')} (Esc)`}
           >
             <CloseIcon size={16} />
           </button>
@@ -787,7 +789,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                 onClick={onClose}
                 disabled={isProcessing}
               >
-                Hủy bỏ
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -807,7 +809,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                 }}
               >
                 <ShieldCheckIcon size={16} />
-                <span>{isProcessing ? 'Đang sao lưu...' : 'Bắt đầu sao lưu'}</span>
+                <span>{isProcessing ? t('backup.processing') : t('backup.startBtn')}</span>
               </button>
             </>
           )}

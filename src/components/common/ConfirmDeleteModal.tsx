@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { CloseIcon, TrashIcon, FolderIcon, FileIcon } from './Icons';
+import { useTranslation } from '../../i18n';
 
 export interface ConfirmDeleteModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   onClose,
   onConfirm,
 }) => {
+  const { t } = useTranslation();
   const cancelBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -62,14 +64,14 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
             </div>
             <div>
               <h3 className="prompt-modal-title" style={{ color: 'var(--text-heading)' }}>
-                {isFolder ? 'Xác nhận xóa Thư mục' : 'Xác nhận xóa File'}
+                {isFolder ? t('confirmDelete.titleFolder') : t('confirmDelete.titleFile')}
               </h3>
               <div className="prompt-modal-subtitle" style={{ color: 'var(--text-tertiary)' }}>
-                Hành động này cần được bạn xác nhận
+                {t('confirmDelete.subtitle')}
               </div>
             </div>
           </div>
-          <button className="btn btn-icon prompt-close-btn" onClick={onClose} title="Đóng (Esc)">
+          <button className="btn btn-icon prompt-close-btn" onClick={onClose} title={`${t('common.close')} (Esc)`}>
             <CloseIcon size={16} />
           </button>
         </div>
@@ -127,12 +129,12 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
                 lineHeight: 1.5,
               }}
             >
-              ⚠️ <strong>Cảnh báo:</strong> Thư mục này và tất cả các file, thư mục con bên trong sẽ bị xóa.
+              {t('confirmDelete.folderWarning')}
             </div>
           )}
 
           <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            Mục này sẽ được chuyển vào <strong>Thùng rác (Recycle Bin)</strong> của hệ điều hành và bạn có thể khôi phục lại nếu cần.
+            {t('confirmDelete.recycleBinNote')}
           </div>
         </div>
 
@@ -154,7 +156,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
             onClick={onClose}
             style={{ minWidth: '90px' }}
           >
-            Hủy bỏ
+            {t('confirmDelete.cancel')}
           </button>
           <button
             type="button"
@@ -168,7 +170,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
               fontWeight: 600,
             }}
           >
-            Xác nhận xóa
+            {t('confirmDelete.confirm')}
           </button>
         </div>
       </div>

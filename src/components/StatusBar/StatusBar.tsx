@@ -1,6 +1,7 @@
 import React from 'react';
+import { useTranslation } from '../../i18n';
 
-export const APP_VERSION = 'v0.1.18';
+export const APP_VERSION = 'v0.2.0';
 
 interface StatusBarProps {
   activeFile?: string;
@@ -17,6 +18,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   cursorCol,
   wordCount,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <footer className="statusbar">
       <div className="statusbar-left">
@@ -24,20 +27,20 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           <>
             <span style={{ color: 'var(--text-secondary)' }}>📄 {activeFile}</span>
             <span style={{ color: isDirty ? 'var(--warning)' : 'var(--success)' }}>
-              {isDirty ? '● Chưa lưu' : '✓ Đã lưu'}
+              {isDirty ? t('statusbar.unsaved') : t('statusbar.saved')}
             </span>
           </>
         ) : (
-          <span>Sẵn sàng</span>
+          <span>{t('statusbar.ready')}</span>
         )}
       </div>
 
       <div className="statusbar-right">
         {activeFile && (
           <>
-            <span>{wordCount} từ</span>
+            <span>{t('statusbar.words', { count: wordCount })}</span>
             <span>
-              Ln {cursorLine}, Col {cursorCol}
+              {t('statusbar.lineCol', { line: cursorLine, col: cursorCol })}
             </span>
             <span>Markdown</span>
             <span>UTF-8</span>
@@ -45,7 +48,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         )}
         <span
           className="statusbar-version"
-          title="Phiên bản BookMD hiện tại"
+          title={t('statusbar.versionTitle')}
           style={{
             opacity: 0.85,
             fontWeight: 500,

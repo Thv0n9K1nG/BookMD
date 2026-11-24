@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { ContextMenuState } from '../../types';
+import { useTranslation } from '../../i18n';
 
 interface ContextMenuProps {
   state: ContextMenuState | null;
@@ -20,6 +21,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onDelete,
   onCopyRelativePath,
 }) => {
+  const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,7 +62,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onClose();
         }}
       >
-        <span>📄 Tạo file mới</span>
+        <span>{t('contextMenu.newFile')}</span>
       </div>
       <div
         className="context-menu-item"
@@ -69,7 +71,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onClose();
         }}
       >
-        <span>📁 Tạo thư mục mới</span>
+        <span>{t('contextMenu.newFolder')}</span>
       </div>
 
       {entry && (
@@ -82,7 +84,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               onClose();
             }}
           >
-            <span>✏️ Đổi tên</span>
+            <span>{t('contextMenu.rename')}</span>
           </div>
           <div
             className="context-menu-item"
@@ -92,7 +94,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               onClose();
             }}
           >
-            <span>🗑️ Xóa</span>
+            <span>{t('contextMenu.delete')}</span>
           </div>
           <div className="context-menu-separator" />
           <div
@@ -102,7 +104,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               onClose();
             }}
           >
-            <span>📋 Sao chép đường dẫn</span>
+            <span>{t('contextMenu.copyRelativePath')}</span>
           </div>
         </>
       )}

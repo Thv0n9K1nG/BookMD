@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileEntry, SidebarTab } from '../../types';
+import { useTranslation } from '../../i18n';
 import {
   FolderIcon,
   FolderOpenIcon,
@@ -168,6 +169,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   onContextMenu,
   onCreateNew,
 }) => {
+  const { t } = useTranslation();
   const [internalTab, setInternalTab] = useState<SidebarTab>('files');
   const currentTab = sidebarTab !== undefined ? sidebarTab : internalTab;
 
@@ -209,19 +211,19 @@ export const FileTree: React.FC<FileTreeProps> = ({
             type="button"
             className={`sidebar-tab-btn ${currentTab === 'files' ? 'active' : ''}`}
             onClick={() => handleTabChange('files')}
-            title="Duyệt cây thư mục Workspace"
+            title={t('sidebar.filesTabTitle')}
           >
             <FilesIcon size={13} />
-            <span>Thư mục</span>
+            <span>{t('sidebar.filesTab')}</span>
           </button>
           <button
             type="button"
             className={`sidebar-tab-btn ${currentTab === 'toc' ? 'active' : ''}`}
             onClick={() => handleTabChange('toc')}
-            title="Mục lục tiêu đề tài liệu Markdown hiện tại"
+            title={t('sidebar.tocTabTitle')}
           >
             <TocIcon size={13} />
-            <span>Mục lục</span>
+            <span>{t('sidebar.tocTab')}</span>
           </button>
         </div>
 
@@ -231,21 +233,21 @@ export const FileTree: React.FC<FileTreeProps> = ({
               <button
                 className="btn btn-icon"
                 onClick={() => onCreateNew('', 'file')}
-                title="Tạo file mới (Ctrl+N)"
+                title={t('sidebar.newFileTitle')}
               >
                 <FilePlusIcon size={14} />
               </button>
               <button
                 className="btn btn-icon"
                 onClick={() => onCreateNew('', 'directory')}
-                title="Tạo thư mục mới"
+                title={t('sidebar.newFolderTitle')}
               >
                 <FolderPlusIcon size={14} />
               </button>
               <button
                 className="btn btn-icon"
                 onClick={onRefresh}
-                title="Làm mới thư mục"
+                title={t('sidebar.refreshTitle')}
               >
                 <RefreshIcon size={14} />
               </button>
@@ -266,7 +268,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         {currentTab === 'files' ? (
           tree.length === 0 ? (
             <div style={{ padding: '16px', color: 'var(--text-tertiary)', fontSize: '12px' }}>
-              Không có file trong workspace
+              {t('sidebar.noFiles')}
             </div>
           ) : (
             tree.map((entry) => (

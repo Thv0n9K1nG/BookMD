@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ToolsIcon, PdfIcon, BackupIcon, ImagesStackIcon } from '../common/Icons';
+import { useTranslation } from '../../i18n';
 
 export interface ToolItem {
   id: string;
@@ -21,6 +22,7 @@ export const ToolsDropdown: React.FC<ToolsDropdownProps> = ({
   onOpenBackup,
   onOpenConsolidateImages,
 }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -50,8 +52,8 @@ export const ToolsDropdown: React.FC<ToolsDropdownProps> = ({
   const tools: ToolItem[] = [
     {
       id: 'export-pdf',
-      label: 'Xuất PDF',
-      description: 'Xuất tài liệu Markdown hiện tại sang file PDF chuẩn in ấn',
+      label: t('tools.exportPdf'),
+      description: t('tools.exportPdfDesc'),
       icon: <PdfIcon size={16} style={{ color: 'var(--accent)' }} />,
       onClick: () => {
         setIsOpen(false);
@@ -60,8 +62,8 @@ export const ToolsDropdown: React.FC<ToolsDropdownProps> = ({
     },
     {
       id: 'backup',
-      label: 'Sao lưu Dữ liệu (Backup)',
-      description: 'Sao chép an toàn Workspace, thư mục hoặc file sang nơi lưu trữ khác',
+      label: t('tools.backup'),
+      description: t('tools.backupDesc'),
       icon: <BackupIcon size={16} style={{ color: '#10b981' }} />,
       onClick: () => {
         setIsOpen(false);
@@ -70,14 +72,14 @@ export const ToolsDropdown: React.FC<ToolsDropdownProps> = ({
     },
     {
       id: 'consolidate-images',
-      label: 'Đồng bộ & Tổ chức lại ảnh',
-      description: 'Gom toàn bộ ảnh trong tài liệu về một thư mục và chuẩn hóa tên file',
+      label: t('tools.consolidateImages'),
+      description: t('tools.consolidateImagesDesc'),
       icon: <ImagesStackIcon size={16} style={{ color: '#3b82f6' }} />,
       onClick: () => {
         setIsOpen(false);
         onOpenConsolidateImages();
       },
-      badge: 'Mới',
+      badge: t('tools.badgeNew'),
     },
   ];
 
@@ -89,7 +91,7 @@ export const ToolsDropdown: React.FC<ToolsDropdownProps> = ({
           e.stopPropagation();
           setIsOpen((prev) => !prev);
         }}
-        title="Bộ công cụ BookMD (Xuất PDF, Sao lưu dữ liệu...)"
+        title={t('header.toolsTooltip')}
         style={{
           color: isOpen ? 'var(--accent)' : undefined,
           background: isOpen ? 'var(--bg-tertiary)' : undefined,

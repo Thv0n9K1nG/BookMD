@@ -109,6 +109,7 @@ export interface Settings {
   lineNumbers: boolean;
   wordWrap: boolean;
   keybindings?: KeybindingsMap; // Custom keyboard shortcuts mapping
+  language?: 'vi' | 'en';
 }
 
 export interface ToastMessage {

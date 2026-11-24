@@ -1,6 +1,7 @@
 import React from 'react';
 import { OpenTab, ViewMode } from '../../types';
 import { CloseIcon, FileIcon } from '../common/Icons';
+import { useTranslation } from '../../i18n';
 
 interface TabBarProps {
   tabs: OpenTab[];
@@ -19,6 +20,8 @@ export const TabBar: React.FC<TabBarProps> = ({
   onCloseTab,
   onChangeViewMode,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="tabs-bar">
       <div style={{ display: 'flex', flex: 1, overflowX: 'auto' }}>
@@ -40,14 +43,14 @@ export const TabBar: React.FC<TabBarProps> = ({
             >
               <FileIcon size={14} style={{ color: 'var(--text-accent)' }} />
               <span className="tab-label">{tab.name}</span>
-              {tab.isDirty && <span className="tab-unsaved" title="Chưa lưu" />}
+              {tab.isDirty && <span className="tab-unsaved" title={t('tabs.unsaved')} />}
               <span
                 className="tab-close"
                 onClick={(e) => {
                   e.stopPropagation();
                   onCloseTab(tab.relativePath);
                 }}
-                title="Đóng tab"
+                title={t('tabs.closeTab')}
               >
                 <CloseIcon size={12} />
               </span>
@@ -62,23 +65,23 @@ export const TabBar: React.FC<TabBarProps> = ({
             <button
               className={`view-mode-btn ${viewMode === 'editor' ? 'active' : ''}`}
               onClick={() => onChangeViewMode('editor')}
-              title="Chế độ Editor"
+              title={t('tabs.viewEditorTitle')}
             >
-              Editor
+              {t('tabs.viewEditor')}
             </button>
             <button
               className={`view-mode-btn ${viewMode === 'split' ? 'active' : ''}`}
               onClick={() => onChangeViewMode('split')}
-              title="Chế độ Split (Editor + Preview)"
+              title={t('tabs.viewSplitTitle')}
             >
-              Split
+              {t('tabs.viewSplit')}
             </button>
             <button
               className={`view-mode-btn ${viewMode === 'preview' ? 'active' : ''}`}
               onClick={() => onChangeViewMode('preview')}
-              title="Chế độ Preview"
+              title={t('tabs.viewPreviewTitle')}
             >
-              Preview
+              {t('tabs.viewPreview')}
             </button>
           </div>
         </div>

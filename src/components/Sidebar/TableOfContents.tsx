@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { TocItem } from '../../types';
 import { TocIcon, SearchIcon, CloseIcon } from '../common/Icons';
+import { useTranslation } from '../../i18n';
 
 interface TableOfContentsProps {
   content?: string;
@@ -71,6 +72,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
   activePath,
   onNavigateToLine,
 }) => {
+  const { t } = useTranslation();
   const [filterQuery, setFilterQuery] = useState('');
   const [activeLine, setActiveLine] = useState<number | null>(null);
 
@@ -95,9 +97,9 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
     return (
       <div className="toc-empty-state">
         <TocIcon size={24} style={{ opacity: 0.4, marginBottom: '8px' }} />
-        <div style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Chưa mở tài liệu</div>
+        <div style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>{t('toc.noDocument')}</div>
         <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', maxWidth: '200px' }}>
-          Chọn một file Markdown trong danh sách thư mục để xem mục lục.
+          {t('toc.noDocumentDesc')}
         </p>
       </div>
     );
@@ -107,9 +109,9 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
     return (
       <div className="toc-empty-state">
         <TocIcon size={24} style={{ opacity: 0.4, marginBottom: '8px' }} />
-        <div style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Không có tiêu đề</div>
+        <div style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>{t('toc.noHeadings')}</div>
         <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', maxWidth: '220px' }}>
-          Tài liệu này chưa có mục lục. Thêm các thẻ <code># Tiêu đề 1</code> hoặc <code>## Tiêu đề 2</code> vào file Markdown.
+          {t('toc.noHeadingsDesc')}
         </p>
       </div>
     );
@@ -126,14 +128,14 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
             className="toc-filter-input"
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
-            placeholder="Lọc tiêu đề..."
+            placeholder={t('toc.filterPlaceholder')}
           />
           {filterQuery && (
             <button
               className="btn btn-icon"
               onClick={() => setFilterQuery('')}
               style={{ padding: '2px' }}
-              title="Xóa lọc"
+              title={t('toc.clearFilter')}
             >
               <CloseIcon size={12} />
             </button>
@@ -152,7 +154,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
                 className={`toc-item level-${item.level} ${isItemActive ? 'active' : ''}`}
                 style={{ paddingLeft: `${(item.level - 1) * 14 + 10}px` }}
                 onClick={() => handleItemClick(item.line)}
-                title={`Nhảy tới dòng ${item.line}: ${item.text}`}
+                title={t('toc.jumpToLine', { line: item.line, text: item.text })}
               >
                 <span className={`toc-badge badge-h${item.level}`}>
                   H{item.level}
@@ -164,7 +166,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
           })
         ) : (
           <div style={{ padding: '16px', textAlign: 'center', fontSize: '11px', color: 'var(--text-tertiary)' }}>
-            Không tìm thấy tiêu đề nào khớp với "{filterQuery}".
+            {t('toc.noMatch', { query: filterQuery })}
           </div>
         )}
       </div>

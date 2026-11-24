@@ -16,6 +16,7 @@ import {
   formatKeyEvent,
   getKeybinding,
 } from '../../utils/keybindings';
+import { useTranslation } from '../../i18n';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateSettings,
   onCreateFolder,
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'general' | 'image' | 'keybindings'>(initialTab);
   const [pickerTarget, setPickerTarget] = useState<'imageDir' | 'namingBaseDir' | null>(null);
 
@@ -195,9 +197,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="settings-panel" style={{ maxWidth: '640px', width: '92%' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <h2 className="settings-title" style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>Cài đặt BookMD</span>
+              <span>{t('settings.title')}</span>
             </h2>
-            <button className="btn btn-icon" onClick={onClose} title="Đóng">
+            <button className="btn btn-icon" onClick={onClose} title={t('common.close')}>
               <CloseIcon size={16} />
             </button>
           </div>
@@ -230,7 +232,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }}
             >
               <ImageIcon size={14} />
-              <span>Xử lý hình ảnh</span>
+              <span>{t('settings.tabImage')}</span>
             </button>
 
             <button
@@ -250,7 +252,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }}
             >
               <KeyboardIcon size={14} />
-              <span>Phím tắt (Keybindings)</span>
+              <span>{t('settings.tabKeybindings')}</span>
             </button>
 
             <button
@@ -270,7 +272,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }}
             >
               <SettingsIcon size={14} />
-              <span>Cài đặt chung</span>
+              <span>{t('settings.tabGeneral')}</span>
             </button>
           </div>
 
@@ -502,26 +504,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 3: GENERAL SETTINGS */}
           {activeTab === 'general' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+              {/* Language Switcher */}
               <div className="settings-group">
-                <label className="settings-label">Giao diện (Theme)</label>
+                <label className="settings-label">{t('settings.language')}</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
-                    className={`btn ${settings.theme === 'dark' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => onUpdateSettings({ theme: 'dark' })}
+                    type="button"
+                    className={`btn ${settings.language !== 'en' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => onUpdateSettings({ language: 'vi' })}
                   >
-                    🌙 Tối (Dark)
+                    {t('settings.langVi')}
                   </button>
                   <button
-                    className={`btn ${settings.theme === 'light' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => onUpdateSettings({ theme: 'light' })}
+                    type="button"
+                    className={`btn ${settings.language === 'en' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => onUpdateSettings({ language: 'en' })}
                   >
-                    ☀️ Sáng (Light)
+                    {t('settings.langEn')}
                   </button>
                 </div>
               </div>
 
               <div className="settings-group">
-                <label className="settings-label">Cỡ chữ Editor ({settings.fontSize}px)</label>
+                <label className="settings-label">{t('settings.theme')}</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`btn ${settings.theme === 'dark' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => onUpdateSettings({ theme: 'dark' })}
+                  >
+                    {t('settings.themeDark')}
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${settings.theme === 'light' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => onUpdateSettings({ theme: 'light' })}
+                  >
+                    {t('settings.themeLight')}
+                  </button>
+                </div>
+              </div>
+
+              <div className="settings-group">
+                <label className="settings-label">{t('settings.fontSize', { size: settings.fontSize })}</label>
                 <input
                   type="range"
                   min={11}
@@ -539,7 +564,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     checked={settings.lineNumbers}
                     onChange={(e) => onUpdateSettings({ lineNumbers: e.target.checked })}
                   />
-                  <span>Hiện số dòng (Line Numbers)</span>
+                  <span>{t('settings.lineNumbers')}</span>
                 </label>
               </div>
 
@@ -550,7 +575,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     checked={settings.wordWrap}
                     onChange={(e) => onUpdateSettings({ wordWrap: e.target.checked })}
                   />
-                  <span>Tự động xuống dòng (Word Wrap)</span>
+                  <span>{t('settings.wordWrap')}</span>
                 </label>
               </div>
 
@@ -561,23 +586,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     checked={settings.autoSave}
                     onChange={(e) => onUpdateSettings({ autoSave: e.target.checked })}
                   />
-                  <span>Tự động lưu (Auto Save)</span>
+                  <span>{t('settings.autoSave')}</span>
                 </label>
                 {settings.autoSave && (
                   <div style={{ marginTop: '8px', paddingLeft: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Thời gian chờ lưu:</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('settings.autoSaveDelay')}</span>
                     <select
                       className="settings-input"
                       style={{ width: 'auto', padding: '4px 8px', fontSize: '12px' }}
                       value={settings.autoSaveDelay ?? 2}
                       onChange={(e) => onUpdateSettings({ autoSaveDelay: Number(e.target.value) })}
                     >
-                      <option value={1}>1 giây</option>
-                      <option value={2}>2 giây (Mặc định)</option>
-                      <option value={3}>3 giây</option>
-                      <option value={5}>5 giây</option>
-                      <option value={10}>10 giây</option>
-                      <option value={30}>30 giây</option>
+                      <option value={1}>{t('settings.seconds', { count: 1 })}</option>
+                      <option value={2}>{t('settings.secondsDefault', { count: 2 })}</option>
+                      <option value={3}>{t('settings.seconds', { count: 3 })}</option>
+                      <option value={5}>{t('settings.seconds', { count: 5 })}</option>
+                      <option value={10}>{t('settings.seconds', { count: 10 })}</option>
+                      <option value={30}>{t('settings.seconds', { count: 30 })}</option>
                     </select>
                   </div>
                 )}
@@ -587,7 +612,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--border-primary)', paddingTop: '12px' }}>
             <button className="btn btn-primary" onClick={onClose}>
-              Hoàn tất
+              {t('settings.done')}
             </button>
           </div>
         </div>

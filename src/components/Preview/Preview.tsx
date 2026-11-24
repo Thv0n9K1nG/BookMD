@@ -12,6 +12,7 @@ import { markdownMathPlugin } from '../../utils/markdownMath';
 import { markdownMermaidPlugin } from '../../utils/markdownMermaid';
 import footnote from 'markdown-it-footnote';
 import mermaid from 'mermaid';
+import { useTranslation } from '../../i18n';
 
 interface PreviewProps {
   content: string;
@@ -36,6 +37,7 @@ export const Preview: React.FC<PreviewProps> = ({
   onNavigateToFile,
   onToast,
 }) => {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const activeFocusElRef = useRef<HTMLElement | null>(null);
   const scrollTimeoutRef = useRef<any>(null);
@@ -445,8 +447,8 @@ export const Preview: React.FC<PreviewProps> = ({
       const btn = document.createElement('button');
       btn.className = 'code-copy-btn';
       btn.type = 'button';
-      btn.title = 'Sao chép';
-      btn.setAttribute('aria-label', 'Sao chép');
+      btn.title = t('preview.copy');
+      btn.setAttribute('aria-label', t('preview.copy'));
       btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
       btn.onclick = (e) => {
         e.stopPropagation();
@@ -455,12 +457,12 @@ export const Preview: React.FC<PreviewProps> = ({
         navigator.clipboard.writeText(codeText);
         btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
         btn.classList.add('copied');
-        btn.title = 'Đã chép!';
-        onToast?.('Đã sao chép mã nguồn', 'success');
+        btn.title = t('common.copied');
+        onToast?.(t('preview.copiedCode'), 'success');
         setTimeout(() => {
           btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
           btn.classList.remove('copied');
-          btn.title = 'Sao chép';
+          btn.title = t('preview.copy');
         }, 2000);
       };
       wrapper.appendChild(btn);
@@ -523,20 +525,20 @@ export const Preview: React.FC<PreviewProps> = ({
             const btn = document.createElement('button');
             btn.className = 'mermaid-copy-btn';
             btn.type = 'button';
-            btn.title = 'Sao chép';
-            btn.setAttribute('aria-label', 'Sao chép mã Mermaid');
+            btn.title = t('preview.copy');
+            btn.setAttribute('aria-label', t('preview.copyMermaidCode'));
             btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
             btn.onclick = (e) => {
               e.stopPropagation();
               navigator.clipboard.writeText(rawCode);
               btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
               btn.classList.add('copied');
-              btn.title = 'Đã chép!';
-              onToast?.('Đã sao chép mã nguồn Mermaid', 'success');
+              btn.title = t('common.copied');
+              onToast?.(t('preview.copiedMermaid'), 'success');
               setTimeout(() => {
                 btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
                 btn.classList.remove('copied');
-                btn.title = 'Sao chép';
+                btn.title = t('preview.copy');
               }, 2000);
             };
             el.appendChild(btn);
@@ -579,7 +581,7 @@ export const Preview: React.FC<PreviewProps> = ({
           x: e.clientX,
           y: e.clientY,
           text: selectedText,
-          label: 'Sao chép văn bản đã chọn (Ctrl+C)',
+          label: t('preview.copySelected'),
         });
         return;
       }
@@ -593,7 +595,7 @@ export const Preview: React.FC<PreviewProps> = ({
             x: e.clientX,
             y: e.clientY,
             text: rawCode,
-            label: 'Sao chép mã biểu đồ Mermaid',
+            label: t('preview.copyMermaidCode'),
           });
           return;
         }
@@ -608,7 +610,7 @@ export const Preview: React.FC<PreviewProps> = ({
           x: e.clientX,
           y: e.clientY,
           text,
-          label: 'Sao chép toàn bộ khối mã',
+          label: t('preview.copyFullBlock'),
         });
         return;
       }
@@ -681,7 +683,7 @@ export const Preview: React.FC<PreviewProps> = ({
             className="context-menu-item"
             onClick={() => {
               navigator.clipboard.writeText(copyMenu.text);
-              onToast?.('Đã sao chép vào bộ nhớ tạm', 'success');
+              onToast?.(t('preview.copiedToClipboard'), 'success');
               setCopyMenu(null);
             }}
           >

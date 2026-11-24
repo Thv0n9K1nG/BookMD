@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-11-24
+
+### Added & Improved
+- **Multi-Language Support (i18n & Localization)**:
+  - Added native multi-language architecture with **Tiếng Việt (Vietnamese - Default)** and **English** support.
+  - **Zero-Dependency & Type-Safe Architecture**: Built using a lightweight React Context + TypeScript schema dictionary without heavy third-party dependencies, guaranteeing compile-time type safety across all translation keys.
+  - **One-Click Language Switcher**: Added an instant language toggle (`🇻🇳 Tiếng Việt` / `🇬🇧 English`) in `SettingsModal` under General Settings.
+  - **Persistent Language Preference**: User's chosen language is automatically stored in `localStorage` (`bookmd_settings`) and preserved across app launches.
+  - **Comprehensive UI Localization**: 100% of the application interface is fully translated:
+    - **Header & Navigation**: Brand title, Sidebar toggle, File & Workspace opening, Quick search button, Command palette trigger, Theme switcher, Image handling settings, General settings, and Tools dropdown.
+    - **Tools Dropdown**: Export PDF, Backup data, Consolidate & reorganize images, and status badges.
+    - **Sidebar & Tabs**: File tree tab, Outline/TOC tab, New file/folder buttons, refresh, lazy-load indicators, empty workspace messages, active document outline, TOC filter search, line jumping, Tab close/dirty state, and Editor / Split / Preview mode buttons.
+    - **Status Bar**: Current file status (Saved / Unsaved), word count, line & column indicator, document format, encoding, and version indicator (`v0.2.0`).
+    - **Modals & Dialogs**: Search modal (regex, case sensitivity, match count, line snippets), Command Palette (all searchable commands), Settings modal (all tabs, hints, details, and shortcuts), Backup modal (scopes, conflict strategies, progress, and success screens), Consolidate Images modal (file tables, operation modes, status tags), Image folder picker modal, Confirm delete modal, and Prompt modal.
+    - **Context Menus & Preview Pane**: Tree context menu, preview right-click menu, code block and Mermaid copy buttons with localized tooltips and copied confirmations.
+    - **Editor & Toasts**: Paste notifications, SVG conversion status, file creation/rename/delete feedback, PDF export progress, and workspace alerts.
+  - **Unit Test Coverage**: Added `test/i18n.test.ts` to ensure 100% key parity between Vietnamese and English dictionaries and verify string parameter interpolation.
+
 ## [0.1.18] - 2026-11-24
 
 ### Fixed & Improved

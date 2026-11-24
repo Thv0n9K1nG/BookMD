@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { FileEntry } from '../../types';
+import { useTranslation } from '../../i18n';
 import {
   FolderIcon,
   FolderOpenIcon,
@@ -133,6 +134,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
   onSelectFolder,
   onCreateFolder,
 }) => {
+  const { t } = useTranslation();
   const initialQuery = defaultSearchQuery !== undefined ? defaultSearchQuery : '';
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [selectedFolder, setSelectedFolder] = useState<string>(currentImageDir || '');
@@ -321,13 +323,13 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
               <ImageIcon size={18} />
             </div>
             <div>
-              <h3 className="folder-picker-title">{title || 'Chọn thư mục lưu hình ảnh'}</h3>
+              <h3 className="folder-picker-title">{title || t('imagePicker.title')}</h3>
               <p className="folder-picker-subtitle">
                 {subtitle || `${workspaceName ? `Workspace: ${workspaceName}` : 'Workspace'} • Cây thư mục dạng phân cấp`}
               </p>
             </div>
           </div>
-          <button className="btn btn-icon" onClick={onClose} title="Đóng">
+          <button className="btn btn-icon" onClick={onClose} title={t('common.close')}>
             <CloseIcon size={16} />
           </button>
         </div>
@@ -341,7 +343,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
               className="folder-picker-search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm thư mục trong cây thư mục..."
+              placeholder={t('imagePicker.searchPlaceholder')}
               autoFocus
             />
             {searchQuery && (
@@ -552,7 +554,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="btn btn-secondary" onClick={onClose}>
-              Hủy
+              {t('common.cancel')}
             </button>
             <button
               className="btn btn-primary"
@@ -560,7 +562,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
               disabled={!allowRootSelect && !selectedFolder}
             >
               <CheckIcon size={14} style={{ marginRight: '6px' }} />
-              <span>Xác nhận chọn thư mục này</span>
+              <span>{t('imagePicker.confirm')}</span>
             </button>
           </div>
         </div>

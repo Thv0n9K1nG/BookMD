@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CloseIcon, FileIcon, FolderIcon } from './Icons';
+import { useTranslation } from '../../i18n';
 
 export interface PromptModalProps {
   isOpen: boolean;
@@ -20,10 +21,12 @@ export const PromptModal: React.FC<PromptModalProps> = ({
   icon = 'file',
   defaultValue = '',
   placeholder = '',
-  confirmLabel = 'Xác nhận',
+  confirmLabel,
   onClose,
   onSubmit,
 }) => {
+  const { t } = useTranslation();
+  const effectiveConfirmLabel = confirmLabel || t('common.confirm');
   const [value, setValue] = useState(defaultValue);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,13 +56,13 @@ export const PromptModal: React.FC<PromptModalProps> = ({
   const validateAndSubmit = () => {
     const trimmed = value.trim();
     if (!trimmed) {
-      setError('Vui lòng nhập tên');
+      setError(t('prompt.errorEmpty'));
       return;
     }
 
     // Check invalid filesystem characters on Windows: < > : " | ? *
     if (/[<>:"|?*]/.test(trimmed)) {
-      setError('Tên không được chứa các ký tự đặc biệt: < > : " | ? *');
+      setError(t('prompt.errorSpecialChars'));
       return;
     }
 
@@ -125,10 +128,10 @@ export const PromptModal: React.FC<PromptModalProps> = ({
 
         <div className="prompt-modal-footer">
           <button type="button" className="btn btn-secondary prompt-btn" onClick={onClose}>
-            Hủy
+            {t('common.cancel')}
           </button>
           <button type="button" className="btn btn-primary prompt-btn" onClick={validateAndSubmit}>
-            {confirmLabel}
+            {effectiveConfirmLabel}
           </button>
         </div>
       </div>

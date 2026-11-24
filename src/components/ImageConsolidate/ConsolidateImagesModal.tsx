@@ -14,6 +14,7 @@ import {
   executeConsolidateImages,
   selectFolderDialog,
 } from '../../services/ipc';
+import { useTranslation } from '../../i18n';
 
 interface ConsolidateImagesModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
   onSuccess,
   addToast,
 }) => {
+  const { t } = useTranslation();
   const [folderMode, setFolderMode] = useState<'default' | 'custom'>('default');
   const [customFolder, setCustomFolder] = useState<string>('');
   const [operation, setOperation] = useState<'copy' | 'move'>('move');
@@ -93,7 +95,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
 
   // Browse custom folder
   const handleBrowseCustomFolder = async () => {
-    const folder = await selectFolderDialog('Chọn thư mục lưu trữ cho toàn bộ ảnh');
+    const folder = await selectFolderDialog(t('consolidate.selectFolderPrompt'));
     if (folder) {
       setCustomFolder(folder);
       setFolderMode('custom');
@@ -104,7 +106,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
   const handleExecute = async () => {
     if (!markdownFile || !scanResult) return;
     if (scanResult.validCount === 0) {
-      addToast('Không có hình ảnh hợp lệ nào cần đồng bộ', 'info');
+      addToast(t('consolidate.noValidImagesToast'), 'info');
       return;
     }
 
@@ -122,16 +124,16 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
       });
 
       addToast(
-        `Đã đồng bộ thành công ${result.processedCount} hình ảnh vào thư mục "${scanResult.targetDirDisplay}"`,
+        t('consolidate.successToast', { count: result.processedCount, dest: scanResult.targetDirDisplay }),
         'success'
       );
       onSuccess(result.updatedContent, result);
       onClose();
     } catch (err: any) {
       console.error('Failed to execute image consolidation:', err);
-      const msg = typeof err === 'string' ? err : err?.message || 'Lỗi đồng bộ hình ảnh';
+      const msg = typeof err === 'string' ? err : err?.message || t('consolidate.errorScan');
       setErrorMsg(msg);
-      addToast(`Lỗi: ${msg}`, 'error');
+      addToast(t('consolidate.errorToast', { error: msg }), 'error');
     } finally {
       setIsExecuting(false);
     }
@@ -175,10 +177,10 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
             </div>
             <div>
               <h3 className="prompt-modal-title" style={{ fontSize: '15px' }}>
-                Đồng bộ & Tổ chức lại ảnh trong tài liệu
+                {t('consolidate.title')}
               </h3>
               <div className="prompt-modal-subtitle" style={{ fontSize: '12px' }}>
-                Gom toàn bộ hình ảnh về một thư mục thống nhất và chuẩn hóa tên file theo quy tắc
+                {t('consolidate.subtitle')}
               </div>
             </div>
           </div>
@@ -186,7 +188,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
             className="btn btn-icon prompt-close-btn"
             onClick={onClose}
             disabled={isExecuting}
-            title="Đóng (Esc)"
+            title={`${t('common.close')} (Esc)`}
           >
             <CloseIcon size={16} />
           </button>
@@ -643,7 +645,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
               onClick={onClose}
               disabled={isExecuting}
             >
-              Hủy bỏ
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -662,7 +664,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
               }}
             >
               <ImagesStackIcon size={15} />
-              <span>{isExecuting ? 'Đang xử lý...' : 'Bắt đầu đồng bộ & Đổi tên'}</span>
+              <span>{isExecuting ? t('consolidate.executing') : t('consolidate.startBtn', { count: scanResult?.validCount || 0 })}</span>
             </button>
           </div>
         </div>

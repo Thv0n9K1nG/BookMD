@@ -24,6 +24,7 @@ import {
   extractSvgFromClipboard,
   convertSvgXmlToPngBase64,
 } from '../../utils/svgPaste';
+import { useTranslation } from '../../i18n';
 
 interface EditorProps {
   content: string;
@@ -54,6 +55,11 @@ export const Editor: React.FC<EditorProps> = ({
   onToast,
   onImagePasted,
 }) => {
+  const { t } = useTranslation();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const savedScrollTopRef = useRef<number>(0);
@@ -151,11 +157,11 @@ export const Editor: React.FC<EditorProps> = ({
           event.preventDefault();
 
           // Provide immediate user feedback so editor does not appear frozen while fetching
-          onToastRef.current?.('Đang tải & xử lý hình ảnh vector SVG...', 'info');
+          onToastRef.current?.(tRef.current('editor.svgDownloading'), 'info');
 
           extractSvgFromClipboard(clipboardData).then(async (svgXml) => {
             if (!svgXml) {
-              onToastRef.current?.('Không thể trích xuất nội dung ảnh SVG từ clipboard', 'error');
+              onToastRef.current?.(tRef.current('editor.svgExtractError'), 'error');
               return;
             }
 
@@ -195,13 +201,13 @@ export const Editor: React.FC<EditorProps> = ({
                 selection: { anchor: selection.from + refText.length },
               });
 
-              onToastRef.current?.(`Đã chuyển đổi SVG sang PNG & lưu: ${res.filename}`, 'success');
+              onToastRef.current?.(tRef.current('editor.svgConverted', { filename: res.filename }), 'success');
 
               // Notify parent to refresh the workspace file tree and auto-expand the image folder
               onImagePastedRef.current?.(res.relativePath);
             } catch (err: any) {
               console.error('SVG paste convert error:', err);
-              onToastRef.current?.(`Lỗi xử lý ảnh SVG: ${err?.message || err}`, 'error');
+              onToastRef.current?.(tRef.current('editor.svgError', { error: err?.message || err }), 'error');
             }
           });
           return true;
@@ -255,13 +261,13 @@ export const Editor: React.FC<EditorProps> = ({
                     selection: { anchor: selection.from + refText.length },
                   });
 
-                  onToastRef.current?.(`Đã lưu ảnh: ${res.filename}`, 'success');
+                  onToastRef.current?.(tRef.current('editor.imageSaved', { filename: res.filename }), 'success');
 
                   // Notify parent to refresh the workspace file tree and auto-expand the image folder
                   onImagePastedRef.current?.(res.relativePath);
                 } catch (err: any) {
                   console.error('Save image error:', err);
-                  onToastRef.current?.(`Lỗi lưu ảnh: ${err?.message || err}`, 'error');
+                  onToastRef.current?.(tRef.current('editor.imageError', { error: err?.message || err }), 'error');
                 }
               });
               return true;
@@ -284,8 +290,8 @@ export const Editor: React.FC<EditorProps> = ({
             userEvent: 'input.paste',
           });
           const toastMsg = parsed.isTable
-            ? 'Đã chuyển bảng thành Markdown table'
-            : 'Đã nhận diện và chuyển sang định dạng Markdown';
+            ? tRef.current('editor.tablePasted')
+            : tRef.current('editor.richTextPasted');
           onToastRef.current?.(toastMsg, 'success');
           return true;
         }

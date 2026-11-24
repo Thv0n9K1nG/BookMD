@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SearchResult } from '../../types';
 import { searchWorkspace } from '../../services/ipc';
 import { SearchIcon, CloseIcon } from '../common/Icons';
+import { useTranslation } from '../../i18n';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   onClose,
   onNavigate,
 }) => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
@@ -131,7 +133,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           <input
             ref={inputRef}
             className="search-text-input"
-            placeholder="Tìm kiếm nội dung trong toàn bộ workspace... (Ctrl+Shift+F)"
+            placeholder={t('search.placeholder')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -156,26 +158,26 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             <button
               className={`search-option-btn ${caseSensitive ? 'active' : ''}`}
               onClick={() => setCaseSensitive(!caseSensitive)}
-              title="Khớp hoa thường (Case sensitive)"
+              title={t('search.caseSensitive')}
             >
               Aa
             </button>
             <button
               className={`search-option-btn ${wholeWord ? 'active' : ''}`}
               onClick={() => setWholeWord(!wholeWord)}
-              title="Khớp toàn bộ từ (Whole word)"
+              title={t('search.wholeWord')}
             >
               \b
             </button>
             <button
               className={`search-option-btn ${isRegex ? 'active' : ''}`}
               onClick={() => setIsRegex(!isRegex)}
-              title="Biểu thức chính quy (Regex)"
+              title={t('search.regex')}
             >
               .*
             </button>
           </div>
-          <button className="btn btn-icon search-close-btn" onClick={onClose} title="Đóng (Esc)">
+          <button className="btn btn-icon search-close-btn" onClick={onClose} title={`${t('common.close')} (Esc)`}>
             <CloseIcon size={16} />
           </button>
         </div>
@@ -184,14 +186,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         {query.trim() && (
           <div className="search-summary-bar">
             {isLoading ? (
-              <span className="search-status-text">Đang quét toàn bộ tài liệu workspace...</span>
+              <span className="search-status-text">{t('search.searching')}</span>
             ) : results.length > 0 ? (
               <span className="search-status-success">
-                Tìm thấy <strong>{results.length}</strong> kết quả trong <strong>{totalFiles}</strong> tệp
+                {t('search.resultsCount', { matches: results.length, files: totalFiles })}
               </span>
             ) : (
               <span className="search-status-empty">
-                Không tìm thấy kết quả nào khớp với "<em>{query}</em>"
+                {t('search.noResults', { query })}
               </span>
             )}
           </div>

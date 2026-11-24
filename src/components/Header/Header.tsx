@@ -1,5 +1,6 @@
 import React from 'react';
 import { Theme } from '../../types';
+import { useTranslation } from '../../i18n';
 import { ToolsDropdown } from './ToolsDropdown';
 import {
   BookIcon,
@@ -46,6 +47,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onOpenImageSettings,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <header className="titlebar">
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -53,14 +56,14 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             className={`btn btn-icon ${isSidebarCollapsed ? 'active' : ''}`}
             onClick={onToggleSidebar}
-            title={isSidebarCollapsed ? "Mở thanh thư mục / Sidebar (Ctrl+B)" : "Thu gọn thanh thư mục / Sidebar (Ctrl+B)"}
+            title={isSidebarCollapsed ? t('header.toggleSidebarOpen') : t('header.toggleSidebarCollapse')}
             style={{ marginRight: '2px' }}
           >
             <SidebarToggleIcon size={16} />
           </button>
         )}
 
-        <div className="titlebar-brand" onClick={onOpenWorkspace} style={{ cursor: 'pointer' }} title="Mở Workspace khác...">
+        <div className="titlebar-brand" onClick={onOpenWorkspace} style={{ cursor: 'pointer' }} title={t('header.brandTitle')}>
           <BookIcon size={18} />
           <span>BookMD</span>
           {workspaceName && (
@@ -83,7 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             className="btn btn-icon"
             onClick={onOpenFile}
-            title="Mở file Markdown... (Ctrl+O)"
+            title={t('header.openFile')}
             style={{ marginLeft: '2px' }}
           >
             <FileIcon size={15} />
@@ -93,7 +96,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           className="btn btn-icon"
           onClick={onOpenWorkspace}
-          title="Mở thư mục / Workspace... (Ctrl+Shift+W)"
+          title={t('header.openWorkspace')}
           style={{ marginLeft: '2px' }}
         >
           <FolderOpenIcon size={15} />
@@ -112,10 +115,10 @@ export const Header: React.FC<HeaderProps> = ({
             border: '1px solid var(--border-primary)',
           }}
           onClick={onToggleSearch}
-          title="Tìm kiếm trong workspace (Ctrl+Shift+F)"
+          title={t('header.search')}
         >
           <SearchIcon size={13} style={{ marginRight: '6px' }} />
-          <span>Tìm kiếm...</span>
+          <span>{t('header.searchBtn')}</span>
           <span style={{ marginLeft: '12px', fontFamily: 'var(--font-mono)', fontSize: '10px' }}>Ctrl+Shift+F</span>
         </button>
 
@@ -130,7 +133,7 @@ export const Header: React.FC<HeaderProps> = ({
             border: '1px solid var(--border-primary)',
           }}
           onClick={onToggleCommandPalette}
-          title="Command Palette (Ctrl+Shift+P)"
+          title={t('header.commandPalette')}
         >
           <span>⌘</span>
           <span style={{ marginLeft: '6px', fontFamily: 'var(--font-mono)', fontSize: '10px' }}>Ctrl+Shift+P</span>
@@ -147,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           className="btn btn-icon"
           onClick={onToggleTheme}
-          title={theme === 'dark' ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang giao diện Tối'}
+          title={theme === 'dark' ? t('header.themeDark') : t('header.themeLight')}
         >
           {theme === 'dark' ? <SunIcon size={15} /> : <MoonIcon size={15} />}
         </button>
@@ -155,7 +158,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           className="btn btn-icon"
           onClick={onOpenImageSettings}
-          title="Cài đặt xử lý hình ảnh (Image Handling)"
+          title={t('header.imageSettingsTooltip')}
         >
           <ImageIcon size={15} />
         </button>
@@ -163,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           className="btn btn-icon"
           onClick={onOpenSettings}
-          title="Cài đặt chung"
+          title={t('header.generalSettingsTooltip')}
         >
           <SettingsIcon size={15} />
         </button>

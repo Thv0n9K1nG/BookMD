@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from '../../i18n';
 
 export interface CommandItem {
   id: string;
@@ -18,6 +19,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   commands,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,7 +73,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         <input
           ref={inputRef}
           className="command-palette-input"
-          placeholder="Gõ lệnh hoặc hành động..."
+          placeholder={t('commandPalette.placeholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -79,7 +81,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         <div className="command-list">
           {filteredCommands.length === 0 ? (
             <div style={{ padding: '16px', color: 'var(--text-tertiary)', fontSize: '13px', textAlign: 'center' }}>
-              Không tìm thấy lệnh nào phù hợp
+              {t('commandPalette.noResults')}
             </div>
           ) : (
             filteredCommands.map((cmd, idx) => (

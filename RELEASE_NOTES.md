@@ -1,3 +1,38 @@
+# Release Notes — BookMD v0.2.0
+
+**BookMD v0.2.0** marks a major milestone with the introduction of comprehensive **Multi-Language Support (i18n & Localization)**, featuring **Tiếng Việt (Vietnamese - Default)** and **English** across 100% of the application's interface. Built with a zero-dependency, type-safe architecture, BookMD enables instant switching between Vietnamese and English without application restart, retaining complete fidelity for technical notes, cybersecurity documentation, and markdown editing workflows.
+
+---
+
+## 🚀 Key Highlights & What's New
+
+### 🌐 1. Native Multi-Language Architecture (Vietnamese & English)
+- **Zero-Dependency & High-Performance**: Designed without heavy third-party localization libraries. The core i18n engine utilizes a lightweight React Context with typed key schemas, parameter interpolation, and negligible bundle overhead (< 3KB).
+- **Compile-Time Type Safety**: 100% type-safe translation keys ensure missing keys or dictionary discrepancies are caught at build time.
+- **Seamless One-Click Toggle**: Switch between `🇻🇳 Tiếng Việt` and `🇬🇧 English` with a single click in **Settings > General Settings**. The interface updates instantaneously across all open tabs, panels, and modals.
+- **Persistent Preferences**: Language settings are stored in local storage (`bookmd_settings`) and automatically restored upon subsequent launches.
+
+### 🎨 2. Comprehensive 100% UI Localization
+Every single UI element, modal, tooltip, notification, and menu is fully translated:
+- **Titlebar & Tools**: Workspace brand, search trigger, command palette shortcut, theme switchers, image settings, general settings, and the BookMD Tools menu (Export PDF, Backup, Consolidate Images).
+- **Sidebar & Outline (TOC)**: File tree navigation, folder operations, lazy-load indicators, outline filter and line-jump links, and empty state guides.
+- **Tab Bar & View Modes**: Tab titles, unsaved badges, tab close actions, and mode toggles (**Editor**, **Split**, **Preview**).
+- **Status Bar**: Real-time document status (*Saved / Unsaved*), word counts, cursor position (*Ln X, Col Y*), format info, and version badge (**v0.2.0**).
+- **Modals & Dialogs**:
+  - **Search Modal**: Match case, whole word, regex controls, file result counts, and line snippets.
+  - **Command Palette**: Fully searchable actions in both languages.
+  - **Settings Modal**: Detailed descriptions, image naming rule explainers, reference syntax guides, and custom keybinding recorder.
+  - **Backup Tool**: Scope selections (*Workspace, Folder, File*), conflict resolution strategies, progress tracking, and success summaries.
+  - **Image Consolidation Tool**: Step-by-step image relocation and renaming preview tables.
+  - **Image Folder Picker**: Hierarchical directory tree navigation and preset suggestions.
+  - **Confirm Delete & Prompt Dialogs**: Safe confirmations with clear system Recycle Bin notes.
+- **Editor & Preview Panes**: Context menus, code block & Mermaid copy buttons with localized tooltips and copied confirmations, and clipboard paste notifications.
+
+### 🧪 3. Continuous Quality Assurance & Key Parity Tests
+- Added `test/i18n.test.ts` to Vitest test suite, verifying automated parity checks between Vietnamese and English key mappings and validating parameter interpolation.
+
+---
+
 # Release Notes — BookMD v0.1.18
 
 **BookMD v0.1.18** brings critical UX, performance, and process isolation improvements to the SVG image handling pipeline: permanently eliminating the flashing black terminal window on Windows, optimizing network transfer speeds, distinguishing between pure image pastes and rich-text selections with inline icons, and providing immediate visual feedback during remote vector fetches.

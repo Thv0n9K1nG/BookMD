@@ -56,11 +56,13 @@ import {
   loadPersistedExpandedFolders,
   savePersistedExpandedFolders,
 } from './utils/treeState';
+import { LanguageProvider, translate, Language } from './i18n';
 
 export const App: React.FC = () => {
   // Settings
   const [settings, setSettings] = useState<Settings>(() => {
     const defaultSettings: Settings = {
+      language: 'vi',
       imageDir: 'images',
       imageNamingBaseDir: '',
       imageReferenceType: 'relative',
@@ -98,6 +100,15 @@ export const App: React.FC = () => {
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  // Translation helper
+  const currentLang: Language = settings.language || 'vi';
+  const t = useCallback(
+    (key: string, params?: Record<string, string | number>) => {
+      return translate(currentLang, key, params);
+    },
+    [currentLang]
+  );
 
   // Workspace & Files
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
@@ -201,7 +212,7 @@ export const App: React.FC = () => {
       setFileTree(tree);
 
       if (!isInitialAutoOpen) {
-        addToast(`Đã mở workspace: ${wsInfo.name}`, 'success');
+        addToast(t('toasts.workspaceOpened', { name: wsInfo.name }), 'success');
       }
 
       // Auto open README.md if present
@@ -225,10 +236,10 @@ export const App: React.FC = () => {
         // Silently clear previous workspace from localStorage if missing or moved
         localStorage.removeItem('bookmd_last_workspace');
       } else {
-        addToast(`Lỗi mở workspace: ${err?.message || err}`, 'error');
+        addToast(t('toasts.workspaceError', { error: err?.message || err }), 'error');
       }
     }
-  }, [addToast]);
+  }, [addToast, t]);
 
   // Load directory children on demand for lazy expansion
   const handleLoadFolderChildren = useCallback(async (folderPath: string) => {
@@ -255,11 +266,11 @@ export const App: React.FC = () => {
         }
       }
       setFileTree(tree);
-      addToast('Đã làm mới thư mục', 'info');
+      addToast(t('toasts.fileTreeRefreshed'), 'info');
     } catch (err: any) {
       console.error('Refresh tree error:', err);
     }
-  }, [workspace, addToast]);
+  }, [workspace, addToast, t]);
 
   // Toggle folder expansion in tree with lazy loading on demand
   const handleToggleFolder = useCallback(async (folderPath: string) => {
@@ -392,9 +403,9 @@ export const App: React.FC = () => {
       if (line) setTargetLine(line);
     } catch (err: any) {
       console.error('Read file error:', err);
-      addToast(`Không thể đọc file: ${err?.message || err}`, 'error');
+      addToast(t('toasts.fileReadError', { error: err?.message || err }), 'error');
     }
-  }, [tabs, addToast]);
+  }, [tabs, addToast, t]);
   handleOpenFileRef.current = handleOpenFile;
 
   // Open any path (file or workspace folder)
@@ -425,7 +436,7 @@ export const App: React.FC = () => {
               relativePath: rel,
               kind: 'file',
             });
-            addToast(`Đã mở file: ${target.fileName || rel}`, 'success');
+            addToast(t('toasts.fileOpened', { name: target.fileName || rel }), 'success');
             return;
           }
 
@@ -443,17 +454,17 @@ export const App: React.FC = () => {
             relativePath: relPath,
             kind: 'file',
           });
-          addToast(`Đã mở file: ${fileName}`, 'success');
+          addToast(t('toasts.fileOpened', { name: fileName }), 'success');
         } else {
           // It's a directory: open as workspace
           await handleOpenWorkspace(target.workspacePath);
         }
       } catch (err: any) {
         console.error('Failed to open path:', err);
-        addToast(`Không thể mở: ${err?.message || err}`, 'error');
+        addToast(t('toasts.openError', { error: err?.message || err }), 'error');
       }
     },
-    [workspace, handleOpenWorkspace, handleOpenFile, addToast]
+    [workspace, handleOpenWorkspace, handleOpenFile, addToast, t]
   );
 
   // Open single file dialog action
@@ -571,16 +582,16 @@ export const App: React.FC = () => {
           )
         );
         if (!isSilent) {
-          addToast(`Đã lưu ${currentTab.name}`, 'success');
+          addToast(t('toasts.fileSaved', { name: currentTab.name }), 'success');
         }
       } catch (err: any) {
         console.error('Save file error:', err);
-        addToast(`Lỗi lưu file: ${err?.message || err}`, 'error');
+        addToast(t('toasts.fileSaveError', { error: err?.message || err }), 'error');
       } finally {
         isSavingRef.current = false;
       }
     },
-    [tabs, activePath, addToast]
+    [tabs, activePath, addToast, t]
   );
 
   // Auto-Save Effect (debounced by settings.autoSaveDelay)
@@ -602,9 +613,9 @@ export const App: React.FC = () => {
   const handleCreateNew = useCallback(
     (parentFolder: string, kind: 'file' | 'directory') => {
       const isFile = kind === 'file';
-      const title = isFile ? 'Tạo File Markdown mới' : 'Tạo Thư mục mới';
+      const title = isFile ? t('prompt.createFileTitle') : t('prompt.createFolderTitle');
       const defaultName = isFile ? 'new_note.md' : 'NewFolder';
-      const subtitle = parentFolder ? `Vị trí: ${parentFolder}` : 'Vị trí: Thư mục gốc Workspace';
+      const subtitle = parentFolder ? t('prompt.location', { path: parentFolder }) : t('prompt.locationRoot');
 
       setPromptDialog({
         isOpen: true,
@@ -612,8 +623,8 @@ export const App: React.FC = () => {
         subtitle,
         icon: isFile ? 'file' : 'directory',
         defaultValue: defaultName,
-        placeholder: isFile ? 'vd: ghi_chu.md' : 'vd: ThuMucMoi',
-        confirmLabel: isFile ? 'Tạo File' : 'Tạo Thư mục',
+        placeholder: isFile ? t('prompt.placeholderFile') : t('prompt.placeholderFolder'),
+        confirmLabel: isFile ? t('prompt.createFileBtn') : t('prompt.createFolderBtn'),
         onSubmit: async (name: string) => {
           setPromptDialog(null);
           if (!name || !name.trim()) return;
@@ -641,32 +652,30 @@ export const App: React.FC = () => {
               });
             }
 
-            addToast(`Đã tạo: ${created.name}`, 'success');
+            addToast(t('toasts.created', { name: created.name }), 'success');
             if (kind === 'file') {
               handleOpenFile(created);
             }
           } catch (err: any) {
             console.error('Create entry error:', err);
-            addToast(`Lỗi tạo: ${err?.message || err}`, 'error');
+            addToast(t('toasts.createError', { error: err?.message || err }), 'error');
           }
         },
       });
     },
-    [handleRefreshTree, handleOpenFile, addToast]
+    [handleRefreshTree, handleOpenFile, addToast, t]
   );
 
   // Rename File / Folder
   const handleRename = useCallback(
     (sourcePath: string, currentName: string) => {
-      const isFile = sourcePath.endsWith('.md') || currentName.includes('.');
       setPromptDialog({
         isOpen: true,
-        title: `Đổi tên ${isFile ? 'File' : 'Thư mục'}`,
-        subtitle: `Đường dẫn hiện tại: ${sourcePath}`,
+        title: t('prompt.renameTitle'),
+        subtitle: `${sourcePath}`,
         icon: 'rename',
         defaultValue: currentName,
-        placeholder: 'Nhập tên mới...',
-        confirmLabel: 'Đổi tên',
+        confirmLabel: t('prompt.renameBtn'),
         onSubmit: async (newName: string) => {
           setPromptDialog(null);
           if (!newName || !newName.trim() || newName.trim() === currentName) return;
@@ -710,15 +719,15 @@ export const App: React.FC = () => {
             }
 
             await handleRefreshTree();
-            addToast(`Đã đổi tên thành: ${newName.trim()}`, 'success');
+            addToast(t('toasts.renamed', { name: newName.trim() }), 'success');
           } catch (err: any) {
             console.error('Rename error:', err);
-            addToast(`Lỗi đổi tên: ${err?.message || err}`, 'error');
+            addToast(t('toasts.renameError', { error: err?.message || err }), 'error');
           }
         },
       });
     },
-    [settings.imageDir, activePath, handleRefreshTree, addToast]
+    [settings.imageDir, settings.imageNamingBaseDir, activePath, handleRefreshTree, addToast, t]
   );
 
   // Request Delete File / Folder (Opens Confirmation Modal)
@@ -741,12 +750,12 @@ export const App: React.FC = () => {
       await deleteFile(targetPath);
       handleCloseTab(targetPath);
       await handleRefreshTree();
-      addToast(`Đã chuyển vào Thùng rác: ${name}`, 'success');
+      addToast(t('toasts.deleted', { name }), 'success');
     } catch (err: any) {
       console.error('Delete error:', err);
-      addToast(`Lỗi xóa: ${err?.message || err}`, 'error');
+      addToast(t('toasts.deleteError', { error: err?.message || err }), 'error');
     }
-  }, [deleteModalState, handleCloseTab, handleRefreshTree, addToast]);
+  }, [deleteModalState, handleCloseTab, handleRefreshTree, addToast, t]);
 
   // Export Current Markdown Document to PDF
   const isExportingPdfRef = useRef(false);
@@ -754,13 +763,13 @@ export const App: React.FC = () => {
     if (isExportingPdfRef.current) return;
     const currentTab = tabs.find((t) => t.relativePath === activePath);
     if (!currentTab) {
-      addToast('Vui lòng mở một file Markdown để xuất PDF', 'info');
+      addToast(t('toasts.pdfNeedMarkdown'), 'info');
       return;
     }
 
     isExportingPdfRef.current = true;
     try {
-      addToast('Đang chuẩn bị tài liệu xuất PDF...', 'info');
+      addToast(t('toasts.pdfPreparing'), 'info');
       const fullHtml = await generatePrintHtml(
         currentTab.name,
         currentTab.content,
@@ -770,19 +779,19 @@ export const App: React.FC = () => {
 
       const success = await printHtmlViaIframe(fullHtml);
       if (success) {
-        addToast('Đã mở cửa sổ in ấn (chọn "Save as PDF" / "Lưu dưới dạng PDF")', 'success');
+        addToast(t('toasts.pdfPrintReady'), 'success');
       } else {
-        addToast('Không thể mở cửa sổ in ấn', 'error');
+        addToast(t('toasts.pdfFailed'), 'error');
       }
     } catch (err: any) {
       console.error('Export PDF error:', err);
-      addToast(`Lỗi xuất PDF: ${err?.message || 'Không xác định'}`, 'error');
+      addToast(t('toasts.pdfError', { error: err?.message || 'Error' }), 'error');
     } finally {
       setTimeout(() => {
         isExportingPdfRef.current = false;
       }, 500);
     }
-  }, [tabs, activePath, workspace?.path, addToast]);
+  }, [tabs, activePath, workspace?.path, addToast, t]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -835,95 +844,63 @@ export const App: React.FC = () => {
   };
 
   // Commands for Palette
-  // Commands for Palette
   const commands: CommandItem[] = useMemo(() => {
     const kb = settings.keybindings;
     return [
       {
         id: 'open-file',
-        title: 'Mở File Markdown...',
+        title: t('commandPalette.openFile'),
         shortcut: getKeybinding('openFile', kb),
         action: () => handleSelectAndOpenFile(),
       },
       {
         id: 'open-workspace',
-        title: 'Mở Thư mục / Workspace...',
+        title: t('commandPalette.openWorkspace'),
         shortcut: getKeybinding('openWorkspace', kb),
         action: () => handleOpenWorkspace(),
       },
       {
         id: 'new-file',
-        title: 'Tạo File Markdown mới...',
+        title: t('commandPalette.newNote'),
         shortcut: 'Ctrl+N',
         action: () => handleCreateNew('', 'file'),
       },
       {
         id: 'new-folder',
-        title: 'Tạo Thư mục mới...',
+        title: t('commandPalette.newFolder'),
         action: () => handleCreateNew('', 'directory'),
       },
       {
-        id: 'save-file',
-        title: 'Lưu File hiện tại',
-        shortcut: getKeybinding('saveFile', kb),
-        action: () => handleSaveActiveFile(),
-      },
-      {
         id: 'search-workspace',
-        title: 'Tìm kiếm toàn bộ Workspace',
+        title: t('commandPalette.search'),
         shortcut: getKeybinding('searchWorkspace', kb),
         action: () => setIsSearchOpen(true),
       },
       {
-        id: 'toggle-sidebar',
-        title: 'Ẩn / Hiện Sidebar',
-        shortcut: getKeybinding('toggleSidebar', kb),
-        action: () => setIsSidebarCollapsed((prev) => !prev),
-      },
-      {
-        id: 'toggle-sidebar-toc',
-        title: 'Sidebar: Chuyển đổi Thư mục / Mục lục (Table of Contents)',
-        shortcut: getKeybinding('toggleToc', kb),
-        action: () => {
-          setIsSidebarCollapsed(false);
-          setSidebarTab((prev) => (prev === 'files' ? 'toc' : 'files'));
-        },
-      },
-      {
-        id: 'view-editor',
-        title: 'Chuyển sang chế độ: Chỉ Editor',
-        action: () => setViewMode('editor'),
-      },
-      {
-        id: 'view-split',
-        title: 'Chuyển sang chế độ: Split (Editor + Preview)',
-        shortcut: getKeybinding('toggleViewMode', kb),
-        action: () => setViewMode('split'),
-      },
-      {
-        id: 'view-preview',
-        title: 'Chuyển sang chế độ: Chỉ Preview',
-        action: () => setViewMode('preview'),
-      },
-      {
         id: 'export-pdf',
-        title: 'Xuất tài liệu sang PDF...',
+        title: t('commandPalette.exportPdf'),
         shortcut: getKeybinding('exportPdf', kb),
         action: () => handleExportPdf(),
       },
       {
         id: 'backup-data',
-        title: 'Sao lưu Dữ liệu (Backup Tool)...',
+        title: t('commandPalette.backup'),
         action: () => setIsBackupOpen(true),
       },
       {
         id: 'consolidate-images',
-        title: 'Đồng bộ & Tổ chức lại ảnh trong tài liệu (Consolidate Images)...',
-        action: () => setIsConsolidateImagesOpen(true),
+        title: t('commandPalette.consolidateImages'),
+        action: () => {
+          if (!activePath) {
+            addToast(t('toasts.needMarkdownForConsolidate'), 'info');
+            return;
+          }
+          setIsConsolidateImagesOpen(true);
+        },
       },
       {
         id: 'toggle-theme',
-        title: `Đổi giao diện sang ${settings.theme === 'dark' ? 'Sáng (Light)' : 'Tối (Dark)'}`,
+        title: t('commandPalette.toggleTheme'),
         action: () =>
           setSettings((prev) => ({
             ...prev,
@@ -932,24 +909,31 @@ export const App: React.FC = () => {
       },
       {
         id: 'open-settings',
-        title: 'Cài đặt...',
+        title: t('commandPalette.openSettings'),
         shortcut: 'Ctrl+,',
-        action: () => setIsSettingsOpen(true),
+        action: () => {
+          setSettingsTab('general');
+          setIsSettingsOpen(true);
+        },
       },
       {
         id: 'pick-image-dir',
-        title: 'Cài đặt: Chọn thư mục lưu hình ảnh (Image Directory)...',
-        action: () => setIsSettingsOpen(true),
+        title: t('commandPalette.openImageSettings'),
+        action: () => {
+          setSettingsTab('image');
+          setIsSettingsOpen(true);
+        },
       },
     ];
   }, [
     handleSelectAndOpenFile,
     handleOpenWorkspace,
     handleCreateNew,
-    handleSaveActiveFile,
     handleExportPdf,
-    settings.theme,
+    activePath,
+    addToast,
     settings.keybindings,
+    t,
   ]);
 
   // Active Tab details
@@ -1044,7 +1028,11 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="app">
+    <LanguageProvider
+      language={currentLang}
+      onLanguageChange={(lang) => setSettings((prev) => ({ ...prev, language: lang }))}
+    >
+      <div className="app">
       <Header
         workspaceName={workspace?.name}
         theme={settings.theme}
@@ -1058,7 +1046,7 @@ export const App: React.FC = () => {
         onOpenBackup={() => setIsBackupOpen(true)}
         onOpenConsolidateImages={() => {
           if (!activePath) {
-            addToast('Vui lòng mở một file Markdown để sử dụng tính năng này', 'info');
+            addToast(t('toasts.needMarkdownForConsolidate'), 'info');
             return;
           }
           setIsConsolidateImagesOpen(true);
@@ -1167,20 +1155,20 @@ export const App: React.FC = () => {
             <div className="welcome">
               <div className="welcome-logo">BookMD</div>
               <div className="welcome-subtitle">
-                A lightweight, filesystem-first Markdown workspace designed for technical notes, cybersecurity & devops documentation.
+                {t('welcome.subtitle')}
               </div>
               <div className="welcome-action" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <button className="welcome-btn" onClick={handleSelectAndOpenFile} title="Mở file Markdown (Ctrl+O)">
-                  📄 Mở File Markdown (Ctrl+O)
+                <button className="welcome-btn" onClick={handleSelectAndOpenFile} title={t('welcome.openFileTitle')}>
+                  {t('welcome.openFile')}
                 </button>
-                <button className="welcome-btn" onClick={() => handleOpenWorkspace()} title="Mở thư mục Workspace">
-                  📁 Mở Workspace...
+                <button className="welcome-btn" onClick={() => handleOpenWorkspace()} title={t('welcome.openWorkspaceTitle')}>
+                  {t('welcome.openWorkspace')}
                 </button>
-                <button className="welcome-btn" onClick={() => handleCreateNew('', 'file')} title="Tạo ghi chú mới (Ctrl+N)">
-                  ➕ Tạo ghi chú mới
+                <button className="welcome-btn" onClick={() => handleCreateNew('', 'file')} title={t('welcome.newNoteTitle')}>
+                  {t('welcome.newNote')}
                 </button>
               </div>
-              <div className="welcome-shortcut">hoặc kéo thả file / mở tài liệu từ cây thư mục bên trái</div>
+              <div className="welcome-shortcut">{t('welcome.hint')}</div>
             </div>
           )}
         </main>
@@ -1218,35 +1206,35 @@ export const App: React.FC = () => {
         onUpdateSettings={(newSettings) => {
           setSettings((prev) => ({ ...prev, ...newSettings }));
           if (newSettings.imageDir !== undefined) {
-            addToast(`Thư mục lưu ảnh: ${newSettings.imageDir}`, 'success');
+            addToast(t('toasts.imageDirToast', { dir: newSettings.imageDir }), 'success');
           }
           if (newSettings.imageNamingBaseDir !== undefined) {
             addToast(
               newSettings.imageNamingBaseDir
-                ? `Thư mục bắt đầu đặt tên: ${newSettings.imageNamingBaseDir}`
-                : 'Thư mục bắt đầu đặt tên: Mặc định (dưới workspace)',
+                ? t('toasts.namingBaseToast', { dir: newSettings.imageNamingBaseDir })
+                : t('toasts.namingBaseResetToast'),
               'success'
             );
           }
           if (newSettings.imageReferenceType !== undefined) {
             addToast(
               newSettings.imageReferenceType === 'relative'
-                ? 'Đường dẫn ảnh: Tương đối'
-                : 'Đường dẫn ảnh: Tuyệt đối',
+                ? t('toasts.refSyntaxRelativeToast')
+                : t('toasts.refSyntaxAbsoluteToast'),
               'success'
             );
           }
           if (newSettings.keybindings !== undefined) {
-            addToast('Đã lưu cấu hình phím tắt', 'success');
+            addToast(t('toasts.keybindingsSaved'), 'success');
           }
         }}
         onCreateFolder={async (folderPath) => {
           try {
             await createFile(folderPath, 'directory');
             await handleRefreshTree();
-            addToast(`Đã tạo thư mục: ${folderPath}`, 'success');
+            addToast(t('toasts.folderCreated', { path: folderPath }), 'success');
           } catch (err: any) {
-            addToast(`Lỗi tạo thư mục: ${err.message || err}`, 'error');
+            addToast(t('toasts.folderCreateError', { error: err.message || err }), 'error');
           }
         }}
       />
@@ -1260,7 +1248,7 @@ export const App: React.FC = () => {
         onDelete={handleRequestDelete}
         onCopyRelativePath={(path) => {
           navigator.clipboard.writeText(path);
-          addToast(`Đã sao chép: ${path}`, 'info');
+          addToast(t('toasts.pathCopied', { path }), 'info');
         }}
       />
 
@@ -1322,6 +1310,7 @@ export const App: React.FC = () => {
 
       <ToastContainer toasts={toasts} />
     </div>
+    </LanguageProvider>
   );
 };
 
