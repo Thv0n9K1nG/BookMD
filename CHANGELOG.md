@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-11-26
+
+### Fixed & Added
+- **Zero-Jump Multi-Tab Editor Architecture (`src/App.tsx`, `src/components/Editor/Editor.tsx`, `src/styles/index.css`)**:
+  - Eliminated the scrollbar thumb jump / oscillation when switching between open tabs in Editor and Split modes.
+  - Replaced single-editor `view.destroy()` / `new EditorView()` churn with persistent per-tab CodeMirror instances hosted inside `.editor-column` (`.tab-active` / `.tab-hidden`), keeping each tab's DOM, measured line-wrapping height map, Undo/Redo history, selection, and exact pixel `scrollTop` completely untouched across tab switches.
+  - Preserved exact editor column width across `Split -> Preview -> Split` transitions so hidden editors never reflow width, and added `topVisiblePos` line anchoring when toggling full-width `Editor` ↔ half-width `Split` modes or reopening closed tabs.
+  - Scoped `onChange` and `onCursorChange` callbacks strictly by tab identity so background edits or inactive tabs never overwrite StatusBar cursor state or active document edits.
+- **Customizable PDF Header & Footer (`src/components/Export/ExportPdfModal.tsx`, `src/utils/exportPdf.ts`, `src/i18n/*`)**:
+  - Added an interactive PDF export configuration dialog (`ExportPdfModal`) allowing users to toggle and customize Left / Center / Right slots for both Header and Footer before exporting to PDF.
+  - Generates CSS Paged Media `@page` margin boxes (`@top-left`, `@top-center`, `@top-right`, `@bottom-left`, `@bottom-center`, `@bottom-right`) with dynamic variable placeholders (`{title}`, `{date}`, `{workspace}`, `{page}` → `counter(page)`, `{pages}` → `counter(pages)`), customizable font size (`8pt–11pt`), text color, optional full-width divider borders, and cover-page suppression (`@page :first`).
+  - Persists user PDF Header/Footer preferences in `localStorage` (`bookmd_settings`) and includes a live A4 mini layout preview and full Vietnamese/English localization.
+- **Automated Tests**:
+  - Added `test/exportPdf.test.ts` (5 tests) covering CSS template compilation, `@page` margin box rules, divider borders, and `@page :first` suppression.
+
 ## [0.2.2] - 2026-11-26
 
 ### Fixed & Improved

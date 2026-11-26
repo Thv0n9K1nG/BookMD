@@ -50,8 +50,13 @@ import { PromptModal } from './components/common/PromptModal';
 import { ConfirmDeleteModal } from './components/common/ConfirmDeleteModal';
 import { BackupModal } from './components/Backup/BackupModal';
 import { ConsolidateImagesModal } from './components/ImageConsolidate/ConsolidateImagesModal';
+import { ExportPdfModal } from './components/Export/ExportPdfModal';
 import { CloseIcon, FolderOpenIcon } from './components/common/Icons';
-import { generatePrintHtml, printHtmlViaIframe } from './utils/exportPdf';
+import {
+  DEFAULT_PDF_EXPORT_CONFIG,
+  generatePrintHtml,
+  printHtmlViaIframe,
+} from './utils/exportPdf';
 import {
   getKeybinding,
   matchKeybinding,
@@ -80,6 +85,7 @@ export const App: React.FC = () => {
       lineNumbers: true,
       wordWrap: true,
       keybindings: DEFAULT_KEYBINDINGS_MAP,
+      pdfConfig: DEFAULT_PDF_EXPORT_CONFIG,
     };
     const saved = localStorage.getItem('bookmd_settings');
     if (saved) {
@@ -94,6 +100,10 @@ export const App: React.FC = () => {
           keybindings: {
             ...DEFAULT_KEYBINDINGS_MAP,
             ...(parsed.keybindings || {}),
+          },
+          pdfConfig: {
+            ...DEFAULT_PDF_EXPORT_CONFIG,
+            ...(parsed.pdfConfig || {}),
           },
         };
       } catch (e) {
@@ -157,12 +167,27 @@ export const App: React.FC = () => {
   const activePathRef = useRef<string | null>(activePath);
   activePathRef.current = activePath;
 
+  const editorColumnRef = useRef<HTMLDivElement>(null);
+  const lastEditorColWidthRef = useRef<number>(0);
+
+  const handleChangeViewMode = useCallback(
+    (nextMode: ViewMode) => {
+      if (nextMode === 'preview' && viewMode !== 'preview' && editorColumnRef.current) {
+        lastEditorColWidthRef.current = editorColumnRef.current.offsetWidth;
+      }
+      setViewMode(nextMode);
+    },
+    [viewMode]
+  );
+
   // Modals & Panels
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [isConsolidateImagesOpen, setIsConsolidateImagesOpen] = useState(false);
+  const [isExportPdfOpen, setIsExportPdfOpen] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'general' | 'image' | 'keybindings'>('general');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -660,23 +685,29 @@ export const App: React.FC = () => {
     [activePath, tabs, settings.autoSave]
   );
 
-  // Content Change in Active File
-  const handleContentChange = useCallback((newContent: string) => {
-    if (!activePath) return;
+  // Content Change in File
+  const handleContentChange = useCallback(
+    (newContent: string, targetRelPath?: string) => {
+      const target = targetRelPath || activePathRef.current;
+      if (!target) return;
 
-    setTabs((prev) =>
-      prev.map((tab) => {
-        if (tab.relativePath === activePath) {
-          return {
-            ...tab,
-            content: newContent,
-            isDirty: newContent !== tab.savedContent,
-          };
-        }
-        return tab;
-      })
-    );
-  }, [activePath]);
+      setTabs((prev) => {
+        const next = prev.map((tab) => {
+          if (tab.relativePath === target) {
+            return {
+              ...tab,
+              content: newContent,
+              isDirty: newContent !== tab.savedContent,
+            };
+          }
+          return tab;
+        });
+        tabsRef.current = next;
+        return next;
+      });
+    },
+    []
+  );
 
   const isSavingRef = useRef(false);
 
@@ -821,8 +852,8 @@ export const App: React.FC = () => {
             renameFileSessionState(sourcePath, destinationPath, workspaceRef.current?.path);
 
             // Update tabs if opened
-            setTabs((prev) =>
-              prev.map((tab) => {
+            setTabs((prev) => {
+              const next = prev.map((tab) => {
                 if (tab.relativePath === sourcePath) {
                   return {
                     ...tab,
@@ -831,8 +862,10 @@ export const App: React.FC = () => {
                   };
                 }
                 return tab;
-              })
-            );
+              });
+              tabsRef.current = next;
+              return next;
+            });
             if (activePath === sourcePath) {
               activePathRef.current = destinationPath;
               setActivePath(destinationPath);
@@ -877,41 +910,60 @@ export const App: React.FC = () => {
     }
   }, [deleteModalState, handleCloseTab, handleRefreshTree, addToast, t]);
 
-  // Export Current Markdown Document to PDF
+  // Open PDF Export Config Modal
   const isExportingPdfRef = useRef(false);
-  const handleExportPdf = useCallback(async () => {
-    if (isExportingPdfRef.current) return;
-    const currentTab = tabs.find((t) => t.relativePath === activePath);
+  const handleExportPdf = useCallback(() => {
+    const currentTab = tabsRef.current.find((t) => t.relativePath === activePathRef.current);
     if (!currentTab) {
       addToast(t('toasts.pdfNeedMarkdown'), 'info');
       return;
     }
+    setIsExportPdfOpen(true);
+  }, [addToast, t]);
 
-    isExportingPdfRef.current = true;
-    try {
-      addToast(t('toasts.pdfPreparing'), 'info');
-      const fullHtml = await generatePrintHtml(
-        currentTab.name,
-        currentTab.content,
-        currentTab.relativePath,
-        workspace?.path
-      );
-
-      const success = await printHtmlViaIframe(fullHtml);
-      if (success) {
-        addToast(t('toasts.pdfPrintReady'), 'success');
-      } else {
-        addToast(t('toasts.pdfFailed'), 'error');
+  // Execute PDF Print/Export with customized header & footer
+  const handleExecuteExportPdf = useCallback(
+    async (pdfConfig: import('./types').PdfExportConfig) => {
+      if (isExportingPdfRef.current) return;
+      const currentTab = tabsRef.current.find((t) => t.relativePath === activePathRef.current);
+      if (!currentTab) {
+        addToast(t('toasts.pdfNeedMarkdown'), 'info');
+        return;
       }
-    } catch (err: any) {
-      console.error('Export PDF error:', err);
-      addToast(t('toasts.pdfError', { error: err?.message || 'Error' }), 'error');
-    } finally {
-      setTimeout(() => {
-        isExportingPdfRef.current = false;
-      }, 500);
-    }
-  }, [tabs, activePath, workspace?.path, addToast, t]);
+
+      setSettings((prev) => ({ ...prev, pdfConfig }));
+      isExportingPdfRef.current = true;
+      setIsExportingPdf(true);
+
+      try {
+        addToast(t('toasts.pdfPreparing'), 'info');
+        const fullHtml = await generatePrintHtml(
+          currentTab.name,
+          currentTab.content,
+          currentTab.relativePath,
+          workspace?.path,
+          pdfConfig
+        );
+
+        setIsExportPdfOpen(false);
+        const success = await printHtmlViaIframe(fullHtml);
+        if (success) {
+          addToast(t('toasts.pdfPrintReady'), 'success');
+        } else {
+          addToast(t('toasts.pdfFailed'), 'error');
+        }
+      } catch (err: any) {
+        console.error('Export PDF error:', err);
+        addToast(t('toasts.pdfError', { error: err?.message || 'Error' }), 'error');
+      } finally {
+        setIsExportingPdf(false);
+        setTimeout(() => {
+          isExportingPdfRef.current = false;
+        }, 500);
+      }
+    },
+    [workspace?.path, addToast, t]
+  );
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -942,7 +994,13 @@ export const App: React.FC = () => {
         setSidebarTab((prev) => (prev === 'files' ? 'toc' : 'files'));
       } else if (matchKeybinding(e, getKeybinding('toggleViewMode', kb))) {
         e.preventDefault();
-        setViewMode((prev) => (prev === 'editor' ? 'split' : prev === 'split' ? 'preview' : 'editor'));
+        setViewMode((prev) => {
+          const next: ViewMode = prev === 'editor' ? 'split' : prev === 'split' ? 'preview' : 'editor';
+          if (next === 'preview' && prev !== 'preview' && editorColumnRef.current) {
+            lastEditorColWidthRef.current = editorColumnRef.current.offsetWidth;
+          }
+          return next;
+        });
       } else if (matchKeybinding(e, getKeybinding('exportPdf', kb))) {
         e.preventDefault();
         handleExportPdf();
@@ -1238,27 +1296,50 @@ export const App: React.FC = () => {
             viewMode={viewMode}
             onSelectTab={handleSelectTab}
             onCloseTab={handleCloseTab}
-            onChangeViewMode={setViewMode}
+            onChangeViewMode={handleChangeViewMode}
           />
 
           {activeTab ? (
             <div className="editor-area">
-              <Editor
-                content={activeTab.content}
-                relativePath={activeTab.relativePath}
-                workspacePath={workspace?.path}
-                theme={settings.theme}
-                settings={settings}
-                targetLine={targetLine}
-                targetLineKey={targetLineKey}
-                viewMode={viewMode}
-                isVisible={viewMode === 'editor' || viewMode === 'split'}
-                onChange={handleContentChange}
-                onSave={handleSaveActiveFile}
-                onCursorChange={(line, col) => setCursorPos({ line, col })}
-                onToast={addToast}
-                onImagePasted={handleImagePasted}
-              />
+              <div
+                ref={editorColumnRef}
+                className={`editor-column${viewMode === 'editor' || viewMode === 'split' ? '' : ' pane-hidden'}`}
+                style={
+                  viewMode === 'preview' && lastEditorColWidthRef.current > 0
+                    ? { width: `${lastEditorColWidthRef.current}px`, right: 'auto' }
+                    : undefined
+                }
+              >
+                {tabs.map((tab) => {
+                  const isCurrentTab =
+                    tab.relativePath === activeTab.relativePath &&
+                    (tab.workspacePath || '') === (activeTab.workspacePath || '');
+                  return (
+                    <Editor
+                      key={`${tab.workspacePath || ''}::${tab.relativePath}`}
+                      content={tab.content}
+                      relativePath={tab.relativePath}
+                      workspacePath={tab.workspacePath ?? workspace?.path}
+                      theme={settings.theme}
+                      settings={settings}
+                      targetLine={isCurrentTab ? targetLine : undefined}
+                      targetLineKey={isCurrentTab ? targetLineKey : undefined}
+                      viewMode={viewMode}
+                      isActiveTab={isCurrentTab}
+                      isVisible={isCurrentTab && (viewMode === 'editor' || viewMode === 'split')}
+                      onChange={(newVal) => handleContentChange(newVal, tab.relativePath)}
+                      onSave={handleSaveActiveFile}
+                      onCursorChange={(line, col) => {
+                        if (tab.relativePath === activePathRef.current) {
+                          setCursorPos({ line, col });
+                        }
+                      }}
+                      onToast={addToast}
+                      onImagePasted={handleImagePasted}
+                    />
+                  );
+                })}
+              </div>
 
               {viewMode === 'split' && <div className="split-divider" />}
 
@@ -1401,6 +1482,17 @@ export const App: React.FC = () => {
           onSubmit={promptDialog.onSubmit}
         />
       )}
+
+      <ExportPdfModal
+        isOpen={isExportPdfOpen}
+        docName={activeTab?.name || ''}
+        workspaceName={workspace?.name}
+        config={settings.pdfConfig || DEFAULT_PDF_EXPORT_CONFIG}
+        isExporting={isExportingPdf}
+        onClose={() => setIsExportPdfOpen(false)}
+        onChangeConfig={(pdfConfig) => setSettings((prev) => ({ ...prev, pdfConfig }))}
+        onExport={handleExecuteExportPdf}
+      />
 
       <BackupModal
         isOpen={isBackupOpen}

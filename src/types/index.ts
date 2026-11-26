@@ -99,6 +99,21 @@ export interface KeybindingDef {
 
 export type KeybindingsMap = Record<string, string>;
 
+export interface PdfExportConfig {
+  enableHeader: boolean;
+  headerLeft: string;
+  headerCenter: string;
+  headerRight: string;
+  enableFooter: boolean;
+  footerLeft: string;
+  footerCenter: string;
+  footerRight: string;
+  showDivider: boolean;
+  hideOnFirstPage: boolean;
+  fontSizePt: number;
+  textColor: string;
+}
+
 export interface Settings {
   imageDir: string;
   imageNamingBaseDir?: string; // Thư mục bắt đầu đặt tên ảnh (mặc định: workspace root)
@@ -111,6 +126,7 @@ export interface Settings {
   wordWrap: boolean;
   keybindings?: KeybindingsMap; // Custom keyboard shortcuts mapping
   language?: 'vi' | 'en';
+  pdfConfig?: PdfExportConfig;
 }
 
 export interface ToastMessage {

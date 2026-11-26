@@ -7,6 +7,7 @@ export interface FileSessionState {
   col: number;
   editorScrollTop: number;
   previewScrollTop: number;
+  topVisiblePos?: number;
 }
 
 const sessionStore = new Map<string, FileSessionState>();

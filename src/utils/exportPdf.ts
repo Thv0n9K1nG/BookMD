@@ -3,8 +3,155 @@ import { resolveImageSource } from './imagePath';
 import { readImageData } from '../services/ipc';
 import { markdownMathPlugin } from './markdownMath';
 import { markdownMermaidPlugin } from './markdownMermaid';
+import { PdfExportConfig } from '../types';
 import footnote from 'markdown-it-footnote';
 import mermaid from 'mermaid';
+
+export const DEFAULT_PDF_EXPORT_CONFIG: PdfExportConfig = {
+  enableHeader: false,
+  headerLeft: '{title}',
+  headerCenter: '',
+  headerRight: '{date}',
+  enableFooter: false,
+  footerLeft: '{workspace}',
+  footerCenter: '',
+  footerRight: '{page} / {pages}',
+  showDivider: true,
+  hideOnFirstPage: false,
+  fontSizePt: 9,
+  textColor: '#64748b',
+};
+
+export interface PdfTemplateVars {
+  title: string;
+  date: string;
+  workspace: string;
+}
+
+function escapeCssStringLiteral(str: string): string {
+  return str
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r?\n/g, ' ');
+}
+
+function escapeHtmlText(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function sanitizeCssColor(color: string | undefined): string {
+  if (!color) return '#64748b';
+  const trimmed = color.trim();
+  if (/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) return trimmed;
+  if (/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*[\d.]+)?\s*\)$/i.test(trimmed)) return trimmed;
+  return '#64748b';
+}
+
+/**
+ * Formats a header/footer template string for preview display (substituting {page} and {pages} placeholders too).
+ */
+export function formatPdfTemplatePreview(
+  template: string,
+  vars: PdfTemplateVars & { page?: string; pages?: string }
+): string {
+  if (!template) return '';
+  return template
+    .replace(/\{title\}/gi, vars.title)
+    .replace(/\{date\}/gi, vars.date)
+    .replace(/\{workspace\}/gi, vars.workspace)
+    .replace(/\{page\}/gi, vars.page ?? '1')
+    .replace(/\{pages\}/gi, vars.pages ?? '5');
+}
+
+/**
+ * Converts a template string containing {title}, {date}, {workspace}, {page}, {pages}
+ * into a CSS `content` expression using CSS `counter(page)` and `counter(pages)`.
+ */
+export function templateToCssContent(template: string, vars: PdfTemplateVars): string {
+  if (!template || !template.trim()) return 'none';
+
+  const resolvedStatic = template
+    .replace(/\{title\}/gi, vars.title)
+    .replace(/\{date\}/gi, vars.date)
+    .replace(/\{workspace\}/gi, vars.workspace);
+
+  const tokens = resolvedStatic.split(/(\{page\}|\{pages\})/gi).filter((part) => part.length > 0);
+  if (tokens.length === 0) return 'none';
+
+  const cssParts = tokens.map((part) => {
+    const lower = part.toLowerCase();
+    if (lower === '{page}') return 'counter(page)';
+    if (lower === '{pages}') return 'counter(pages)';
+    return `"${escapeCssStringLiteral(part)}"`;
+  });
+
+  return cssParts.join(' ');
+}
+
+/**
+ * Generates CSS `@page` rules with custom margin boxes for PDF header & footer.
+ */
+export function buildPagedHeaderFooterCss(
+  config: PdfExportConfig | undefined,
+  vars: PdfTemplateVars
+): string {
+  const cfg = config || DEFAULT_PDF_EXPORT_CONFIG;
+
+  const hasHeader =
+    cfg.enableHeader &&
+    [cfg.headerLeft, cfg.headerCenter, cfg.headerRight].some((s) => Boolean(s && s.trim()));
+  const hasFooter =
+    cfg.enableFooter &&
+    [cfg.footerLeft, cfg.footerCenter, cfg.footerRight].some((s) => Boolean(s && s.trim()));
+
+  const topMargin = hasHeader ? '22mm' : '18mm';
+  const bottomMargin = hasFooter ? '22mm' : '18mm';
+
+  if (!hasHeader && !hasFooter) {
+    return `@page {\n      size: A4;\n      margin: ${topMargin} 16mm ${bottomMargin} 16mm;\n    }`;
+  }
+
+  const fontSizePt = Math.min(14, Math.max(7, Number(cfg.fontSizePt) || 9));
+  const textColor = sanitizeCssColor(cfg.textColor);
+  const sharedBoxStyle = `font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: ${fontSizePt}pt; color: ${textColor}; white-space: nowrap;`;
+
+  const headerDividerStyle = cfg.showDivider
+    ? 'border-bottom: 0.5pt solid #cbd5e1; padding-bottom: 4pt; margin-bottom: 4pt;'
+    : '';
+  const footerDividerStyle = cfg.showDivider
+    ? 'border-top: 0.5pt solid #cbd5e1; padding-top: 4pt; margin-top: 4pt;'
+    : '';
+
+  const buildSlotRule = (slot: string, text: string, isRowActive: boolean, extraStyle: string) => {
+    if (!isRowActive) return '';
+    const contentExpr = text && text.trim() ? templateToCssContent(text, vars) : cfg.showDivider ? '""' : 'none';
+    if (contentExpr === 'none') return '';
+    return `\n      ${slot} {\n        content: ${contentExpr};\n        ${sharedBoxStyle}\n        ${extraStyle}\n      }`;
+  };
+
+  const headerCss =
+    buildSlotRule('@top-left', cfg.headerLeft, hasHeader, `${headerDividerStyle} vertical-align: bottom; text-align: left;`) +
+    buildSlotRule('@top-center', cfg.headerCenter, hasHeader, `${headerDividerStyle} vertical-align: bottom; text-align: center;`) +
+    buildSlotRule('@top-right', cfg.headerRight, hasHeader, `${headerDividerStyle} vertical-align: bottom; text-align: right;`);
+
+  const footerCss =
+    buildSlotRule('@bottom-left', cfg.footerLeft, hasFooter, `${footerDividerStyle} vertical-align: top; text-align: left;`) +
+    buildSlotRule('@bottom-center', cfg.footerCenter, hasFooter, `${footerDividerStyle} vertical-align: top; text-align: center;`) +
+    buildSlotRule('@bottom-right', cfg.footerRight, hasFooter, `${footerDividerStyle} vertical-align: top; text-align: right;`);
+
+  const firstPageRule = cfg.hideOnFirstPage
+    ? `\n    @page :first {\n      margin-top: 18mm;\n      margin-bottom: 18mm;\n      @top-left { content: none; border: none; }\n      @top-center { content: none; border: none; }\n      @top-right { content: none; border: none; }\n      @bottom-left { content: none; border: none; }\n      @bottom-center { content: none; border: none; }\n      @bottom-right { content: none; border: none; }\n    }`
+    : '';
+
+  return `@page {
+      size: A4;
+      margin: ${topMargin} 16mm ${bottomMargin} 16mm;${headerCss}${footerCss}
+    }${firstPageRule}`;
+}
 
 /**
  * Compiles markdown content to a standalone, print-optimized HTML string
@@ -14,7 +161,8 @@ export async function generatePrintHtml(
   title: string,
   markdownContent: string,
   docRelativePath: string,
-  workspacePath?: string
+  workspacePath?: string,
+  pdfConfig?: PdfExportConfig
 ): Promise<string> {
   const md = new MarkdownIt({
     html: true,
@@ -83,17 +231,24 @@ export async function generatePrintHtml(
     }
   }
 
+  const cleanWorkspaceName = workspacePath
+    ? workspacePath.replace(/\\/g, '/').replace(/\/+$/, '').split('/').pop() || ''
+    : '';
+  const todayStr = new Date().toLocaleDateString();
+  const pageRuleCss = buildPagedHeaderFooterCss(pdfConfig, {
+    title: title || docRelativePath,
+    date: todayStr,
+    workspace: cleanWorkspaceName,
+  });
+
   return `<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <title>${title}</title>
+  <title>${escapeHtmlText(title)}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css" crossorigin="anonymous">
   <style>
-    @page {
-      size: A4;
-      margin: 18mm 16mm 18mm 16mm;
-    }
+    ${pageRuleCss}
     *, *::before, *::after {
       box-sizing: border-box;
     }

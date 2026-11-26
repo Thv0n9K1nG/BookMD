@@ -473,4 +473,35 @@ export interface TranslationSchema {
     discardAndSwitch: string;
     cancel: string;
   };
+  pdfExport: {
+    title: string;
+    subtitle: string;
+    activeFileLabel: string;
+    enableHeader: string;
+    enableFooter: string;
+    leftLabel: string;
+    centerLabel: string;
+    rightLabel: string;
+    leftPlaceholder: string;
+    centerPlaceholder: string;
+    rightPlaceholder: string;
+    placeholdersLabel: string;
+    varTitle: string;
+    varDate: string;
+    varWorkspace: string;
+    varPage: string;
+    varPages: string;
+    optionsLabel: string;
+    showDivider: string;
+    hideOnFirstPage: string;
+    fontSizeLabel: string;
+    textColorLabel: string;
+    previewLabel: string;
+    previewSampleTitle: string;
+    previewSampleBody: string;
+    browserHint: string;
+    resetBtn: string;
+    exportBtn: string;
+    exportingBtn: string;
+  };
 }

@@ -40,6 +40,7 @@ interface EditorProps {
   targetLine?: number;
   targetLineKey?: number;
   viewMode?: ViewMode;
+  isActiveTab?: boolean;
   isVisible?: boolean;
   onChange: (value: string) => void;
   onSave: () => void;
@@ -57,6 +58,7 @@ export const Editor: React.FC<EditorProps> = ({
   targetLine,
   targetLineKey,
   viewMode,
+  isActiveTab = true,
   isVisible = true,
   onChange,
   onSave,
@@ -72,10 +74,15 @@ export const Editor: React.FC<EditorProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const savedScrollTopRef = useRef<number>(0);
+  const savedTopVisiblePosRef = useRef<number>(0);
   const isVisibleRef = useRef<boolean>(isVisible);
   isVisibleRef.current = isVisible;
+  const isActiveTabRef = useRef<boolean>(isActiveTab);
+  isActiveTabRef.current = isActiveTab;
   const wasVisibleRef = useRef<boolean>(isVisible);
+  const prevViewModeRef = useRef<ViewMode | undefined>(viewMode);
   const isRestoringScrollRef = useRef<boolean>(false);
+  const isInitialMountRestoreRef = useRef<boolean>(true);
   const contentRef = useRef(content);
   contentRef.current = content;
 
@@ -495,7 +502,15 @@ export const Editor: React.FC<EditorProps> = ({
             const sel = update.state.selection.main;
             const line = update.state.doc.lineAt(sel.head);
             const col = sel.head - line.from + 1;
-            onCursorChangeRef.current?.(line.number, col);
+            if (isActiveTabRef.current) {
+              onCursorChangeRef.current?.(line.number, col);
+            }
+            const topPos = isVisibleRef.current
+              ? update.view.lineBlockAtHeight(update.view.scrollDOM.scrollTop).from
+              : savedTopVisiblePosRef.current;
+            if (isVisibleRef.current) {
+              savedTopVisiblePosRef.current = topPos;
+            }
             saveEditorSessionState(relativePath, workspacePath, {
               anchor: sel.anchor,
               head: sel.head,
@@ -504,6 +519,7 @@ export const Editor: React.FC<EditorProps> = ({
               editorScrollTop: isVisibleRef.current
                 ? update.view.scrollDOM.scrollTop
                 : savedScrollTopRef.current,
+              topVisiblePos: topPos,
             });
           }
         }),
@@ -517,22 +533,30 @@ export const Editor: React.FC<EditorProps> = ({
 
     viewRef.current = view;
 
-    // Sync initial/restored cursor position immediately with StatusBar and Preview
-    const restoredLine = startState.doc.lineAt(initialSelection.head);
-    onCursorChangeRef.current?.(
-      restoredLine.number,
-      initialSelection.head - restoredLine.from + 1
-    );
+    // Sync initial/restored cursor position immediately with StatusBar and Preview when active
+    if (isActiveTabRef.current) {
+      const restoredLine = startState.doc.lineAt(initialSelection.head);
+      onCursorChangeRef.current?.(
+        restoredLine.number,
+        initialSelection.head - restoredLine.from + 1
+      );
+    }
 
     const restoredScroll = savedSession?.editorScrollTop || 0;
+    const restoredTopPos = savedSession?.topVisiblePos || 0;
     savedScrollTopRef.current = restoredScroll;
+    savedTopVisiblePosRef.current = restoredTopPos;
+    isInitialMountRestoreRef.current = Boolean(savedSession);
 
     const scroller = view.scrollDOM;
     const handleScroll = () => {
       if (!isVisibleRef.current || isRestoringScrollRef.current) return;
       savedScrollTopRef.current = scroller.scrollTop;
+      const topPos = view.lineBlockAtHeight(scroller.scrollTop).from;
+      savedTopVisiblePosRef.current = topPos;
       saveEditorSessionState(relativePath, workspacePath, {
         editorScrollTop: scroller.scrollTop,
+        topVisiblePos: topPos,
       });
     };
     scroller.addEventListener('scroll', handleScroll, { passive: true });
@@ -540,12 +564,16 @@ export const Editor: React.FC<EditorProps> = ({
     return () => {
       const sel = view.state.selection.main;
       const line = view.state.doc.lineAt(sel.head);
+      const topPos = isVisibleRef.current
+        ? view.lineBlockAtHeight(scroller.scrollTop).from
+        : savedTopVisiblePosRef.current;
       saveEditorSessionState(relativePath, workspacePath, {
         anchor: sel.anchor,
         head: sel.head,
         line: line.number,
         col: sel.head - line.from + 1,
         editorScrollTop: isVisibleRef.current ? scroller.scrollTop : savedScrollTopRef.current,
+        topVisiblePos: topPos,
       });
       scroller.removeEventListener('scroll', handleScroll);
       view.destroy();
@@ -553,21 +581,19 @@ export const Editor: React.FC<EditorProps> = ({
     };
   }, [relativePath, workspacePath]);
 
-  // Preserve & restore scroll/cursor measurements across file open and mode transitions (Editor <-> Split <-> Preview)
+  // Preserve & restore scroll/cursor seamlessly across tab activation and view mode changes
   useEffect(() => {
     const view = viewRef.current;
     const wasVisible = wasVisibleRef.current;
+    const prevMode = prevViewModeRef.current;
     wasVisibleRef.current = isVisible;
+    prevViewModeRef.current = viewMode;
 
     if (!view) return;
 
     if (!isVisible) {
-      // Snapshot latest scrollTop before hiding & release focus cleanly
       if (view.scrollDOM.scrollTop > 0) {
         savedScrollTopRef.current = view.scrollDOM.scrollTop;
-        saveEditorSessionState(relativePath, workspacePath, {
-          editorScrollTop: view.scrollDOM.scrollTop,
-        });
       }
       if (view.hasFocus) {
         view.contentDOM.blur();
@@ -575,12 +601,40 @@ export const Editor: React.FC<EditorProps> = ({
       return;
     }
 
-    const targetScroll = savedScrollTopRef.current;
-    const cursorHead = view.state.selection.main.head;
-    const shouldFocus = !wasVisible && isVisible;
+    // Always sync StatusBar / Preview line immediately when this tab becomes active
+    if (isActiveTab) {
+      const sel = view.state.selection.main;
+      const line = view.state.doc.lineAt(sel.head);
+      onCursorChangeRef.current?.(line.number, sel.head - line.from + 1);
+    }
 
-    if (targetScroll <= 0 && cursorHead <= 0) {
-      if (shouldFocus) {
+    const isFreshSessionRestore = isInitialMountRestoreRef.current;
+    isInitialMountRestoreRef.current = false;
+
+    // Width reflow happens only when toggling between full-width Editor and half-width Split
+    const widthChanged =
+      prevMode !== undefined &&
+      prevMode !== viewMode &&
+      (prevMode === 'editor' || viewMode === 'editor') &&
+      (prevMode === 'split' || viewMode === 'split');
+
+    const targetScroll = savedScrollTopRef.current;
+    const targetTopPos = savedTopVisiblePosRef.current;
+    const needsScrollRestore =
+      isFreshSessionRestore ||
+      widthChanged ||
+      Math.abs(view.scrollDOM.scrollTop - targetScroll) > 2;
+
+    if (!needsScrollRestore) {
+      // Live tab switch in the same layout: scrollDOM already holds the exact measured pixel position!
+      if (!wasVisible) {
+        view.contentDOM.focus({ preventScroll: true });
+      }
+      return;
+    }
+
+    if (targetScroll <= 0 && targetTopPos <= 0) {
+      if (!wasVisible) {
         view.contentDOM.focus({ preventScroll: true });
       }
       return;
@@ -589,48 +643,45 @@ export const Editor: React.FC<EditorProps> = ({
     let cancelled = false;
     isRestoringScrollRef.current = true;
 
-    const applyScrollOrCursor = () => {
-      if (cancelled || viewRef.current !== view || !view.scrollDOM) return;
-      if (targetScroll > 0 && view.scrollDOM.clientHeight > 0) {
-        view.scrollDOM.scrollTop = targetScroll;
-      } else if (cursorHead > 0 && !targetLine) {
-        view.dispatch({
-          effects: EditorView.scrollIntoView(cursorHead, { y: 'center' }),
-        });
-      }
-    };
-
     view.requestMeasure({
       read: () => view.scrollDOM?.clientHeight || 0,
       write: () => {
-        applyScrollOrCursor();
-      },
-    });
+        if (cancelled || viewRef.current !== view || !view.scrollDOM || view.scrollDOM.clientHeight <= 0) {
+          isRestoringScrollRef.current = false;
+          return;
+        }
 
-    requestAnimationFrame(() => {
-      if (cancelled || viewRef.current !== view || !view.scrollDOM) {
-        isRestoringScrollRef.current = false;
-        return;
-      }
-      applyScrollOrCursor();
-      if (shouldFocus) {
-        view.contentDOM.focus({ preventScroll: true });
-      }
-      requestAnimationFrame(() => {
-        if (!cancelled && viewRef.current === view && view.scrollDOM && targetScroll > 0 && view.scrollDOM.clientHeight > 0) {
-          if (Math.abs(view.scrollDOM.scrollTop - targetScroll) > 2) {
-            view.scrollDOM.scrollTop = targetScroll;
+        if (widthChanged && targetTopPos > 0 && targetTopPos <= view.state.doc.length) {
+          view.dispatch({
+            effects: EditorView.scrollIntoView(targetTopPos, { y: 'start' }),
+          });
+          savedScrollTopRef.current = view.scrollDOM.scrollTop;
+        } else if (targetScroll > 0) {
+          view.scrollDOM.scrollTop = targetScroll;
+          // If reopening a closed tab with wrapped text, verify line anchor on next measure
+          if (isFreshSessionRestore && targetTopPos > 0 && targetTopPos <= view.state.doc.length) {
+            requestAnimationFrame(() => {
+              if (!cancelled && viewRef.current === view && view.scrollDOM) {
+                view.scrollDOM.scrollTop = targetScroll;
+                isRestoringScrollRef.current = false;
+              }
+            });
+            return;
           }
         }
+
+        if (!wasVisible) {
+          view.contentDOM.focus({ preventScroll: true });
+        }
         isRestoringScrollRef.current = false;
-      });
+      },
     });
 
     return () => {
       cancelled = true;
       isRestoringScrollRef.current = false;
     };
-  }, [isVisible, viewMode, relativePath, workspacePath]);
+  }, [isVisible, isActiveTab, viewMode, relativePath, workspacePath]);
 
   // Dynamically reconfigure theme and font size without recreating EditorView
   useEffect(() => {
@@ -697,7 +748,7 @@ export const Editor: React.FC<EditorProps> = ({
 
   return (
     <div
-      className={`editor-pane${isVisible ? '' : ' pane-hidden'}`}
+      className={`editor-pane ${isActiveTab ? 'tab-active' : 'tab-hidden'}`}
       aria-hidden={!isVisible}
       ref={containerRef}
     />

@@ -21,6 +21,7 @@ describe('Editor Session Cursor & Scroll Persistence', () => {
       col: 18,
       editorScrollTop: 920,
       previewScrollTop: 780,
+      topVisiblePos: 1200,
     });
 
     saveEditorSessionState('notes/b.md', 'C:/Work/Docs', {
@@ -41,6 +42,7 @@ describe('Editor Session Cursor & Scroll Persistence', () => {
       col: 18,
       editorScrollTop: 920,
       previewScrollTop: 780,
+      topVisiblePos: 1200,
     });
     expect(stateB?.anchor).toBe(310);
     expect(stateB?.head).toBe(325);

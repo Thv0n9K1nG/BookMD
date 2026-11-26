@@ -1,3 +1,21 @@
+# Release Notes — BookMD v0.2.3
+
+**BookMD v0.2.3** introduces a zero-jump persistent multi-tab editor architecture that completely eliminates scrollbar flickering when switching between tabs, alongside an experimental **Customizable PDF Header & Footer** workflow (`ExportPdfModal`) powered by CSS Paged Media (`@page` margin boxes).
+
+---
+
+## 🎯 Key Fixes & Improvements
+
+### 1. Zero-Jump Multi-Tab Editor (`Editor` & `Split` Modes)
+- **Persistent Per-Tab CodeMirror Instances**: Switching tabs no longer destroys and recreates `EditorView` from scratch. Each open tab retains its own live CodeMirror instance inside `.editor-column`, preserving 100% of its measured line-wrapping heights, exact scrollbar thumb position, cursor selection, and Undo/Redo history instantaneously on tab switches.
+- **Width & Line-Anchored Stability**: Preserved column pixel width when hiding the editor in `Preview` mode and anchored re-measures by top visible character offset (`topVisiblePos`) when toggling between `Editor` (100%) and `Split` (50%) widths.
+
+### 2. Customizable PDF Header & Footer (Experimental Preview)
+- **Configure Before Printing (`ExportPdfModal`)**: Triggering PDF Export (`Tools` menu, Command Palette, or `Ctrl+Shift+E`) now opens a clean configuration modal to customize **Header** and **Footer** (Left / Center / Right).
+- **Dynamic Placeholders & Styling**: Supports clickable `{title}`, `{date}`, `{workspace}`, `{page}`, and `{pages}` variables (`counter(page)` / `counter(pages)`), divider lines, font size (`8pt–11pt`), text color swatches, cover-page suppression (`@page :first`), and a live mini A4 layout preview.
+
+---
+
 # Release Notes — BookMD v0.2.2
 
 **BookMD v0.2.2** resolves a frustrating editor navigation bug where cursor location and scroll position were only preserved reliably in the Preview pane (Preview mode & Split render side) and lost in the CodeMirror Editor across view mode transitions, tab switches, or reopening files within a session.
