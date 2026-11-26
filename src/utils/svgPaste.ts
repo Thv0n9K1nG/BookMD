@@ -255,8 +255,131 @@ export async function extractSvgFromClipboard(
 }
 
 /**
- * Convert an SVG XML string into a PNG Data URL (data:image/png;base64,...)
- * using HTML5 Canvas with alpha transparency and proper viewBox scaling.
+ * Parses an SVG length attribute (e.g. "120", "120px", "90pt", "10cm") into CSS pixels.
+ * Ignores percentage values (e.g. "100%") so viewBox proportions are used instead.
+ */
+export function parseSvgLengthToPx(raw: string | null | undefined): number | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed || trimmed.endsWith('%')) return null;
+
+  const match = trimmed.match(/^([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)\s*(px|pt|pc|in|cm|mm|em|rem)?$/i);
+  if (!match) return null;
+
+  const num = parseFloat(match[1]);
+  if (!isFinite(num) || num <= 0) return null;
+
+  const unit = (match[2] || 'px').toLowerCase();
+  const unitFactor: Record<string, number> = {
+    px: 1,
+    pt: 96 / 72,
+    pc: 16,
+    in: 96,
+    cm: 96 / 2.54,
+    mm: 96 / 25.4,
+    em: 16,
+    rem: 16,
+  };
+
+  const px = num * (unitFactor[unit] ?? 1);
+  return isFinite(px) && px > 0 ? px : null;
+}
+
+export interface SvgRenderDimensions {
+  displayWidth: number;
+  displayHeight: number;
+  rasterWidth: number;
+  rasterHeight: number;
+  rasterScale: number;
+}
+
+/**
+ * Computes logical display dimensions and high-DPI oversampled rasterization dimensions
+ * for an SVG element, ensuring percentage attributes defer to viewBox and preserving
+ * vector sharpness across HiDPI displays and PDF exports.
+ */
+export function computeSvgRenderDimensions(
+  svgEl: Element,
+  devicePixelRatio = 1
+): SvgRenderDimensions {
+  const attrW = parseSvgLengthToPx(svgEl.getAttribute('width'));
+  const attrH = parseSvgLengthToPx(svgEl.getAttribute('height'));
+
+  let vbW: number | null = null;
+  let vbH: number | null = null;
+  const viewBox = svgEl.getAttribute('viewBox');
+  if (viewBox) {
+    const parts = viewBox.trim().split(/[\s,]+/).map(parseFloat);
+    if (parts.length === 4 && isFinite(parts[2]) && parts[2] > 0 && isFinite(parts[3]) && parts[3] > 0) {
+      vbW = parts[2];
+      vbH = parts[3];
+    }
+  }
+
+  let logicalWidth: number;
+  let logicalHeight: number;
+
+  if (attrW && attrH) {
+    logicalWidth = attrW;
+    logicalHeight = attrH;
+  } else if (attrW && vbW && vbH) {
+    logicalWidth = attrW;
+    logicalHeight = attrW * (vbH / vbW);
+  } else if (attrH && vbW && vbH) {
+    logicalHeight = attrH;
+    logicalWidth = attrH * (vbW / vbH);
+  } else if (vbW && vbH) {
+    logicalWidth = vbW;
+    logicalHeight = vbH;
+  } else if (attrW) {
+    logicalWidth = attrW;
+    logicalHeight = Math.round(attrW * 0.75);
+  } else if (attrH) {
+    logicalHeight = attrH;
+    logicalWidth = Math.round(attrH * (4 / 3));
+  } else {
+    logicalWidth = 800;
+    logicalHeight = 600;
+  }
+
+  // Clamp logical display size to a reasonable ceiling for very huge coordinate spaces
+  const MAX_DISPLAY_DIM = 2400;
+  let displayWidth = logicalWidth;
+  let displayHeight = logicalHeight;
+  if (displayWidth > MAX_DISPLAY_DIM || displayHeight > MAX_DISPLAY_DIM) {
+    const downScale = MAX_DISPLAY_DIM / Math.max(displayWidth, displayHeight);
+    displayWidth = displayWidth * downScale;
+    displayHeight = displayHeight * downScale;
+  }
+
+  const roundedDisplayW = Math.max(1, Math.round(displayWidth));
+  const roundedDisplayH = Math.max(1, Math.round(displayHeight));
+
+  // Rasterize at high DPI (2.5x - 4x depending on diagram size and display scaling)
+  // while returning logical displayWidth/displayHeight so markdown renders crisp without blowing up layout
+  const MAX_RASTER_DIM = 3600;
+  const maxDisplaySide = Math.max(displayWidth, displayHeight);
+  const dpr = isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  const preferredScale = maxDisplaySide <= 900 ? 3 : 2.5;
+  const desiredScale = Math.min(4, Math.max(preferredScale, dpr * 2));
+  const maxAllowedScale = MAX_RASTER_DIM / maxDisplaySide;
+  const rasterScale = Math.max(1, Math.min(desiredScale, maxAllowedScale));
+
+  const rasterWidth = Math.max(1, Math.round(displayWidth * rasterScale));
+  const rasterHeight = Math.max(1, Math.round(displayHeight * rasterScale));
+
+  return {
+    displayWidth: roundedDisplayW,
+    displayHeight: roundedDisplayH,
+    rasterWidth,
+    rasterHeight,
+    rasterScale,
+  };
+}
+
+/**
+ * Convert an SVG XML string into a high-DPI crisp PNG Data URL (data:image/png;base64,...)
+ * using HTML5 Canvas with alpha transparency and proper viewBox vector scaling.
  */
 export async function convertSvgXmlToPngBase64(
   svgXml: string
@@ -274,42 +397,31 @@ export async function convertSvgXmlToPngBase64(
     svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   }
 
-  // 2. Compute width and height
-  let width = parseFloat(svgEl.getAttribute('width') || '');
-  let height = parseFloat(svgEl.getAttribute('height') || '');
+  // 2. Compute logical and HiDPI raster dimensions
+  const dpr = typeof window !== 'undefined' && window.devicePixelRatio ? window.devicePixelRatio : 1;
+  const { displayWidth, displayHeight, rasterWidth, rasterHeight } = computeSvgRenderDimensions(svgEl, dpr);
 
-  // If width or height is missing or zero, attempt to extract from viewBox
-  if (!width || !height || isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
-    const viewBox = svgEl.getAttribute('viewBox');
-    if (viewBox) {
-      const parts = viewBox.trim().split(/[\s,]+/).map(parseFloat);
-      if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
-        width = parts[2];
-        height = parts[3];
-      }
-    }
+  // Ensure viewBox is defined before upscaling width/height so vectors scale cleanly rather than adding blank margin
+  if (!svgEl.getAttribute('viewBox')) {
+    const rawW = parseSvgLengthToPx(svgEl.getAttribute('width')) || displayWidth;
+    const rawH = parseSvgLengthToPx(svgEl.getAttribute('height')) || displayHeight;
+    svgEl.setAttribute('viewBox', `0 0 ${rawW} ${rawH}`);
   }
 
-  // Fallback dimensions if still not determined
-  if (!width || isNaN(width) || width <= 0) width = 800;
-  if (!height || isNaN(height) || height <= 0) height = 600;
-
-  // Scale down if dimensions are excessively large
-  const MAX_DIM = 2400;
-  if (width > MAX_DIM || height > MAX_DIM) {
-    const scale = MAX_DIM / Math.max(width, height);
-    width = Math.round(width * scale);
-    height = Math.round(height * scale);
+  // Clear inline style width/height overrides if present so explicit attributes control vector rasterization
+  if ('style' in svgEl && (svgEl as SVGSVGElement).style) {
+    (svgEl as SVGSVGElement).style.removeProperty('width');
+    (svgEl as SVGSVGElement).style.removeProperty('height');
   }
 
-  // Ensure explicit width & height attributes on the SVG element for reliable Image() rendering
-  svgEl.setAttribute('width', String(Math.round(width)));
-  svgEl.setAttribute('height', String(Math.round(height)));
+  // Set high-resolution width & height attributes on the SVG element for sharp vector rasterization
+  svgEl.setAttribute('width', String(rasterWidth));
+  svgEl.setAttribute('height', String(rasterHeight));
 
   const serializer = new XMLSerializer();
   const cleanSvgXml = serializer.serializeToString(svgEl);
 
-  // 3. Render SVG onto Canvas
+  // 3. Render SVG onto HiDPI Canvas
   return new Promise((resolve, reject) => {
     const blob = new Blob([cleanSvgXml], { type: 'image/svg+xml;charset=utf-8' });
     const blobUrl = URL.createObjectURL(blob);
@@ -318,24 +430,26 @@ export async function convertSvgXmlToPngBase64(
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
-        canvas.width = Math.round(width);
-        canvas.height = Math.round(height);
+        canvas.width = rasterWidth;
+        canvas.height = rasterHeight;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           URL.revokeObjectURL(blobUrl);
           return reject(new Error('Canvas 2D context not available'));
         }
 
-        // Clear canvas with alpha transparency
+        // Clear canvas with alpha transparency and enable high-quality smoothing
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         URL.revokeObjectURL(blobUrl);
         const base64 = canvas.toDataURL('image/png');
         resolve({
           base64,
-          naturalWidth: Math.round(width),
-          naturalHeight: Math.round(height),
+          naturalWidth: displayWidth,
+          naturalHeight: displayHeight,
         });
       } catch (e) {
         URL.revokeObjectURL(blobUrl);

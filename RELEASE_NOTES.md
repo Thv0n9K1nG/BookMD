@@ -1,3 +1,26 @@
+# Release Notes — BookMD v0.2.1
+
+**BookMD v0.2.1** is a quality & stability release resolving crisp HiDPI SVG rasterization, cross-workspace tab isolation when opening workspaces with identical folder names/structures, and completing 100% end-to-end localization coverage alongside a restart prompt when switching languages.
+
+---
+
+## 🛠️ Key Fixes & Improvements
+
+### 🖼️ 1. Razor-Sharp HiDPI SVG-to-PNG Conversion
+- **Fixed `width="100%"` / Unit Parsing Bug**: Previously, SVG diagrams with `width="100%" height="100%"` and a `viewBox` had `parseFloat("100%")` evaluated as `100px`, skipping `viewBox` extraction and crushing entire diagrams into blurry `100×100` thumbnails. Percentage lengths are now ignored in favor of `viewBox`, and CSS length units (`pt`, `cm`, `mm`, `in`, etc.) are accurately converted to CSS pixels.
+- **HiDPI Vector Oversampling**: SVGs are now rasterized at `2.5x–4x` pixel density (up to `3600px`) directly through the browser vector engine with high-quality smoothing enabled, while preserving the logical `width="..."` attribute in Markdown so images look crisp on Windows HiDPI screens and exported PDFs without overflowing the page.
+
+### 📂 2. Reliable Workspace Switching & Tab Isolation
+- **Fixed Same-Name / Same-Structure Workspace Collisions**: Switching to another workspace that shares the same folder name or identical file structure (e.g. `test1/readme.md`) previously reused cached tabs from the old workspace because tabs were keyed solely by relative path and not cleared across workspaces.
+- **Clean Workspace Boundaries**: BookMD now clears open tabs and image caches on workspace change (prompting safely if any open documents have unsaved edits), scopes tabs and `Editor`/`Preview` identities to canonical `workspacePath`, and fixes sibling folder path-prefix edge cases.
+
+### 🌐 3. 100% Complete Localization & Language Restart Prompt
+- **Full Translation Audit**: Translated ~150+ previously hardcoded strings across **Settings** (Image Handling & Keybindings tabs), all **22 Keybinding definitions**, **Backup Tool**, **Image Consolidation**, **Folder Picker**, **Search Modal**, **Tools Dropdown**, **File Tree**, **Preview**, and **Native File/Folder Dialogs**.
+- **Eliminated Stale Closures in Preview**: Fixed right-click context menu and code/Mermaid copy button tooltips & toasts in `Preview` that previously stayed frozen in the initial mount language.
+- **Restart Prompt on Language Change**: Selecting a different language in Settings now persists the setting immediately and presents a clean prompt (*Restart Now* / *Save All & Restart* / *Later*) so the entire UI can reload consistently.
+
+---
+
 # Release Notes — BookMD v0.2.0
 
 **BookMD v0.2.0** marks a major milestone with the introduction of comprehensive **Multi-Language Support (i18n & Localization)**, featuring **Tiếng Việt (Vietnamese - Default)** and **English** across 100% of the application's interface. Built with a zero-dependency, type-safe architecture, BookMD enables instant switching between Vietnamese and English without application restart, retaining complete fidelity for technical notes, cybersecurity documentation, and markdown editing workflows.

@@ -260,7 +260,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                 e.stopPropagation();
                 toggleExpand(node.relativePath);
               }}
-              title={isExpanded ? 'Thu gọn thư mục' : 'Mở rộng thư mục'}
+              title={isExpanded ? t('imagePicker.collapseFolderTitle') : t('imagePicker.expandFolderTitle')}
             >
               <ChevronRightIcon size={12} />
             </button>
@@ -283,7 +283,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
               {highlightMatch(node.name, searchQuery)}
             </span>
             {hasChildren && (
-              <span className="folder-item-count" title={`${node.children.length} thư mục con`}>
+              <span className="folder-item-count" title={t('imagePicker.subfoldersCount', { count: node.children.length })}>
                 {node.children.length}
               </span>
             )}
@@ -308,6 +308,8 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
     );
   };
 
+  const wsLabel = workspaceName ? `Workspace: ${workspaceName}` : 'Workspace';
+
   return (
     <div
       className="modal-overlay"
@@ -325,7 +327,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
             <div>
               <h3 className="folder-picker-title">{title || t('imagePicker.title')}</h3>
               <p className="folder-picker-subtitle">
-                {subtitle || `${workspaceName ? `Workspace: ${workspaceName}` : 'Workspace'} • Cây thư mục dạng phân cấp`}
+                {subtitle || t('imagePicker.subtitleDefault', { workspace: wsLabel })}
               </p>
             </div>
           </div>
@@ -350,7 +352,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
               <button
                 className="btn btn-icon"
                 onClick={() => setSearchQuery('')}
-                title="Xóa tìm kiếm"
+                title={t('common.clearSearch')}
                 style={{ padding: '2px' }}
               >
                 <CloseIcon size={13} />
@@ -363,7 +365,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
         {!allowRootSelect && (
           <div className="folder-picker-presets">
             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginRight: '4px' }}>
-              Gợi ý nhanh:
+              {t('imagePicker.quickPresets')}
             </span>
             {presets.map((preset) => {
               const isCurrent = selectedFolder === preset;
@@ -395,11 +397,11 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
           <div className="folder-picker-list-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>
-                Cây thư mục ({totalDirsCount} thư mục)
+                {t('imagePicker.folderTreeCount', { count: totalDirsCount })}
               </span>
               {searchQuery && (
                 <span style={{ color: 'var(--accent)' }}>
-                  • Lọc theo: "{searchQuery}"
+                  {t('imagePicker.filterByQuery', { query: searchQuery })}
                 </span>
               )}
             </div>
@@ -409,9 +411,9 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                 className="btn btn-text"
                 style={{ fontSize: '11px', padding: '2px 6px', color: 'var(--text-secondary)' }}
                 onClick={handleExpandAll}
-                title="Mở rộng tất cả thư mục"
+                title={t('imagePicker.expandAllTitle')}
               >
-                Mở rộng tất cả
+                {t('imagePicker.expandAll')}
               </button>
               <span style={{ opacity: 0.3 }}>|</span>
               <button
@@ -419,9 +421,9 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                 className="btn btn-text"
                 style={{ fontSize: '11px', padding: '2px 6px', color: 'var(--text-secondary)' }}
                 onClick={handleCollapseAll}
-                title="Thu gọn tất cả thư mục"
+                title={t('imagePicker.collapseTitle')}
               >
-                Thu gọn
+                {t('imagePicker.collapse')}
               </button>
             </div>
           </div>
@@ -444,10 +446,10 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                   </span>
                   <div className="folder-tree-content">
                     <span className="folder-item-name" style={{ fontWeight: 600 }}>
-                      Theo file Markdown đang viết (Mặc định)
+                      {t('imagePicker.defaultByFile')}
                     </span>
                     <span className="folder-item-path">
-                      Tên ảnh đặt trực tiếp theo file: &lt;tên_file&gt;_&lt;số&gt;.png
+                      {t('imagePicker.defaultByFileDesc')}
                     </span>
                   </div>
                   {selectedFolder === '' && (
@@ -471,10 +473,10 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                   </span>
                   <div className="folder-tree-content">
                     <span className="folder-item-name" style={{ fontWeight: 600 }}>
-                      Gốc Workspace (Toàn bộ workspace /)
+                      {t('imagePicker.rootWorkspace')}
                     </span>
                     <span className="folder-item-path">
-                      Tên ảnh tính từ thư mục gốc: &lt;folder&gt;-...-&lt;tên_file&gt;_&lt;số&gt;.png
+                      {t('imagePicker.rootWorkspaceDesc')}
                     </span>
                   </div>
                   {selectedFolder === '/' && (
@@ -491,7 +493,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
               visibleTree.map((node) => renderTreeNode(node, 0))
             ) : (
               <div className="folder-picker-empty">
-                <p>Không tìm thấy thư mục nào khớp với "{searchQuery}".</p>
+                <p>{t('imagePicker.noFoldersMatchQuery', { query: searchQuery })}</p>
                 {searchQuery.trim() && (
                   <button
                     className="btn btn-secondary"
@@ -502,7 +504,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                     }}
                   >
                     <PlusIcon size={14} />
-                    <span>Dùng "{searchQuery.trim()}" làm đường dẫn mới</span>
+                    <span>{t('imagePicker.useAsNewPath', { path: searchQuery.trim() })}</span>
                   </button>
                 )}
               </div>
@@ -519,7 +521,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
               onClick={() => setIsCreatingCustom(true)}
             >
               <PlusIcon size={13} />
-              <span>Tạo thư mục mới hoặc nhập đường dẫn tùy chỉnh...</span>
+              <span>{t('imagePicker.createOrCustomBtn')}</span>
             </button>
           ) : (
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
@@ -527,7 +529,7 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                 type="text"
                 className="folder-picker-search-input"
                 style={{ flex: 1, padding: '6px 10px', fontSize: '12px' }}
-                placeholder="VD: assets/my-images hoặc docs/img..."
+                placeholder={t('imagePicker.customPlaceholder')}
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => {
@@ -535,10 +537,10 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
                 }}
               />
               <button className="btn btn-primary" onClick={handleCreateNew} style={{ fontSize: '12px' }}>
-                Tạo & Chọn
+                {t('imagePicker.createAndSelect')}
               </button>
               <button className="btn btn-secondary" onClick={() => setIsCreatingCustom(false)} style={{ fontSize: '12px' }}>
-                Hủy
+                {t('common.cancel')}
               </button>
             </div>
           )}
@@ -547,9 +549,13 @@ export const ImageFolderPickerModal: React.FC<ImageFolderPickerModalProps> = ({
         {/* Footer */}
         <div className="folder-picker-footer">
           <div className="folder-picker-selection-info">
-            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Đang chọn:</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{t('imagePicker.selectedLabel')}</span>
             <code className="folder-picker-selected-path">
-              {selectedFolder === '' && allowRootSelect ? 'Theo file Markdown đang viết (Mặc định)' : selectedFolder === '/' && allowRootSelect ? '/ (Gốc workspace)' : selectedFolder || '(Chưa chọn)'}
+              {selectedFolder === '' && allowRootSelect
+                ? t('imagePicker.defaultByFile')
+                : selectedFolder === '/' && allowRootSelect
+                  ? t('imagePicker.rootLabel')
+                  : selectedFolder || t('common.noneSelected')}
             </code>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>

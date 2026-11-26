@@ -50,6 +50,24 @@ export function translate(
   return interpolate(raw, params);
 }
 
+/**
+ * Reads the persisted UI language safely from localStorage (usable outside React components).
+ */
+export function getStoredLanguage(): Language {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('bookmd_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.language === 'en') return 'en';
+      }
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return 'vi';
+}
+
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;

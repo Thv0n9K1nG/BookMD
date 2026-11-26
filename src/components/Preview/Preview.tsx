@@ -38,10 +38,14 @@ export const Preview: React.FC<PreviewProps> = ({
   onToast,
 }) => {
   const { t } = useTranslation();
+  const tRef = useRef(t);
+  tRef.current = t;
+  const onToastRef = useRef(onToast);
+  onToastRef.current = onToast;
   const containerRef = useRef<HTMLDivElement>(null);
   const activeFocusElRef = useRef<HTMLElement | null>(null);
   const scrollTimeoutRef = useRef<any>(null);
-  const prevDocPathRef = useRef<string>(relativePath);
+  const prevDocPathRef = useRef<string>(`${workspacePath || ''}::${relativePath}`);
   const prevThemeRef = useRef<string | undefined>(theme);
   const savedScrollTopRef = useRef<number>(0);
   const isEffectiveVisible = isVisible ?? (viewMode === 'preview' || viewMode === 'split');
@@ -67,7 +71,9 @@ export const Preview: React.FC<PreviewProps> = ({
     instance.use(footnote);
 
     // Support Mermaid diagram blocks (```mermaid ... ```)
-    instance.use(markdownMermaidPlugin);
+    instance.use(markdownMermaidPlugin, {
+      loadingText: t('preview.mermaidLoading'),
+    });
 
     // Wrap code blocks (fences) in a dedicated non-scrolling wrapper so the copy button stays pinned in place
     const prevFence =
@@ -159,11 +165,11 @@ export const Preview: React.FC<PreviewProps> = ({
     };
 
     return instance;
-  }, [relativePath, workspacePath]);
+  }, [relativePath, workspacePath, t]);
 
   const renderedHtml = useMemo(() => {
     if (!content) {
-      return '<div style="color: var(--text-tertiary); font-style: italic; margin-top: 2rem;">Chưa có nội dung để xem trước...</div>';
+      return `<div style="color: var(--text-tertiary); font-style: italic; margin-top: 2rem;">${t('preview.emptyPreview')}</div>`;
     }
     try {
       let html = md.render(content);
@@ -177,18 +183,20 @@ export const Preview: React.FC<PreviewProps> = ({
       });
       return html;
     } catch (err: any) {
-      return `<div style="color: var(--error);">Lỗi render markdown: ${err?.message || err}</div>`;
+      return `<div style="color: var(--error);">${t('preview.renderError', { error: err?.message || err })}</div>`;
     }
-  }, [content, md, relativePath, workspacePath]);
+  }, [content, md, relativePath, workspacePath, t]);
 
   // Robust DOM reconciliation using morphdom to eliminate image flickering on typing
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Full reset if switching to a different file or first render
-    if (prevDocPathRef.current !== relativePath || !container.hasChildNodes()) {
-      prevDocPathRef.current = relativePath;
+    const docIdentity = `${workspacePath || ''}::${relativePath}`;
+
+    // Full reset if switching to a different file/workspace or first render
+    if (prevDocPathRef.current !== docIdentity || !container.hasChildNodes()) {
+      prevDocPathRef.current = docIdentity;
       container.innerHTML = renderedHtml;
       return;
     }
@@ -240,7 +248,7 @@ export const Preview: React.FC<PreviewProps> = ({
         return true;
       },
     });
-  }, [renderedHtml, relativePath]);
+  }, [renderedHtml, relativePath, workspacePath]);
 
   // Robust fallback: if webview blocks asset protocol (403, CSP, drive letter), load image bytes via IPC
   useEffect(() => {
@@ -442,7 +450,14 @@ export const Preview: React.FC<PreviewProps> = ({
         wrapper.appendChild(pre);
       }
 
-      if (wrapper.querySelector('.code-copy-btn')) return;
+      const existingBtn = wrapper.querySelector<HTMLButtonElement>('.code-copy-btn');
+      if (existingBtn) {
+        if (!existingBtn.classList.contains('copied')) {
+          existingBtn.title = t('preview.copy');
+        }
+        existingBtn.setAttribute('aria-label', t('preview.copy'));
+        return;
+      }
 
       const btn = document.createElement('button');
       btn.className = 'code-copy-btn';
@@ -457,22 +472,30 @@ export const Preview: React.FC<PreviewProps> = ({
         navigator.clipboard.writeText(codeText);
         btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
         btn.classList.add('copied');
-        btn.title = t('common.copied');
-        onToast?.(t('preview.copiedCode'), 'success');
+        btn.title = tRef.current('common.copied');
+        onToastRef.current?.(tRef.current('preview.copiedCode'), 'success');
         setTimeout(() => {
           btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
           btn.classList.remove('copied');
-          btn.title = t('preview.copy');
+          btn.title = tRef.current('preview.copy');
         }, 2000);
       };
       wrapper.appendChild(btn);
     });
-  }, [renderedHtml, onToast]);
+  }, [renderedHtml, t]);
 
   // 2. Render Mermaid diagrams into SVGs with DOM caching & error handling
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // Update tooltips on already-rendered mermaid copy buttons when language changes
+    container.querySelectorAll<HTMLButtonElement>('.mermaid-copy-btn').forEach((existingBtn) => {
+      if (!existingBtn.classList.contains('copied')) {
+        existingBtn.title = t('preview.copy');
+      }
+      existingBtn.setAttribute('aria-label', t('preview.copyMermaidCode'));
+    });
 
     // Invalidate rendered diagrams if theme changed
     if (prevThemeRef.current !== theme) {
@@ -525,20 +548,20 @@ export const Preview: React.FC<PreviewProps> = ({
             const btn = document.createElement('button');
             btn.className = 'mermaid-copy-btn';
             btn.type = 'button';
-            btn.title = t('preview.copy');
-            btn.setAttribute('aria-label', t('preview.copyMermaidCode'));
+            btn.title = tRef.current('preview.copy');
+            btn.setAttribute('aria-label', tRef.current('preview.copyMermaidCode'));
             btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
             btn.onclick = (e) => {
               e.stopPropagation();
               navigator.clipboard.writeText(rawCode);
               btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
               btn.classList.add('copied');
-              btn.title = t('common.copied');
-              onToast?.(t('preview.copiedMermaid'), 'success');
+              btn.title = tRef.current('common.copied');
+              onToastRef.current?.(tRef.current('preview.copiedMermaid'), 'success');
               setTimeout(() => {
                 btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
                 btn.classList.remove('copied');
-                btn.title = t('preview.copy');
+                btn.title = tRef.current('preview.copy');
               }, 2000);
             };
             el.appendChild(btn);
@@ -552,8 +575,8 @@ export const Preview: React.FC<PreviewProps> = ({
           el.classList.add('has-error');
           target.innerHTML = `
             <div class="mermaid-error">
-              <div class="mermaid-error-title">⚠️ Lỗi cú pháp biểu đồ Mermaid</div>
-              <div class="mermaid-error-desc">${err?.message || 'Cú pháp không hợp lệ'}</div>
+              <div class="mermaid-error-title">${tRef.current('preview.mermaidErrorTitle')}</div>
+              <div class="mermaid-error-desc">${err?.message || tRef.current('preview.mermaidInvalidSyntax')}</div>
             </div>
           `;
         }
@@ -565,7 +588,7 @@ export const Preview: React.FC<PreviewProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [renderedHtml, theme, onToast]);
+  }, [renderedHtml, theme, t]);
 
   // 3. Right-click context menu for selected text, code blocks, or mermaid diagrams
   useEffect(() => {
@@ -581,7 +604,7 @@ export const Preview: React.FC<PreviewProps> = ({
           x: e.clientX,
           y: e.clientY,
           text: selectedText,
-          label: t('preview.copySelected'),
+          label: tRef.current('preview.copySelected'),
         });
         return;
       }
@@ -595,7 +618,7 @@ export const Preview: React.FC<PreviewProps> = ({
             x: e.clientX,
             y: e.clientY,
             text: rawCode,
-            label: t('preview.copyMermaidCode'),
+            label: tRef.current('preview.copyMermaidCode'),
           });
           return;
         }
@@ -610,7 +633,7 @@ export const Preview: React.FC<PreviewProps> = ({
           x: e.clientX,
           y: e.clientY,
           text,
-          label: t('preview.copyFullBlock'),
+          label: tRef.current('preview.copyFullBlock'),
         });
         return;
       }
@@ -620,7 +643,7 @@ export const Preview: React.FC<PreviewProps> = ({
     return () => {
       container.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, []);
+  }, [t]);
 
   // 3. Dismiss context menu on click outside or contextmenu elsewhere
   useEffect(() => {

@@ -8,6 +8,8 @@ import {
   hasSvgInClipboard,
   extractSvgFromHtml,
   extractSvgFromClipboard,
+  parseSvgLengthToPx,
+  computeSvgRenderDimensions,
 } from '../src/utils/svgPaste';
 
 // Mock ipc fetchSvgText
@@ -195,6 +197,49 @@ describe('SVG Paste Utility', () => {
 
       const svgXml = await extractSvgFromClipboard(mockClipboard);
       expect(svgXml).toBe(raw);
+    });
+  });
+
+  describe('parseSvgLengthToPx & computeSvgRenderDimensions (HiDPI clarity)', () => {
+    it('ignores percentage dimensions and converts CSS length units accurately', () => {
+      expect(parseSvgLengthToPx('100%')).toBeNull();
+      expect(parseSvgLengthToPx('50%')).toBeNull();
+      expect(parseSvgLengthToPx('120')).toBe(120);
+      expect(parseSvgLengthToPx('120px')).toBe(120);
+      expect(parseSvgLengthToPx('90pt')).toBeCloseTo(120, 1);
+      expect(parseSvgLengthToPx('1in')).toBe(96);
+    });
+
+    it('uses viewBox instead of 100 when SVG specifies width="100%" height="100%" and oversamples for HiDPI sharpness', () => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 1200 620"><rect width="1200" height="620"/></svg>',
+        'image/svg+xml'
+      );
+      const svgEl = doc.querySelector('svg')!;
+      const dims = computeSvgRenderDimensions(svgEl, 1.5);
+
+      expect(dims.displayWidth).toBe(1200);
+      expect(dims.displayHeight).toBe(620);
+      expect(dims.rasterScale).toBeGreaterThanOrEqual(2);
+      expect(dims.rasterWidth).toBeGreaterThanOrEqual(2400);
+      expect(dims.rasterHeight).toBeGreaterThanOrEqual(1240);
+      expect(dims.rasterWidth).toBeLessThanOrEqual(3600);
+    });
+
+    it('oversamples medium diagrams 3x while preserving logical display width', () => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><circle cx="300" cy="200" r="100"/></svg>',
+        'image/svg+xml'
+      );
+      const svgEl = doc.querySelector('svg')!;
+      const dims = computeSvgRenderDimensions(svgEl, 1);
+
+      expect(dims.displayWidth).toBe(600);
+      expect(dims.displayHeight).toBe(400);
+      expect(dims.rasterWidth).toBe(1800);
+      expect(dims.rasterHeight).toBe(1200);
     });
   });
 });

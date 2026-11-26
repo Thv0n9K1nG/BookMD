@@ -1,5 +1,6 @@
 import { invoke, convertFileSrc as tauriConvertFileSrc } from '@tauri-apps/api/core';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
+import { getStoredLanguage, translate } from '../i18n';
 import {
   WorkspaceInfo,
   FileEntry,
@@ -106,12 +107,13 @@ function getMockTree(): FileEntry[] {
 }
 
 export async function selectWorkspaceFolder(): Promise<string | null> {
+  const lang = getStoredLanguage();
   if (isTauri) {
     try {
       const selected = await openDialog({
         directory: true,
         multiple: false,
-        title: 'Chọn thư mục Workspace cho BookMD',
+        title: translate(lang, 'ipc.selectWorkspaceTitle'),
       });
       if (typeof selected === 'string') return selected;
       if (Array.isArray(selected) && (selected as string[]).length > 0) return (selected as string[])[0];
@@ -120,16 +122,17 @@ export async function selectWorkspaceFolder(): Promise<string | null> {
       console.warn('Dialog open failed, falling back to prompt:', err);
     }
   }
-  return prompt('Nhập đường dẫn thư mục Workspace:', '');
+  return prompt(translate(lang, 'ipc.enterWorkspacePrompt'), '');
 }
 
 export async function selectSingleFile(): Promise<string | null> {
+  const lang = getStoredLanguage();
   if (isTauri) {
     try {
       const selected = await openDialog({
         directory: false,
         multiple: false,
-        title: 'Mở file Markdown',
+        title: translate(lang, 'ipc.openMarkdownTitle'),
         filters: [{ name: 'Markdown Document', extensions: ['md', 'markdown', 'txt'] }],
       });
       if (typeof selected === 'string') return selected;
@@ -420,6 +423,7 @@ export async function exportPdf(
 }
 
 export async function promptSavePdfPath(defaultName: string): Promise<string | null> {
+  const lang = getStoredLanguage();
   if (isTauri) {
     try {
       const selected = await saveDialog({
@@ -431,16 +435,17 @@ export async function promptSavePdfPath(defaultName: string): Promise<string | n
       console.warn('Save dialog error:', e);
     }
   }
-  return prompt('Đường dẫn xuất PDF:', defaultName.replace(/\.md$/i, '') + '.pdf');
+  return prompt(translate(lang, 'ipc.exportPdfPrompt'), defaultName.replace(/\.md$/i, '') + '.pdf');
 }
 
-export async function selectFolderDialog(title = 'Chọn thư mục'): Promise<string | null> {
+export async function selectFolderDialog(title?: string): Promise<string | null> {
+  const effectiveTitle = title || translate(getStoredLanguage(), 'ipc.selectFolderDefault');
   if (isTauri) {
     try {
       const selected = await openDialog({
         directory: true,
         multiple: false,
-        title,
+        title: effectiveTitle,
       });
       if (typeof selected === 'string') return selected;
       if (Array.isArray(selected) && (selected as string[]).length > 0) return (selected as string[])[0];
@@ -449,19 +454,20 @@ export async function selectFolderDialog(title = 'Chọn thư mục'): Promise<s
       console.warn('Folder dialog open failed:', err);
     }
   }
-  return prompt(title, '');
+  return prompt(effectiveTitle, '');
 }
 
 export async function selectFileDialog(
-  title = 'Chọn file',
+  title?: string,
   extensions?: string[]
 ): Promise<string | null> {
+  const effectiveTitle = title || translate(getStoredLanguage(), 'ipc.selectFileDefault');
   if (isTauri) {
     try {
       const selected = await openDialog({
         directory: false,
         multiple: false,
-        title,
+        title: effectiveTitle,
         filters: extensions ? [{ name: 'Allowed Files', extensions }] : undefined,
       });
       if (typeof selected === 'string') return selected;
@@ -471,7 +477,7 @@ export async function selectFileDialog(
       console.warn('File dialog open failed:', err);
     }
   }
-  return prompt(title, '');
+  return prompt(effectiveTitle, '');
 }
 
 export async function executeBackupCopy(options: BackupOptions): Promise<BackupResult> {

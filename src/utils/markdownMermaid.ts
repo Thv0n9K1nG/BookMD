@@ -1,18 +1,23 @@
 import mermaid from 'mermaid';
 
+export interface MermaidPluginOptions {
+  loadingText?: string;
+}
+
 /**
  * Markdown-it plugin for Mermaid diagram blocks (```mermaid ... ```).
  * Renders a container with data-mermaid-code that will be smoothly rendered
  * to SVG and preserved across keystrokes by morphdom.
  */
-export function markdownMermaidPlugin(md: any): void {
+export function markdownMermaidPlugin(md: any, options?: MermaidPluginOptions): void {
+  const loadingLabel = options?.loadingText || 'Đang dựng biểu đồ Mermaid...';
   const defaultFence =
     md.renderer.rules.fence ||
     function (tokens: any[], idx: number, options: any, _env: any, self: any) {
       return self.renderToken(tokens, idx, options);
     };
 
-  md.renderer.rules.fence = (tokens: any[], idx: number, options: any, env: any, self: any) => {
+  md.renderer.rules.fence = (tokens: any[], idx: number, opts: any, env: any, self: any) => {
     const token = tokens[idx];
     const info = token.info ? token.info.trim() : '';
 
@@ -23,10 +28,10 @@ export function markdownMermaidPlugin(md: any): void {
         ? ` data-source-line="${token.map[0] + 1}" data-source-end-line="${token.map[1]}"`
         : '';
 
-      return `<div class="mermaid-diagram"${lineAttr} data-mermaid-code="${encoded}"><div class="mermaid-target"><div class="mermaid-loading">Đang dựng biểu đồ Mermaid...</div></div></div>`;
+      return `<div class="mermaid-diagram"${lineAttr} data-mermaid-code="${encoded}"><div class="mermaid-target"><div class="mermaid-loading">${loadingLabel}</div></div></div>`;
     }
 
-    return defaultFence(tokens, idx, options, env, self);
+    return defaultFence(tokens, idx, opts, env, self);
   };
 }
 

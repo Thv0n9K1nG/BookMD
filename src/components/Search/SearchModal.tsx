@@ -208,9 +208,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           {!isLoading && !query.trim() && (
             <div className="search-empty-prompt">
               <SearchIcon size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
-              <div>Nhập từ khóa hoặc biểu thức Regex để tìm kiếm trong workspace</div>
+              <div>{t('search.emptyPromptTitle')}</div>
               <div style={{ fontSize: '11px', opacity: 0.6, marginTop: '4px' }}>
-                Hỗ trợ ngữ cảnh 3 dòng, khớp từ ngữ và nhảy trực tiếp tới vị trí file
+                {t('search.emptyPromptSubtitle')}
               </div>
             </div>
           )}
@@ -226,14 +226,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                     onClose();
                   }
                 }}
-                title="Mở tệp này"
+                title={t('search.openFileTooltip')}
               >
                 <div className="search-file-info">
                   <span className="search-file-icon">📄</span>
                   <span className="search-file-path">{file}</span>
                 </div>
                 <span className="search-file-badge">
-                  {items.length} {items.length === 1 ? 'kết quả' : 'kết quả'}
+                  {t('search.matchCount', { count: items.length })}
                 </span>
               </div>
 
@@ -259,7 +259,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                           onNavigate(item.file, item.line);
                           onClose();
                         }}
-                        title={`Nhảy tới dòng ${item.line} trong ${file}`}
+                        title={t('search.jumpToLineTooltip', { line: item.line, file })}
                       >
                         {/* 1. Context Line Above (dòng p - 1) */}
                         {item.lineBefore !== null && item.lineBefore !== undefined && (

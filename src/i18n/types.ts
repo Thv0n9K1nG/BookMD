@@ -1,5 +1,10 @@
 export type Language = 'vi' | 'en';
 
+export interface KeybindingTranslation {
+  name: string;
+  description: string;
+}
+
 export interface TranslationSchema {
   common: {
     ok: string;
@@ -18,6 +23,9 @@ export interface TranslationSchema {
     warning: string;
     error: string;
     success: string;
+    clearSearch: string;
+    defaultTag: string;
+    noneSelected: string;
   };
   header: {
     brandTitle: string;
@@ -134,6 +142,11 @@ export interface TranslationSchema {
     noResults: string;
     resultsCount: string;
     line: string;
+    emptyPromptTitle: string;
+    emptyPromptSubtitle: string;
+    openFileTooltip: string;
+    matchCount: string;
+    jumpToLineTooltip: string;
   };
   commandPalette: {
     placeholder: string;
@@ -159,6 +172,13 @@ export interface TranslationSchema {
     language: string;
     langVi: string;
     langEn: string;
+    languageRestartHint: string;
+    restartPromptTitle: string;
+    restartPromptDesc: string;
+    restartPromptUnsavedNote: string;
+    restartNowBtn: string;
+    saveAndRestartBtn: string;
+    restartLaterBtn: string;
     theme: string;
     themeDark: string;
     themeLight: string;
@@ -171,6 +191,7 @@ export interface TranslationSchema {
     secondsDefault: string;
     imageDirLabel: string;
     imageDirPlaceholder: string;
+    imageDirInputTitle: string;
     imageDirHint: string;
     imageDirDetailsTitle: string;
     imageDirDetail1: string;
@@ -178,6 +199,7 @@ export interface TranslationSchema {
     imageDirSessionNote: string;
     namingBaseLabel: string;
     namingBasePlaceholder: string;
+    namingBaseInputTitle: string;
     namingBaseHint: string;
     namingBaseDetail1: string;
     namingBaseDetail2: string;
@@ -191,11 +213,41 @@ export interface TranslationSchema {
     kbResetAll: string;
     kbResetAllTitle: string;
     kbPressNew: string;
+    kbCancelRecordTitle: string;
     kbResetSingleTitle: string;
     kbChangeTitle: string;
+    kbNoMatch: string;
     formattingGroup: string;
     applicationGroup: string;
+    pickerImageDirTitle: string;
+    pickerImageDirSubtitle: string;
+    pickerNamingBaseTitle: string;
+    pickerNamingBaseSubtitle: string;
     done: string;
+  };
+  keybindings: {
+    formatBold: KeybindingTranslation;
+    formatItalic: KeybindingTranslation;
+    formatInlineCode: KeybindingTranslation;
+    formatCodeBlock: KeybindingTranslation;
+    formatStrikethrough: KeybindingTranslation;
+    formatLink: KeybindingTranslation;
+    formatHeading1: KeybindingTranslation;
+    formatHeading2: KeybindingTranslation;
+    formatHeading3: KeybindingTranslation;
+    formatQuote: KeybindingTranslation;
+    formatBulletList: KeybindingTranslation;
+    formatNumberedList: KeybindingTranslation;
+    formatTaskList: KeybindingTranslation;
+    saveFile: KeybindingTranslation;
+    openFile: KeybindingTranslation;
+    openWorkspace: KeybindingTranslation;
+    toggleSidebar: KeybindingTranslation;
+    toggleToc: KeybindingTranslation;
+    searchWorkspace: KeybindingTranslation;
+    commandPalette: KeybindingTranslation;
+    toggleViewMode: KeybindingTranslation;
+    exportPdf: KeybindingTranslation;
   };
   backup: {
     title: string;
@@ -225,6 +277,44 @@ export interface TranslationSchema {
     successToast: string;
     errorToast: string;
     copiedPathToast: string;
+    unknownError: string;
+    successHeading: string;
+    successSubheading: string;
+    backupNameLabel: string;
+    filesCopiedLabel: string;
+    filesUnit: string;
+    savePathLabel: string;
+    openBackupFolder: string;
+    copyPathBtn: string;
+    step1Label: string;
+    workspaceCardTitle: string;
+    workspaceCardNotOpen: string;
+    folderCardTitle: string;
+    folderCardDesc: string;
+    fileCardTitle: string;
+    fileCardDesc: string;
+    wsPathLabel: string;
+    noWsOpen: string;
+    selectedFolderLabel: string;
+    browseFolderBtn: string;
+    noFolderSelected: string;
+    selectedFileLabel: string;
+    browseOtherFileBtn: string;
+    noFileSelected: string;
+    step2Label: string;
+    destExamplePlaceholder: string;
+    step3Label: string;
+    autoRenameTitle: string;
+    autoRenameSuffix: string;
+    autoRenameRec: string;
+    timestampTitle: string;
+    timestampExample: string;
+    overwriteTitle: string;
+    overwriteDesc: string;
+    skipIgnoredPrefix: string;
+    skipIgnoredSuffix: string;
+    backupAnotherBtn: string;
+    finishAndCloseBtn: string;
   };
   consolidate: {
     title: string;
@@ -253,6 +343,33 @@ export interface TranslationSchema {
     successToast: string;
     errorScan: string;
     errorToast: string;
+    docFallbackName: string;
+    namingRuleLabel: string;
+    namingRuleHint: string;
+    selectTargetFolderLabel: string;
+    defaultModeTitle: string;
+    defaultModeDescPrefix: string;
+    defaultModeDescSuffix: string;
+    customModeTitle: string;
+    customModePlaceholder: string;
+    operationLabel: string;
+    opMoveTitle: string;
+    opMoveDefault: string;
+    opCopyTitle: string;
+    foundImagesLabel: string;
+    rescanTitle: string;
+    scanningBanner: string;
+    emptyBanner: string;
+    skipCell: string;
+    badgeOnline: string;
+    badgeMissing: string;
+    badgeInPlace: string;
+    badgeReady: string;
+    summaryPrefix: string;
+    summarySuffix: string;
+    namingBaseDefault: string;
+    namingBaseRoot: string;
+    namingBaseFolder: string;
   };
   preview: {
     copy: string;
@@ -262,6 +379,11 @@ export interface TranslationSchema {
     copyMermaidCode: string;
     copyFullBlock: string;
     copiedToClipboard: string;
+    emptyPreview: string;
+    renderError: string;
+    mermaidErrorTitle: string;
+    mermaidInvalidSyntax: string;
+    mermaidLoading: string;
   };
   editor: {
     svgDownloading: string;
@@ -313,5 +435,42 @@ export interface TranslationSchema {
     rootWorkspace: string;
     noFoldersMatch: string;
     createNewFolderPrompt: string;
+    expandFolderTitle: string;
+    collapseFolderTitle: string;
+    subfoldersCount: string;
+    subtitleDefault: string;
+    quickPresets: string;
+    folderTreeCount: string;
+    filterByQuery: string;
+    expandAll: string;
+    expandAllTitle: string;
+    collapse: string;
+    collapseTitle: string;
+    defaultByFile: string;
+    defaultByFileDesc: string;
+    rootWorkspaceDesc: string;
+    noFoldersMatchQuery: string;
+    useAsNewPath: string;
+    createOrCustomBtn: string;
+    customPlaceholder: string;
+    createAndSelect: string;
+    selectedLabel: string;
+    rootLabel: string;
+  };
+  ipc: {
+    selectWorkspaceTitle: string;
+    enterWorkspacePrompt: string;
+    openMarkdownTitle: string;
+    selectFolderDefault: string;
+    selectFileDefault: string;
+    exportPdfPrompt: string;
+  };
+  workspaceSwitch: {
+    unsavedTitle: string;
+    unsavedSubtitle: string;
+    unsavedDesc: string;
+    saveAndSwitch: string;
+    discardAndSwitch: string;
+    cancel: string;
   };
 }

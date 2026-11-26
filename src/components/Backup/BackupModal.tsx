@@ -162,7 +162,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
       );
     } catch (err: any) {
       console.error('Backup error:', err);
-      const msg = typeof err === 'string' ? err : err?.message || 'Lỗi sao lưu không xác định';
+      const msg = typeof err === 'string' ? err : err?.message || t('backup.unknownError');
       setErrorMsg(msg);
       addToast(t('backup.errorToast', { error: msg }), 'error');
     } finally {
@@ -281,10 +281,10 @@ export const BackupModal: React.FC<BackupModalProps> = ({
 
               <div>
                 <h4 style={{ margin: 0, fontSize: '16px', color: 'var(--text-heading)' }}>
-                  Sao lưu hoàn tất thành công!
+                  {t('backup.successHeading')}
                 </h4>
                 <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                  Dữ liệu của bạn đã được sao chép an toàn đến thư mục đích.
+                  {t('backup.successSubheading')}
                 </p>
               </div>
 
@@ -303,19 +303,19 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                 }}
               >
                 <div>
-                  <span style={{ color: 'var(--text-tertiary)' }}>Tên bản sao lưu: </span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>{t('backup.backupNameLabel')} </span>
                   <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                     {backupResult.destinationName}
                   </span>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-tertiary)' }}>Số lượng file đã chép: </span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>{t('backup.filesCopiedLabel')} </span>
                   <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {backupResult.filesCopied} file
+                    {backupResult.filesCopied} {t('backup.filesUnit')}
                   </span>
                 </div>
                 <div style={{ wordBreak: 'break-all' }}>
-                  <span style={{ color: 'var(--text-tertiary)' }}>Đường dẫn lưu: </span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>{t('backup.savePathLabel')} </span>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px' }}>
                     {backupResult.destinationPath}
                   </span>
@@ -338,7 +338,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                   }}
                 >
                   <FolderOpenIcon size={15} />
-                  <span>Mở thư mục sao lưu</span>
+                  <span>{t('backup.openBackupFolder')}</span>
                 </button>
                 <button
                   type="button"
@@ -355,7 +355,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                   }}
                 >
                   <CopyIcon size={14} />
-                  <span>Sao chép đường dẫn</span>
+                  <span>{t('backup.copyPathBtn')}</span>
                 </button>
               </div>
             </div>
@@ -377,7 +377,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                 </div>
               )}
 
-              {/* 1. Chọn đối tượng sao lưu */}
+              {/* 1. Select backup target */}
               <div>
                 <label
                   style={{
@@ -388,7 +388,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                     marginBottom: '8px',
                   }}
                 >
-                  1. Chọn đối tượng cần sao lưu:
+                  {t('backup.step1Label')}
                 </label>
 
                 <div
@@ -425,10 +425,10 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                       style={{ color: scope === 'workspace' ? 'var(--accent)' : '#f59e0b' }}
                     />
                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      Workspace
+                      {t('backup.workspaceCardTitle')}
                     </span>
                     <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                      {workspace ? workspace.name : '(Chưa mở)'}
+                      {workspace ? workspace.name : t('backup.workspaceCardNotOpen')}
                     </span>
                   </div>
 
@@ -457,10 +457,10 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                       style={{ color: scope === 'folder' ? 'var(--accent)' : '#f59e0b' }}
                     />
                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      Thư mục
+                      {t('backup.folderCardTitle')}
                     </span>
                     <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                      Chọn một folder
+                      {t('backup.folderCardDesc')}
                     </span>
                   </div>
 
@@ -489,10 +489,10 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                       style={{ color: scope === 'file' ? 'var(--accent)' : 'var(--text-tertiary)' }}
                     />
                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      File
+                      {t('backup.fileCardTitle')}
                     </span>
                     <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                      Chọn một file
+                      {t('backup.fileCardDesc')}
                     </span>
                   </div>
                 </div>
@@ -510,7 +510,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                   {scope === 'workspace' && (
                     <div>
                       <div style={{ color: 'var(--text-tertiary)', marginBottom: '3px' }}>
-                        Đường dẫn thư mục Workspace:
+                        {t('backup.wsPathLabel')}
                       </div>
                       <div
                         style={{
@@ -521,7 +521,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                           wordBreak: 'break-all',
                         }}
                       >
-                        {workspace ? workspace.path : 'Không có workspace nào đang mở'}
+                        {workspace ? workspace.path : t('backup.noWsOpen')}
                       </div>
                     </div>
                   )}
@@ -529,14 +529,14 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                   {scope === 'folder' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: 'var(--text-tertiary)' }}>Thư mục đã chọn:</span>
+                        <span style={{ color: 'var(--text-tertiary)' }}>{t('backup.selectedFolderLabel')}</span>
                         <button
                           type="button"
                           className="btn btn-secondary"
                           onClick={handleBrowseSourceFolder}
                           style={{ padding: '3px 10px', fontSize: '11.5px' }}
                         >
-                          Duyệt thư mục...
+                          {t('backup.browseFolderBtn')}
                         </button>
                       </div>
                       <div
@@ -549,7 +549,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                           fontStyle: selectedFolder ? 'normal' : 'italic',
                         }}
                       >
-                        {selectedFolder || 'Chưa chọn thư mục (nhấn "Duyệt thư mục..." để chọn)'}
+                        {selectedFolder || t('backup.noFolderSelected')}
                       </div>
                     </div>
                   )}
@@ -557,14 +557,14 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                   {scope === 'file' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: 'var(--text-tertiary)' }}>File đã chọn:</span>
+                        <span style={{ color: 'var(--text-tertiary)' }}>{t('backup.selectedFileLabel')}</span>
                         <button
                           type="button"
                           className="btn btn-secondary"
                           onClick={handleBrowseSourceFile}
                           style={{ padding: '3px 10px', fontSize: '11.5px' }}
                         >
-                          Duyệt file khác...
+                          {t('backup.browseOtherFileBtn')}
                         </button>
                       </div>
                       <div
@@ -577,14 +577,14 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                           fontStyle: selectedFile ? 'normal' : 'italic',
                         }}
                       >
-                        {selectedFile || 'Chưa chọn file (nhấn "Duyệt file..." để chọn)'}
+                        {selectedFile || t('backup.noFileSelected')}
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* 2. Thư mục đích chứa bản sao lưu */}
+              {/* 2. Destination folder */}
               <div>
                 <label
                   style={{
@@ -595,7 +595,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  2. Chọn thư mục chứa bản sao lưu (Destination Folder):
+                  {t('backup.step2Label')}
                 </label>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input
@@ -606,7 +606,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                       localStorage.setItem('bookmd_last_backup_dest', e.target.value);
                       setErrorMsg(null);
                     }}
-                    placeholder="vd: D:/Backups/BookMD hoặc C:/Users/..."
+                    placeholder={t('backup.destExamplePlaceholder')}
                     style={{
                       flex: 1,
                       padding: '7px 10px',
@@ -624,12 +624,12 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                     onClick={handleBrowseDestination}
                     style={{ padding: '7px 12px', fontSize: '12px', whiteSpace: 'nowrap' }}
                   >
-                    Duyệt...
+                    {t('common.browse')}
                   </button>
                 </div>
               </div>
 
-              {/* 3. Xử lý trùng tên */}
+              {/* 3. Conflict resolution */}
               <div>
                 <label
                   style={{
@@ -640,7 +640,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  3. Xử lý khi trùng tên trong thư mục đích:
+                  {t('backup.step3Label')}
                 </label>
                 <div
                   style={{
@@ -667,9 +667,9 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                       onChange={() => setConflictStrategy('auto_rename')}
                     />
                     <span>
-                      <strong style={{ color: 'var(--text-primary)' }}>Tự động đổi tên</strong> (thêm{' '}
-                      <code>(1)</code>, <code>(2)</code>...) —{' '}
-                      <span style={{ color: '#10b981' }}>Khuyên dùng, không sợ mất file</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>{t('backup.autoRenameTitle')}</strong>{' '}
+                      {t('backup.autoRenameSuffix')} —{' '}
+                      <span style={{ color: '#10b981' }}>{t('backup.autoRenameRec')}</span>
                     </span>
                   </label>
 
@@ -690,8 +690,8 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                       onChange={() => setConflictStrategy('timestamp')}
                     />
                     <span>
-                      <strong style={{ color: 'var(--text-primary)' }}>Thêm thời gian</strong> (vd:{' '}
-                      <code>_20261111_221800</code>)
+                      <strong style={{ color: 'var(--text-primary)' }}>{t('backup.timestampTitle')}</strong>{' '}
+                      {t('backup.timestampExample')}
                     </span>
                   </label>
 
@@ -712,14 +712,14 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                       onChange={() => setConflictStrategy('overwrite')}
                     />
                     <span>
-                      <strong style={{ color: 'var(--error, #ef4444)' }}>Ghi đè</strong> lên file/thư
-                      mục cũ nếu đã tồn tại
+                      <strong style={{ color: 'var(--error, #ef4444)' }}>{t('backup.overwriteTitle')}</strong>{' '}
+                      {t('backup.overwriteDesc')}
                     </span>
                   </label>
                 </div>
               </div>
 
-              {/* 4. Tùy chọn nâng cao (Skip heavy folders) */}
+              {/* 4. Skip heavy folders */}
               {(scope === 'workspace' || scope === 'folder') && (
                 <div
                   style={{
@@ -742,8 +742,9 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                       onChange={(e) => setSkipIgnored(e.target.checked)}
                     />
                     <span>
-                      Bỏ qua các thư mục nặng (<code>node_modules</code>, <code>target</code>,{' '}
-                      <code>.git</code>, <code>venv</code>...) để sao lưu nhanh
+                      {t('backup.skipIgnoredPrefix')}
+                      <code>node_modules</code>, <code>target</code>, <code>.git</code>, <code>venv</code>...
+                      {t('backup.skipIgnoredSuffix')}
                     </span>
                   </label>
                 </div>
@@ -770,7 +771,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                 className="btn btn-secondary"
                 onClick={() => setBackupResult(null)}
               >
-                Sao lưu bản khác
+                {t('backup.backupAnotherBtn')}
               </button>
               <button
                 type="button"
@@ -778,7 +779,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
                 onClick={onClose}
                 style={{ backgroundColor: 'var(--accent)', color: '#fff' }}
               >
-                Hoàn tất & Đóng
+                {t('backup.finishAndCloseBtn')}
               </button>
             </>
           ) : (
@@ -818,4 +819,3 @@ export const BackupModal: React.FC<BackupModalProps> = ({
     </div>
   );
 };
-

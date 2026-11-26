@@ -76,15 +76,27 @@ export function attachChildrenToPath(
   });
 }
 
+function normalizeStorageWsKey(workspacePath: string): string {
+  return workspacePath
+    .trim()
+    .replace(/^\\\\\?\\/, '')
+    .replace(/^\/\/\?\//, '')
+    .replace(/\\/g, '/')
+    .replace(/\/+$/, '');
+}
+
 /**
  * Retrieves persisted expanded folder set for a workspace.
  */
 export function loadPersistedExpandedFolders(workspacePath: string): Set<string> {
   const defaultSet = new Set(['TryHackMe', 'images', 'assets', 'img']);
-  if (!workspacePath) return defaultSet;
+  const norm = normalizeStorageWsKey(workspacePath || '');
+  if (!norm) return defaultSet;
 
   try {
-    const raw = localStorage.getItem(`bookmd_expanded_${workspacePath}`);
+    const raw =
+      localStorage.getItem(`bookmd_expanded_${norm}`) ||
+      localStorage.getItem(`bookmd_expanded_${workspacePath}`);
     if (raw) {
       const arr = JSON.parse(raw);
       if (Array.isArray(arr)) {
@@ -104,10 +116,11 @@ export function savePersistedExpandedFolders(
   workspacePath: string,
   expandedFolders: Set<string>
 ): void {
-  if (!workspacePath) return;
+  const norm = normalizeStorageWsKey(workspacePath || '');
+  if (!norm) return;
   try {
     localStorage.setItem(
-      `bookmd_expanded_${workspacePath}`,
+      `bookmd_expanded_${norm}`,
       JSON.stringify(Array.from(expandedFolders))
     );
   } catch {

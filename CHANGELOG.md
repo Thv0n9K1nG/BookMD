@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-11-26
+
+### Fixed & Improved
+- **Crisp HiDPI SVG-to-PNG Rasterization (`src/utils/svgPaste.ts`)**:
+  - Fixed percentage dimension parsing bug where `parseFloat("100%")` evaluated to `100` px and skipped the `viewBox`, shrinking large diagrams into blurry `100x100` canvases. Added unit-aware `parseSvgLengthToPx` (`px`, `pt`, `pc`, `in`, `cm`, `mm`, `em`, `rem`) while ignoring `%`.
+  - Automatically synthesizes `viewBox` when missing before vector scaling and clears inline CSS `width`/`height` style overrides so SVGs rasterize cleanly at full vector fidelity.
+  - Added HiDPI oversampling (`2.5x–4x`, up to `3600px` canvas dimension) with `imageSmoothingQuality = 'high'` while returning logical display width (`naturalWidth`) so pasted diagrams render razor-sharp on HiDPI displays and PDF exports without inflating Markdown layout size.
+- **Workspace Switching & Cross-Workspace Tab Isolation (`src/App.tsx`, `src/utils/tabUtils.ts`, `src-tauri/src/workspace.rs`)**:
+  - Fixed an issue where switching between workspaces with the same folder name or identical directory structure (e.g. opening `test1/readme.md` in another workspace named `test`) opened the stale tab content from the previous workspace until manually closed.
+  - Added `workspacePath` scoping to `OpenTab`, `TabBar` keys, CodeMirror `Editor` initialization, Preview `docIdentity`, and tab lookup (`findTabForWorkspace`), alongside exact boundary checks (`isPathInsideWorkspace`) to prevent sibling directory prefix collisions.
+  - Automatically resets open tabs, cursor state, and `imageWidthCache` when switching to a different workspace, with a localized unsaved-changes confirmation dialog (*Save All & Switch / Discard & Switch / Cancel*).
+  - Stripped Windows verbatim UNC prefix (`\\?\`) in `workspace::open_workspace` and normalized expanded-folder storage keys in `treeState.ts`.
+- **Comprehensive 100% i18n Localization & Language Restart Prompt**:
+  - Eliminated all remaining hardcoded Vietnamese UI strings across `SettingsModal` (Image Handling & Keybindings tabs), `keybindings.ts` (all 22 shortcut names and descriptions), `BackupModal`, `ConsolidateImagesModal`, `ImageFolderPickerModal`, `SearchModal`, `ToolsDropdown`, `FileTree`, `PromptModal`, `Preview`, `markdownMermaid.ts`, and `ipc.ts` native dialogs.
+  - Fixed stale closures and imperative DOM tooltip/toast updates in `Preview.tsx` (adding missing `t` dependencies for copy buttons, Mermaid diagrams, and the right-click context menu).
+  - Added an interactive **Restart Confirmation Prompt** in `SettingsModal` when switching languages (including an unsaved-changes guard with *Save All & Restart*, *Restart Now*, or *Later*).
+- **Automated Tests**:
+  - Added `test/tabUtils.test.ts` (4 tests) and expanded `test/svgPaste.test.ts` and `test/i18n.test.ts` (bringing the suite to **74 passing Vitest tests** and **17 passing Cargo tests**).
+
 ## [0.2.0] - 2026-11-24
 
 ### Added & Improved

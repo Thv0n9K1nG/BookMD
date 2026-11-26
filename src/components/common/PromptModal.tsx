@@ -103,7 +103,7 @@ export const PromptModal: React.FC<PromptModalProps> = ({
               {subtitle && <div className="prompt-modal-subtitle">{subtitle}</div>}
             </div>
           </div>
-          <button className="btn btn-icon prompt-close-btn" onClick={onClose} title="Đóng (Esc)">
+          <button className="btn btn-icon prompt-close-btn" onClick={onClose} title={`${t('common.close')} (Esc)`}>
             <CloseIcon size={16} />
           </button>
         </div>

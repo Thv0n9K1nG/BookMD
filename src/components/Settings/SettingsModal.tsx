@@ -16,7 +16,7 @@ import {
   formatKeyEvent,
   getKeybinding,
 } from '../../utils/keybindings';
-import { useTranslation } from '../../i18n';
+import { Language, useTranslation } from '../../i18n';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -24,9 +24,11 @@ interface SettingsModalProps {
   initialTab?: 'general' | 'image' | 'keybindings';
   fileTree?: FileEntry[];
   workspaceName?: string;
+  hasUnsavedTabs?: boolean;
   onClose: () => void;
   onUpdateSettings: (newSettings: Partial<Settings>) => void;
   onCreateFolder?: (folderPath: string) => Promise<void>;
+  onSaveAll?: () => Promise<void>;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -35,13 +37,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialTab = 'general',
   fileTree = [],
   workspaceName,
+  hasUnsavedTabs = false,
   onClose,
   onUpdateSettings,
   onCreateFolder,
+  onSaveAll,
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'general' | 'image' | 'keybindings'>(initialTab);
   const [pickerTarget, setPickerTarget] = useState<'imageDir' | 'namingBaseDir' | null>(null);
+  const [showRestartPrompt, setShowRestartPrompt] = useState(false);
 
   // Keybindings Tab State
   const [kbSearch, setKbSearch] = useState('');
@@ -52,6 +57,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setActiveTab(initialTab);
       setRecordingAction(null);
       setKbSearch('');
+      setShowRestartPrompt(false);
     }
   }, [isOpen, initialTab]);
 
@@ -87,30 +93,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     };
   }, [recordingAction, settings.keybindings, onUpdateSettings]);
 
-  // Filtered Keybindings
+  // Filtered Keybindings (matches both localized text and shortcut combo)
   const filteredFormatting = useMemo(() => {
     const q = kbSearch.trim().toLowerCase();
-    return KEYBINDING_DEFINITIONS.filter(
-      (def) =>
-        def.category === 'formatting' &&
-        (!q ||
-          def.name.toLowerCase().includes(q) ||
-          def.description.toLowerCase().includes(q) ||
-          getKeybinding(def.id, settings.keybindings).toLowerCase().includes(q))
-    );
-  }, [kbSearch, settings.keybindings]);
+    return KEYBINDING_DEFINITIONS.filter((def) => {
+      if (def.category !== 'formatting') return false;
+      if (!q) return true;
+      const locName = t(`keybindings.${def.id}.name`).toLowerCase();
+      const locDesc = t(`keybindings.${def.id}.description`).toLowerCase();
+      return (
+        locName.includes(q) ||
+        locDesc.includes(q) ||
+        def.name.toLowerCase().includes(q) ||
+        def.description.toLowerCase().includes(q) ||
+        getKeybinding(def.id, settings.keybindings).toLowerCase().includes(q)
+      );
+    });
+  }, [kbSearch, settings.keybindings, t]);
 
   const filteredApplication = useMemo(() => {
     const q = kbSearch.trim().toLowerCase();
-    return KEYBINDING_DEFINITIONS.filter(
-      (def) =>
-        def.category === 'application' &&
-        (!q ||
-          def.name.toLowerCase().includes(q) ||
-          def.description.toLowerCase().includes(q) ||
-          getKeybinding(def.id, settings.keybindings).toLowerCase().includes(q))
-    );
-  }, [kbSearch, settings.keybindings]);
+    return KEYBINDING_DEFINITIONS.filter((def) => {
+      if (def.category !== 'application') return false;
+      if (!q) return true;
+      const locName = t(`keybindings.${def.id}.name`).toLowerCase();
+      const locDesc = t(`keybindings.${def.id}.description`).toLowerCase();
+      return (
+        locName.includes(q) ||
+        locDesc.includes(q) ||
+        def.name.toLowerCase().includes(q) ||
+        def.description.toLowerCase().includes(q) ||
+        getKeybinding(def.id, settings.keybindings).toLowerCase().includes(q)
+      );
+    });
+  }, [kbSearch, settings.keybindings, t]);
 
   const handleResetSingleKeybinding = (action: KeybindingAction) => {
     const defaultKey = DEFAULT_KEYBINDINGS_MAP[action];
@@ -129,6 +145,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     });
   };
 
+  const persistSettingsSynchronously = (nextLang?: Language) => {
+    try {
+      const { imageDir: _imgDir, imageNamingBaseDir: _namingDir, ...persistent } = settings;
+      if (nextLang) {
+        persistent.language = nextLang;
+      }
+      localStorage.setItem('bookmd_settings', JSON.stringify(persistent));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  const handleSelectLanguage = (lang: Language) => {
+    const current = settings.language || 'vi';
+    if (lang === current) return;
+    persistSettingsSynchronously(lang);
+    onUpdateSettings({ language: lang });
+    setShowRestartPrompt(true);
+  };
+
+  const handleRestartNow = async (saveFirst = false) => {
+    if (saveFirst && onSaveAll) {
+      await onSaveAll();
+    }
+    persistSettingsSynchronously();
+    window.location.reload();
+  };
+
   if (!isOpen) return null;
 
   const renderKeybindingRow = (def: (typeof KEYBINDING_DEFINITIONS)[0]) => {
@@ -136,12 +180,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const isRecording = recordingAction === def.id;
     const isCustom = currentKey !== def.defaultKey;
     const keyParts = currentKey ? currentKey.split('+') : [];
+    const locName = t(`keybindings.${def.id}.name`);
+    const locDesc = t(`keybindings.${def.id}.description`);
 
     return (
       <div key={def.id} className={`keybinding-row ${isRecording ? 'recording' : ''}`}>
         <div className="keybinding-info">
-          <div className="keybinding-name">{def.name}</div>
-          <div className="keybinding-desc">{def.description}</div>
+          <div className="keybinding-name">{locName}</div>
+          <div className="keybinding-desc">{locDesc}</div>
         </div>
 
         <div className="keybinding-action-group">
@@ -150,16 +196,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               type="button"
               className="keybinding-badge recording-pulse"
               onClick={() => setRecordingAction(null)}
-              title="Bấm để hủy ghi nhận"
+              title={t('settings.kbCancelRecordTitle')}
             >
-              <span>Nhấn tổ hợp phím mới... (Esc để hủy)</span>
+              <span>{t('settings.kbPressNew')}</span>
             </button>
           ) : (
             <button
               type="button"
               className="keybinding-badge"
               onClick={() => setRecordingAction(def.id)}
-              title="Bấm để thay đổi phím tắt này"
+              title={t('settings.kbChangeTitle')}
             >
               {keyParts.map((k, i) => (
                 <React.Fragment key={i}>
@@ -175,7 +221,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               type="button"
               className="btn btn-icon"
               onClick={() => handleResetSingleKeybinding(def.id)}
-              title={`Khôi phục mặc định: ${def.defaultKey}`}
+              title={t('settings.kbResetSingleTitle', { key: def.defaultKey })}
               style={{ padding: '4px', opacity: 0.8 }}
             >
               <RotateCcwIcon size={12} />
@@ -191,7 +237,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <div
         className="settings-overlay"
         onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
+          if (e.target === e.currentTarget && !showRestartPrompt) onClose();
         }}
       >
         <div className="settings-panel" style={{ maxWidth: '640px', width: '92%' }}>
@@ -282,17 +328,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Option 1: Image Directory */}
               <div className="settings-group">
                 <label className="settings-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>1. Thư mục lưu hình ảnh tự động (Image Directory)</span>
+                  <span>{t('settings.imageDirLabel')}</span>
                 </label>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input
                     className="settings-input"
                     value={settings.imageDir}
-                    placeholder="images/ (Mặc định: images/ cạnh file .md đang mở)"
+                    placeholder={t('settings.imageDirPlaceholder')}
                     style={{ flex: 1, cursor: 'pointer' }}
                     onClick={() => setPickerTarget('imageDir')}
                     onChange={(e) => onUpdateSettings({ imageDir: e.target.value })}
-                    title="Bấm để mở cửa sổ chọn thư mục lưu ảnh"
+                    title={t('settings.imageDirInputTitle')}
                   />
                   <button
                     type="button"
@@ -301,25 +347,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
                   >
                     <FolderIcon size={14} />
-                    <span>Duyệt cây thư mục...</span>
+                    <span>{t('common.browseFolder')}</span>
                   </button>
                 </div>
                 <span className="settings-hint">
-                  Mặc định: Tự động lưu vào thư mục <code>images/</code> đặt ngay cạnh file Markdown đang viết.
+                  {t('settings.imageDirHint')}
                 </span>
                 <details className="settings-hint-details">
                   <summary className="settings-hint-summary">
-                    <span>Xem chi tiết cách hoạt động</span>
+                    <span>{t('settings.imageDirDetailsTitle')}</span>
                   </summary>
                   <div className="settings-hint-card">
                     <p style={{ margin: '0 0 6px 0' }}>
-                      • Ảnh chụp hoặc dán từ clipboard sẽ được lưu vào thư mục <code>images/</code> nằm cùng thư mục với file <code>.md</code> đang soạn thảo (thay vì dồn về gốc workspace).
+                      • {t('settings.imageDirDetail1')}
                     </p>
                     <p style={{ margin: '0 0 6px 0' }}>
-                      • Bạn có thể bấm <strong>"Duyệt cây thư mục..."</strong> hoặc gõ đường dẫn tùy chỉnh nếu muốn gom ảnh về một thư mục riêng trong workspace.
+                      • {t('settings.imageDirDetail2')}
                     </p>
                     <p className="settings-hint-note" style={{ margin: 0 }}>
-                      * <strong>Phạm vi phiên (Session):</strong> Cài đặt này chỉ áp dụng trong phiên hiện tại và sẽ tự động khôi phục về mặc định khi bạn mở workspace khác hoặc khởi động lại ứng dụng.
+                      {t('settings.imageDirSessionNote')}
                     </p>
                   </div>
                 </details>
@@ -328,17 +374,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Option 2: Naming Base Directory */}
               <div className="settings-group">
                 <label className="settings-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>2. Thư mục mốc bắt đầu đặt tên ảnh (Naming Base Directory)</span>
+                  <span>{t('settings.namingBaseLabel')}</span>
                 </label>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input
                     className="settings-input"
                     value={settings.imageNamingBaseDir || ''}
-                    placeholder="Theo file Markdown đang viết (Mặc định: <tên_file>_1.png)"
+                    placeholder={t('settings.namingBasePlaceholder')}
                     style={{ flex: 1, cursor: 'pointer' }}
                     onClick={() => setPickerTarget('namingBaseDir')}
                     onChange={(e) => onUpdateSettings({ imageNamingBaseDir: e.target.value })}
-                    title="Bấm để chọn thư mục mốc tính tên ảnh"
+                    title={t('settings.namingBaseInputTitle')}
                   />
                   <button
                     type="button"
@@ -347,28 +393,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
                   >
                     <FolderIcon size={14} />
-                    <span>Duyệt cây thư mục...</span>
+                    <span>{t('common.browseFolder')}</span>
                   </button>
                 </div>
                 <span className="settings-hint">
-                  Mặc định: Tên ảnh được đặt trực tiếp theo tên file Markdown: <code>&lt;tên_file&gt;_1.png</code>.
+                  {t('settings.namingBaseHint')}
                 </span>
                 <details className="settings-hint-details">
                   <summary className="settings-hint-summary">
-                    <span>Xem chi tiết cách hoạt động</span>
+                    <span>{t('settings.imageDirDetailsTitle')}</span>
                   </summary>
                   <div className="settings-hint-card">
                     <p style={{ margin: '0 0 6px 0' }}>
-                      • <strong>Theo file Markdown (Mặc định):</strong> Tên ảnh là <code>&lt;tên_file_md&gt;_&lt;số&gt;.png</code> (ví dụ: <code>docker_1.png</code>), không kèm tiền tố thư mục từ workspace.
+                      • {t('settings.namingBaseDetail1')}
                     </p>
                     <p style={{ margin: '0 0 6px 0' }}>
-                      • <strong>Theo gốc Workspace (<code>/</code>):</strong> Tên ảnh sẽ ghép từ toàn bộ cấu trúc thư mục con từ gốc: <code>&lt;folder con&gt;-...-&lt;tên file md&gt;_&lt;số&gt;.png</code>.
+                      • {t('settings.namingBaseDetail2')}
                     </p>
                     <p style={{ margin: '0 0 6px 0' }}>
-                      • <strong>Theo thư mục mốc cụ thể:</strong> Tên ảnh chỉ tính từ các thư mục con bên dưới mốc đó.
+                      • {t('settings.namingBaseDetail3')}
                     </p>
                     <p className="settings-hint-note" style={{ margin: 0 }}>
-                      * <strong>Phạm vi phiên (Session):</strong> Cài đặt này chỉ áp dụng trong phiên hiện tại và sẽ tự động khôi phục về mặc định khi bạn mở workspace khác hoặc khởi động lại ứng dụng.
+                      {t('settings.imageDirSessionNote')}
                     </p>
                   </div>
                 </details>
@@ -377,9 +423,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Option 3: Image Reference Syntax (Relative vs Absolute) */}
               <div className="settings-group">
                 <label className="settings-label" style={{ fontWeight: 600 }}>
-                  3. Định dạng trích xuất đường dẫn ảnh vào tài liệu (Reference Syntax)
+                  {t('settings.refSyntaxLabel')}
                 </label>
-                <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
                     <input
                       type="radio"
@@ -388,7 +434,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       checked={settings.imageReferenceType !== 'absolute'}
                       onChange={() => onUpdateSettings({ imageReferenceType: 'relative' })}
                     />
-                    <span><strong>Đường dẫn tương đối (Relative)</strong> — <em>Khuyên dùng</em></span>
+                    <span><strong>{t('settings.refSyntaxRelative')}</strong></span>
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
                     <input
@@ -398,15 +444,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       checked={settings.imageReferenceType === 'absolute'}
                       onChange={() => onUpdateSettings({ imageReferenceType: 'absolute' })}
                     />
-                    <span><strong>Đường dẫn tuyệt đối (Absolute)</strong></span>
+                    <span><strong>{t('settings.refSyntaxAbsolute')}</strong></span>
                   </label>
                 </div>
                 <span className="settings-hint">
-                  {settings.imageReferenceType === 'absolute' ? (
-                    <>Đường dẫn ảnh sẽ được chèn dạng tuyệt đối từ ổ đĩa (VD: <code>C:/PROJECT/BookMD/notes/images/Docker-note_1.png</code>).</>
-                  ) : (
-                    <>Đường dẫn ảnh được tính tương đối từ vị trí file Markdown đang mở (VD: <code>images/Docker-note_1.png</code>). Giúp bạn dễ dàng copy, chia sẻ hoặc push Git mà không bị hỏng ảnh.</>
-                  )}
+                  {settings.imageReferenceType === 'absolute'
+                    ? t('settings.refSyntaxAbsoluteHint')
+                    : t('settings.refSyntaxRelativeHint')}
                 </span>
               </div>
             </div>
@@ -426,7 +470,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="text"
                     className="settings-input"
                     style={{ paddingLeft: '32px', fontSize: '12px' }}
-                    placeholder="Tìm kiếm phím tắt (VD: bold, in đậm, ctrl+b, save)..."
+                    placeholder={t('settings.kbSearchPlaceholder')}
                     value={kbSearch}
                     onChange={(e) => setKbSearch(e.target.value)}
                   />
@@ -435,7 +479,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="btn btn-icon"
                       style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', padding: '2px' }}
                       onClick={() => setKbSearch('')}
-                      title="Xóa tìm kiếm"
+                      title={t('common.clearSearch')}
                     >
                       <CloseIcon size={12} />
                     </button>
@@ -447,10 +491,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="btn btn-secondary"
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', padding: '6px 10px' }}
                   onClick={handleResetAllKeybindings}
-                  title="Khôi phục toàn bộ phím tắt về mặc định ban đầu"
+                  title={t('settings.kbResetAllTitle')}
                 >
                   <RotateCcwIcon size={12} />
-                  <span>Khôi phục mặc định</span>
+                  <span>{t('settings.kbResetAll')}</span>
                 </button>
               </div>
 
@@ -470,7 +514,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {filteredFormatting.length > 0 && (
                   <div className="keybinding-section">
                     <div className="keybinding-section-title">
-                      <span>✍️ Định dạng Markdown (Markdown Formatting)</span>
+                      <span>{t('settings.formattingGroup')}</span>
                       <span className="keybinding-count">({filteredFormatting.length})</span>
                     </div>
                     <div className="keybinding-list">
@@ -483,7 +527,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {filteredApplication.length > 0 && (
                   <div className="keybinding-section">
                     <div className="keybinding-section-title">
-                      <span>⚙️ Hệ thống & Điều hướng (App & Navigation)</span>
+                      <span>{t('settings.applicationGroup')}</span>
                       <span className="keybinding-count">({filteredApplication.length})</span>
                     </div>
                     <div className="keybinding-list">
@@ -494,7 +538,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {filteredFormatting.length === 0 && filteredApplication.length === 0 && (
                   <div style={{ textAlign: 'center', padding: '28px', color: 'var(--text-tertiary)', fontSize: '13px' }}>
-                    Không tìm thấy phím tắt nào khớp với "{kbSearch}".
+                    {t('settings.kbNoMatch', { query: kbSearch })}
                   </div>
                 )}
               </div>
@@ -511,18 +555,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="button"
                     className={`btn ${settings.language !== 'en' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => onUpdateSettings({ language: 'vi' })}
+                    onClick={() => handleSelectLanguage('vi')}
                   >
                     {t('settings.langVi')}
                   </button>
                   <button
                     type="button"
                     className={`btn ${settings.language === 'en' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => onUpdateSettings({ language: 'en' })}
+                    onClick={() => handleSelectLanguage('en')}
                   >
                     {t('settings.langEn')}
                   </button>
                 </div>
+                <span className="settings-hint">{t('settings.languageRestartHint')}</span>
               </div>
 
               <div className="settings-group">
@@ -618,14 +663,113 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </div>
 
+      {/* Prompt asking user to restart/reload interface after switching language */}
+      {showRestartPrompt && (
+        <div
+          className="prompt-modal-overlay"
+          style={{ zIndex: 10050 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowRestartPrompt(false);
+          }}
+        >
+          <div className="prompt-modal-dialog" style={{ maxWidth: '460px' }}>
+            <div className="prompt-modal-header" style={{ borderBottom: '1px solid var(--border-primary)' }}>
+              <div className="prompt-modal-title-group">
+                <div
+                  className="prompt-modal-icon-badge"
+                  style={{
+                    background: 'rgba(99, 102, 241, 0.14)',
+                    color: 'var(--accent)',
+                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                  }}
+                >
+                  <RotateCcwIcon size={18} />
+                </div>
+                <div>
+                  <h3 className="prompt-modal-title">{t('settings.restartPromptTitle')}</h3>
+                </div>
+              </div>
+              <button
+                className="btn btn-icon prompt-close-btn"
+                onClick={() => setShowRestartPrompt(false)}
+                title={t('common.close')}
+              >
+                <CloseIcon size={16} />
+              </button>
+            </div>
+
+            <div className="prompt-modal-body" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.55 }}>
+                {t('settings.restartPromptDesc')}
+              </div>
+
+              {hasUnsavedTabs && (
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#d97706',
+                    background: 'rgba(245, 158, 11, 0.09)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {t('settings.restartPromptUnsavedNote')}
+                </div>
+              )}
+            </div>
+
+            <div
+              className="prompt-modal-footer"
+              style={{
+                padding: '12px 20px',
+                background: 'var(--bg-secondary)',
+                borderTop: '1px solid var(--border-primary)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-secondary prompt-btn"
+                onClick={() => setShowRestartPrompt(false)}
+              >
+                {t('settings.restartLaterBtn')}
+              </button>
+
+              {hasUnsavedTabs && onSaveAll && (
+                <button
+                  type="button"
+                  className="btn btn-primary prompt-btn"
+                  onClick={() => handleRestartNow(true)}
+                >
+                  {t('settings.saveAndRestartBtn')}
+                </button>
+              )}
+
+              <button
+                type="button"
+                className={`btn ${hasUnsavedTabs ? 'btn-secondary' : 'btn-primary'} prompt-btn`}
+                onClick={() => handleRestartNow(false)}
+              >
+                {t('settings.restartNowBtn')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tree Folder Picker for Image Directory */}
       <ImageFolderPickerModal
         isOpen={pickerTarget === 'imageDir'}
         currentImageDir={settings.imageDir}
         fileTree={fileTree}
         workspaceName={workspaceName}
-        title="Chọn thư mục lưu hình ảnh tự động"
-        subtitle="Chọn một thư mục trong cây thư mục để tự động lưu ảnh paste từ clipboard"
+        title={t('settings.pickerImageDirTitle')}
+        subtitle={t('settings.pickerImageDirSubtitle')}
         defaultSearchQuery="img"
         allowRootSelect={false}
         onClose={() => setPickerTarget(null)}
@@ -639,8 +783,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         currentImageDir={settings.imageNamingBaseDir || ''}
         fileTree={fileTree}
         workspaceName={workspaceName}
-        title="Chọn thư mục mốc bắt đầu đặt tên ảnh"
-        subtitle="Chọn thư mục mốc (tên ảnh sẽ được ghép từ các thư mục con bên dưới thư mục này)"
+        title={t('settings.pickerNamingBaseTitle')}
+        subtitle={t('settings.pickerNamingBaseSubtitle')}
         defaultSearchQuery=""
         allowRootSelect={true}
         onClose={() => setPickerTarget(null)}

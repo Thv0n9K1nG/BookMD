@@ -495,7 +495,7 @@ export const Editor: React.FC<EditorProps> = ({
       view.destroy();
       viewRef.current = null;
     };
-  }, [relativePath]);
+  }, [relativePath, workspacePath]);
 
   // Restore measurements and scroll position when view becomes visible (mode switch)
   useEffect(() => {

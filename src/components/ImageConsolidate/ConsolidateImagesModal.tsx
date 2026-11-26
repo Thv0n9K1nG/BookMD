@@ -63,11 +63,11 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
       setScanResult(res);
     } catch (err: any) {
       console.error('Failed to scan document images:', err);
-      setErrorMsg(typeof err === 'string' ? err : err?.message || 'Lỗi quét hình ảnh');
+      setErrorMsg(typeof err === 'string' ? err : err?.message || t('consolidate.errorScan'));
     } finally {
       setIsScanning(false);
     }
-  }, [markdownFile, content, imageDir, imageNamingBaseDir, folderMode, customFolder]);
+  }, [markdownFile, content, imageDir, imageNamingBaseDir, folderMode, customFolder, t]);
 
   useEffect(() => {
     if (isOpen && markdownFile) {
@@ -139,7 +139,16 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
     }
   };
 
-  const docName = markdownFile ? markdownFile.split(/[\/\\]/).pop() || markdownFile : 'Tài liệu';
+  const docName = markdownFile
+    ? markdownFile.split(/[\/\\]/).pop() || markdownFile
+    : t('consolidate.docFallbackName');
+
+  const localizedNamingBaseDisplay = (() => {
+    const trimmed = (imageNamingBaseDir || '').trim();
+    if (!trimmed) return t('consolidate.namingBaseDefault');
+    if (trimmed === '/' || trimmed === '.') return t('consolidate.namingBaseRoot');
+    return t('consolidate.namingBaseFolder', { dir: trimmed });
+  })();
 
   return (
     <div
@@ -234,7 +243,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ color: 'var(--text-tertiary)' }}>Tài liệu đang xử lý:</span>
+              <span style={{ color: 'var(--text-tertiary)' }}>{t('consolidate.activeDoc')}</span>
               <span
                 style={{
                   fontWeight: 600,
@@ -263,7 +272,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <span style={{ color: 'var(--text-tertiary)' }}>Quy tắc đặt tên ảnh (Naming Base):</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>{t('consolidate.namingRuleLabel')}</span>
                 <span
                   style={{
                     backgroundColor: 'var(--bg-tertiary)',
@@ -279,11 +288,11 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                   {scanResult?.namePrefix ? `${scanResult.namePrefix}_N.<ext>` : 'note_N.png'}
                 </span>
                 <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
-                  ({scanResult?.namingBaseDirDisplay || 'Mặc định'})
+                  ({localizedNamingBaseDisplay})
                 </span>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-                ℹ️ Quy tắc đặt tên đang lấy theo Cài đặt: Xử lý hình ảnh (Naming Base Directory). Để thay đổi quy tắc, vui lòng vào Cài đặt &gt; Xử lý hình ảnh.
+                {t('consolidate.namingRuleHint')}
               </div>
             </div>
           </div>
@@ -299,7 +308,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                 marginBottom: '8px',
               }}
             >
-              Chọn thư mục lưu trữ cho toàn bộ file ảnh:
+              {t('consolidate.selectTargetFolderLabel')}
             </label>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -329,10 +338,10 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                 />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>
-                    Thư mục tự động theo cài đặt (Mặc định)
+                    {t('consolidate.defaultModeTitle')}
                   </div>
                   <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                    Lưu vào thư mục: <code>{imageDir || 'images'}</code> (nằm ngay cạnh file Markdown đang viết)
+                    {t('consolidate.defaultModeDescPrefix')} <code>{imageDir || 'images'}</code> {t('consolidate.defaultModeDescSuffix')}
                   </div>
                 </div>
               </label>
@@ -363,7 +372,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                 />
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>
-                    Chọn thư mục khác...
+                    {t('consolidate.customModeTitle')}
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <input
@@ -373,7 +382,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                         setCustomFolder(e.target.value);
                         setFolderMode('custom');
                       }}
-                      placeholder="vd: C:/Storage/Images hoặc assets/my_images"
+                      placeholder={t('consolidate.customModePlaceholder')}
                       onClick={() => setFolderMode('custom')}
                       style={{
                         flex: 1,
@@ -392,7 +401,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                       onClick={handleBrowseCustomFolder}
                       style={{ padding: '6px 12px', fontSize: '12px', whiteSpace: 'nowrap' }}
                     >
-                      Duyệt...
+                      {t('common.browse')}
                     </button>
                   </div>
                 </div>
@@ -401,8 +410,8 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
           </div>
 
           {/* Section: Operation Option (Move vs Copy) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12.5px' }}>
-            <span style={{ color: 'var(--text-tertiary)' }}>Phương thức:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12.5px', flexWrap: 'wrap' }}>
+            <span style={{ color: 'var(--text-tertiary)' }}>{t('consolidate.operationLabel')}</span>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
               <input
                 type="radio"
@@ -410,7 +419,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                 checked={operation === 'move'}
                 onChange={() => setOperation('move')}
               />
-              <span>Di chuyển (Chuyển hẳn sang thư mục mới) — <span style={{ color: '#10b981' }}>Mặc định</span></span>
+              <span>{t('consolidate.opMoveTitle')} — <span style={{ color: '#10b981' }}>{t('consolidate.opMoveDefault')}</span></span>
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
               <input
@@ -419,7 +428,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                 checked={operation === 'copy'}
                 onChange={() => setOperation('copy')}
               />
-              <span>Sao chép (Giữ lại file ảnh gốc)</span>
+              <span>{t('consolidate.opCopyTitle')}</span>
             </label>
           </div>
 
@@ -434,14 +443,14 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
               }}
             >
               <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-heading)' }}>
-                Danh sách ảnh tìm thấy trong tài liệu ({scanResult?.items.length || 0}):
+                {t('consolidate.foundImagesLabel', { count: scanResult?.items.length || 0 })}
               </label>
               <button
                 type="button"
                 className="btn btn-icon"
                 onClick={runScan}
                 disabled={isScanning}
-                title="Quét lại"
+                title={t('consolidate.rescanTitle')}
                 style={{ padding: '3px' }}
               >
                 <RefreshIcon size={13} />
@@ -459,7 +468,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                   borderRadius: '6px',
                 }}
               >
-                Đang quét đường dẫn hình ảnh trong tài liệu...
+                {t('consolidate.scanningBanner')}
               </div>
             ) : !scanResult || scanResult.items.length === 0 ? (
               <div
@@ -473,7 +482,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                   border: '1px dashed var(--border-primary)',
                 }}
               >
-                Không tìm thấy ảnh nào được trích dẫn trong file Markdown này.
+                {t('consolidate.emptyBanner')}
               </div>
             ) : (
               <div
@@ -497,10 +506,10 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                         zIndex: 1,
                       }}
                     >
-                      <th style={{ padding: '6px 10px', width: '32px' }}>#</th>
-                      <th style={{ padding: '6px 10px' }}>Đường dẫn hiện tại</th>
-                      <th style={{ padding: '6px 10px' }}>Tên & Vị trí chuẩn hóa mới</th>
-                      <th style={{ padding: '6px 10px', width: '140px', textAlign: 'center' }}>Trạng thái</th>
+                      <th style={{ padding: '6px 10px', width: '32px' }}>{t('consolidate.colIndex')}</th>
+                      <th style={{ padding: '6px 10px' }}>{t('consolidate.colOriginal')}</th>
+                      <th style={{ padding: '6px 10px' }}>{t('consolidate.colTarget')}</th>
+                      <th style={{ padding: '6px 10px', width: '140px', textAlign: 'center' }}>{t('consolidate.colStatus')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -538,7 +547,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                               </div>
                             ) : (
                               <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-                                (Bỏ qua)
+                                {t('consolidate.skipCell')}
                               </span>
                             )}
                           </td>
@@ -556,7 +565,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                                   border: '1px solid rgba(168, 85, 247, 0.25)',
                                 }}
                               >
-                                🌐 Online (Bỏ qua)
+                                {t('consolidate.badgeOnline')}
                               </span>
                             ) : !item.exists ? (
                               <span
@@ -571,7 +580,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                                   border: '1px solid rgba(239, 68, 68, 0.25)',
                                 }}
                               >
-                                ⚠️ Không tồn tại
+                                {t('consolidate.badgeMissing')}
                               </span>
                             ) : item.isAlreadyInPlace ? (
                               <span
@@ -586,7 +595,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                                   border: '1px solid rgba(245, 158, 11, 0.25)',
                                 }}
                               >
-                                ℹ️ Đã đúng vị trí
+                                {t('consolidate.badgeInPlace')}
                               </span>
                             ) : (
                               <span
@@ -601,7 +610,7 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
                                   border: '1px solid rgba(16, 185, 129, 0.25)',
                                 }}
                               >
-                                ✓ Sẵn sàng đồng bộ
+                                {t('consolidate.badgeReady')}
                               </span>
                             )}
                           </td>
@@ -629,11 +638,11 @@ export const ConsolidateImagesModal: React.FC<ConsolidateImagesModalProps> = ({
           <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
             {scanResult ? (
               <span>
-                Tìm thấy{' '}
+                {t('consolidate.summaryPrefix')}{' '}
                 <strong style={{ color: scanResult.validCount > 0 ? '#10b981' : 'var(--text-primary)' }}>
                   {scanResult.validCount}
                 </strong>{' '}
-                ảnh hợp lệ sẵn sàng gom vào thư mục đích.
+                {t('consolidate.summarySuffix')}
               </span>
             ) : null}
           </div>

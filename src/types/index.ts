@@ -55,6 +55,7 @@ export type Theme = 'dark' | 'light';
 
 export interface OpenTab {
   relativePath: string;
+  workspacePath?: string;
   name: string;
   content: string;
   savedContent: string;

@@ -40,7 +40,7 @@ pub fn open_workspace(path: &str) -> Result<WorkspaceInfo, AppError> {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| path.to_string());
     Ok(WorkspaceInfo {
-        path: p.canonicalize()?.to_string_lossy().to_string(),
+        path: crate::image::clean_path_string(&p.canonicalize()?),
         name,
     })
 }

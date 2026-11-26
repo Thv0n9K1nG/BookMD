@@ -29,7 +29,7 @@ export const TabBar: React.FC<TabBarProps> = ({
           const isActive = tab.relativePath === activePath;
           return (
             <div
-              key={tab.relativePath}
+              key={`${tab.workspacePath || ''}:${tab.relativePath}`}
               className={`tab ${isActive ? 'active' : ''}`}
               onClick={() => onSelectTab(tab.relativePath)}
               onMouseDown={(e) => {

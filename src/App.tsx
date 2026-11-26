@@ -28,7 +28,12 @@ import {
   resolvePathTarget,
   isTauri,
 } from './services/ipc';
-import { normalizePathSegments } from './utils/imagePath';
+import { clearImageWidthCache, normalizePathSegments } from './utils/imagePath';
+import {
+  isSameWorkspace,
+  isPathInsideWorkspace,
+  findTabForWorkspace,
+} from './utils/tabUtils';
 import { Header } from './components/Header/Header';
 import { FileTree } from './components/Sidebar/FileTree';
 import { TabBar } from './components/Tabs/TabBar';
@@ -44,6 +49,7 @@ import { PromptModal } from './components/common/PromptModal';
 import { ConfirmDeleteModal } from './components/common/ConfirmDeleteModal';
 import { BackupModal } from './components/Backup/BackupModal';
 import { ConsolidateImagesModal } from './components/ImageConsolidate/ConsolidateImagesModal';
+import { CloseIcon, FolderOpenIcon } from './components/common/Icons';
 import { generatePrintHtml, printHtmlViaIframe } from './utils/exportPdf';
 import {
   getKeybinding,
@@ -135,6 +141,19 @@ export const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [targetLine, setTargetLine] = useState<number | undefined>(undefined);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+  const [pendingWorkspaceSwitch, setPendingWorkspaceSwitch] = useState<{
+    targetPath: string;
+    fileNames: string[];
+  } | null>(null);
+
+  const workspaceRef = useRef<WorkspaceInfo | null>(workspace);
+  workspaceRef.current = workspace;
+
+  const tabsRef = useRef<OpenTab[]>(tabs);
+  tabsRef.current = tabs;
+
+  const activePathRef = useRef<string | null>(activePath);
+  activePathRef.current = activePath;
 
   // Modals & Panels
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -181,15 +200,47 @@ export const App: React.FC = () => {
   // Ref to handleOpenFile to avoid circular dependency in handleOpenWorkspace
   const handleOpenFileRef = useRef<((entry: FileEntry, line?: number) => Promise<void>) | null>(null);
 
-  // Open Workspace Action
-  const handleOpenWorkspace = useCallback(async (path?: string, isInitialAutoOpen = false) => {
+  // Reset all tab & editor state when moving to a different workspace
+  const resetWorkspaceTabs = useCallback(() => {
+    tabsRef.current = [];
+    activePathRef.current = null;
+    setTabs([]);
+    setActivePath(null);
+    setTargetLine(undefined);
+    setCursorPos({ line: 1, col: 1 });
+    clearImageWidthCache();
+  }, []);
+
+  // Save all currently dirty tabs within the active workspace
+  const handleSaveAllDirtyTabs = useCallback(async () => {
+    const dirty = tabsRef.current.filter((tab) => tab.isDirty);
+    if (dirty.length === 0) return;
+
+    for (const tab of dirty) {
+      await writeFile(tab.relativePath, tab.content);
+    }
+
+    setTabs((prev) => {
+      const next = prev.map((tab) =>
+        tab.isDirty ? { ...tab, savedContent: tab.content, isDirty: false } : tab
+      );
+      tabsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  // Core workspace loader (after dirty-tab handling)
+  const proceedOpenWorkspace = useCallback(async (selectedPath: string, isInitialAutoOpen = false) => {
     try {
-      const selectedPath = path || (await selectWorkspaceFolder());
-      if (!selectedPath) return;
+      const switchingToDifferentWs = !isSameWorkspace(workspaceRef.current?.path, selectedPath);
+      if (switchingToDifferentWs) {
+        resetWorkspaceTabs();
+      }
 
       const wsInfo = await openWorkspace(selectedPath);
+      workspaceRef.current = wsInfo;
       setWorkspace(wsInfo);
-      localStorage.setItem('bookmd_last_workspace', selectedPath);
+      localStorage.setItem('bookmd_last_workspace', wsInfo.path || selectedPath);
 
       // Reset session-scoped image handling settings on workspace change
       setSettings((prev) => ({
@@ -199,7 +250,7 @@ export const App: React.FC = () => {
       }));
 
       // Restore persisted expanded folders for this workspace
-      const persistedExpanded = loadPersistedExpandedFolders(selectedPath);
+      const persistedExpanded = loadPersistedExpandedFolders(wsInfo.path || selectedPath);
       setExpandedFolders(persistedExpanded);
 
       let tree = await getWorkspaceTree();
@@ -215,7 +266,7 @@ export const App: React.FC = () => {
         addToast(t('toasts.workspaceOpened', { name: wsInfo.name }), 'success');
       }
 
-      // Auto open README.md if present
+      // Auto open README.md if present (only if switching workspaces or no tab active)
       const findReadme = (entries: FileEntry[]): FileEntry | undefined => {
         for (const e of entries) {
           if (e.name.toLowerCase() === 'readme.md') return e;
@@ -227,8 +278,8 @@ export const App: React.FC = () => {
         return undefined;
       };
       const readme = findReadme(tree);
-      if (readme) {
-        handleOpenFileRef.current?.(readme);
+      if (readme && (switchingToDifferentWs || !activePathRef.current)) {
+        await handleOpenFileRef.current?.(readme);
       }
     } catch (err: any) {
       console.error('Open workspace error:', err);
@@ -239,7 +290,38 @@ export const App: React.FC = () => {
         addToast(t('toasts.workspaceError', { error: err?.message || err }), 'error');
       }
     }
-  }, [addToast, t]);
+  }, [addToast, resetWorkspaceTabs, t]);
+
+  // Open Workspace Action
+  const handleOpenWorkspace = useCallback(async (path?: string, isInitialAutoOpen = false) => {
+    try {
+      const selectedPath = path || (await selectWorkspaceFolder());
+      if (!selectedPath) return;
+
+      const switchingToDifferentWs =
+        Boolean(workspaceRef.current) && !isSameWorkspace(workspaceRef.current?.path, selectedPath);
+
+      if (switchingToDifferentWs && !isInitialAutoOpen) {
+        const dirtyTabs = tabsRef.current.filter((tab) => tab.isDirty);
+        if (dirtyTabs.length > 0) {
+          if (settingsRef.current.autoSave) {
+            await handleSaveAllDirtyTabs();
+          } else {
+            setPendingWorkspaceSwitch({
+              targetPath: selectedPath,
+              fileNames: dirtyTabs.map((tab) => tab.name),
+            });
+            return;
+          }
+        }
+      }
+
+      await proceedOpenWorkspace(selectedPath, isInitialAutoOpen);
+    } catch (err: any) {
+      console.error('Open workspace error:', err);
+      addToast(t('toasts.workspaceError', { error: err?.message || err }), 'error');
+    }
+  }, [proceedOpenWorkspace, handleSaveAllDirtyTabs, addToast, t]);
 
   // Load directory children on demand for lazy expansion
   const handleLoadFolderChildren = useCallback(async (folderPath: string) => {
@@ -381,8 +463,10 @@ export const App: React.FC = () => {
   const handleOpenFile = useCallback(async (entry: FileEntry, line?: number) => {
     if (entry.kind !== 'file') return;
 
-    const existing = tabs.find((t) => t.relativePath === entry.relativePath);
+    const currentWsPath = workspaceRef.current?.path;
+    const existing = findTabForWorkspace(tabsRef.current, entry.relativePath, currentWsPath);
     if (existing) {
+      activePathRef.current = entry.relativePath;
       setActivePath(entry.relativePath);
       if (line) setTargetLine(line);
       return;
@@ -392,20 +476,29 @@ export const App: React.FC = () => {
       const content = await readFile(entry.relativePath);
       const newTab: OpenTab = {
         relativePath: entry.relativePath,
+        workspacePath: currentWsPath,
         name: entry.name,
         content,
         savedContent: content,
         isDirty: false,
         cursorLine: line,
       };
-      setTabs((prev) => [...prev, newTab]);
+      setTabs((prev) => {
+        if (findTabForWorkspace(prev, entry.relativePath, currentWsPath)) {
+          return prev;
+        }
+        const next = [...prev, newTab];
+        tabsRef.current = next;
+        return next;
+      });
+      activePathRef.current = entry.relativePath;
       setActivePath(entry.relativePath);
       if (line) setTargetLine(line);
     } catch (err: any) {
       console.error('Read file error:', err);
       addToast(t('toasts.fileReadError', { error: err?.message || err }), 'error');
     }
-  }, [tabs, addToast, t]);
+  }, [addToast, t]);
   handleOpenFileRef.current = handleOpenFile;
 
   // Open any path (file or workspace folder)
@@ -416,14 +509,16 @@ export const App: React.FC = () => {
 
       try {
         const target = await resolvePathTarget(cleanPath);
-
-        const normTargetWorkspace = target.workspacePath.replace(/\\/g, '/').toLowerCase();
-        const normCurrentWorkspace = workspace?.path ? workspace.path.replace(/\\/g, '/').toLowerCase() : '';
+        const currentWsPath = workspaceRef.current?.path;
 
         if (target.isFile) {
-          // Check if file is already inside the current open workspace
-          if (workspace && normTargetWorkspace.startsWith(normCurrentWorkspace) && normCurrentWorkspace.length > 0) {
-            const wsPathClean = workspace.path.replace(/\\/g, '/');
+          // Check if file is actually inside the current open workspace (with slash boundary)
+          if (
+            currentWsPath &&
+            (isPathInsideWorkspace(cleanPath, currentWsPath) ||
+              isPathInsideWorkspace(target.workspacePath, currentWsPath))
+          ) {
+            const wsPathClean = currentWsPath.replace(/\\/g, '/').replace(/\/+$/, '');
             const cleanTargetFile = cleanPath.replace(/\\/g, '/');
             let rel = cleanTargetFile;
             if (cleanTargetFile.toLowerCase().startsWith(wsPathClean.toLowerCase() + '/')) {
@@ -440,10 +535,18 @@ export const App: React.FC = () => {
             return;
           }
 
-          // Otherwise, file is outside current workspace: open its parent folder as workspace
+          // Otherwise, file is outside current workspace: flush/reset tabs cleanly before switching workspace
+          if (currentWsPath && !isSameWorkspace(currentWsPath, target.workspacePath)) {
+            if (settingsRef.current.autoSave) {
+              await handleSaveAllDirtyTabs();
+            }
+            resetWorkspaceTabs();
+          }
+
           const wsInfo = await openWorkspace(target.workspacePath);
+          workspaceRef.current = wsInfo;
           setWorkspace(wsInfo);
-          localStorage.setItem('bookmd_last_workspace', target.workspacePath);
+          localStorage.setItem('bookmd_last_workspace', wsInfo.path || target.workspacePath);
           const tree = await getWorkspaceTree();
           setFileTree(tree);
 
@@ -464,7 +567,7 @@ export const App: React.FC = () => {
         addToast(t('toasts.openError', { error: err?.message || err }), 'error');
       }
     },
-    [workspace, handleOpenWorkspace, handleOpenFile, addToast, t]
+    [handleOpenWorkspace, handleOpenFile, handleSaveAllDirtyTabs, resetWorkspaceTabs, addToast, t]
   );
 
   // Open single file dialog action
@@ -531,12 +634,11 @@ export const App: React.FC = () => {
       }
       setTabs((prev) => {
         const nextTabs = prev.filter((t) => t.relativePath !== path);
+        tabsRef.current = nextTabs;
         if (activePath === path) {
-          if (nextTabs.length > 0) {
-            setActivePath(nextTabs[nextTabs.length - 1].relativePath);
-          } else {
-            setActivePath(null);
-          }
+          const nextActive = nextTabs.length > 0 ? nextTabs[nextTabs.length - 1].relativePath : null;
+          activePathRef.current = nextActive;
+          setActivePath(nextActive);
         }
         return nextTabs;
       });
@@ -1202,7 +1304,9 @@ export const App: React.FC = () => {
         settings={settings}
         fileTree={fileTree}
         workspaceName={workspace?.name}
+        hasUnsavedTabs={tabs.some((tab) => tab.isDirty)}
         onClose={() => setIsSettingsOpen(false)}
+        onSaveAll={handleSaveAllDirtyTabs}
         onUpdateSettings={(newSettings) => {
           setSettings((prev) => ({ ...prev, ...newSettings }));
           if (newSettings.imageDir !== undefined) {
@@ -1307,6 +1411,99 @@ export const App: React.FC = () => {
         }}
         addToast={addToast}
       />
+
+      {pendingWorkspaceSwitch && (
+        <div
+          className="prompt-modal-overlay"
+          style={{ zIndex: 10040 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPendingWorkspaceSwitch(null);
+          }}
+        >
+          <div className="prompt-modal-dialog" style={{ maxWidth: '470px' }}>
+            <div className="prompt-modal-header" style={{ borderBottom: '1px solid var(--border-primary)' }}>
+              <div className="prompt-modal-title-group">
+                <div
+                  className="prompt-modal-icon-badge"
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.14)',
+                    color: '#f59e0b',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                  }}
+                >
+                  <FolderOpenIcon size={18} />
+                </div>
+                <div>
+                  <h3 className="prompt-modal-title">{t('workspaceSwitch.unsavedTitle')}</h3>
+                  <div className="prompt-modal-subtitle">{t('workspaceSwitch.unsavedSubtitle')}</div>
+                </div>
+              </div>
+              <button
+                className="btn btn-icon prompt-close-btn"
+                onClick={() => setPendingWorkspaceSwitch(null)}
+                title={t('common.close')}
+              >
+                <CloseIcon size={16} />
+              </button>
+            </div>
+
+            <div className="prompt-modal-body" style={{ padding: '16px 20px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.55 }}>
+                {t('workspaceSwitch.unsavedDesc', { files: pendingWorkspaceSwitch.fileNames.join(', ') })}
+              </div>
+            </div>
+
+            <div
+              className="prompt-modal-footer"
+              style={{
+                padding: '12px 20px',
+                background: 'var(--bg-secondary)',
+                borderTop: '1px solid var(--border-primary)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-secondary prompt-btn"
+                onClick={() => setPendingWorkspaceSwitch(null)}
+              >
+                {t('workspaceSwitch.cancel')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary prompt-btn"
+                onClick={async () => {
+                  const target = pendingWorkspaceSwitch.targetPath;
+                  setPendingWorkspaceSwitch(null);
+                  await proceedOpenWorkspace(target, false);
+                }}
+              >
+                {t('workspaceSwitch.discardAndSwitch')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary prompt-btn"
+                onClick={async () => {
+                  const target = pendingWorkspaceSwitch.targetPath;
+                  setPendingWorkspaceSwitch(null);
+                  try {
+                    await handleSaveAllDirtyTabs();
+                  } catch (err: any) {
+                    addToast(t('toasts.fileSaveError', { error: err?.message || err }), 'error');
+                    return;
+                  }
+                  await proceedOpenWorkspace(target, false);
+                }}
+              >
+                {t('workspaceSwitch.saveAndSwitch')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ToastContainer toasts={toasts} />
     </div>

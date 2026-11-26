@@ -126,6 +126,13 @@ export function cacheImageWidth(rawSrc: string, width: number): void {
 }
 
 /**
+ * Clears cached image natural widths (e.g. when switching to another workspace).
+ */
+export function clearImageWidthCache(): void {
+  imageWidthCache.clear();
+}
+
+/**
  * Loads an image from a URL, Blob URL, or base64 data URI and returns its natural width.
  */
 export function getImageNaturalWidth(srcUrl: string): Promise<number | null> {

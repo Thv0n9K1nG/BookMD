@@ -132,7 +132,7 @@ export const ToolsDropdown: React.FC<ToolsDropdownProps> = ({
               justifyContent: 'space-between',
             }}
           >
-            <span>Bộ công cụ (Tools)</span>
+            <span>{t('tools.title')}</span>
             <span style={{ fontSize: '10px', opacity: 0.8 }}>BookMD</span>
           </div>
 

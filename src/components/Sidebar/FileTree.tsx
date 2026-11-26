@@ -53,6 +53,7 @@ const TreeItem: React.FC<TreeItemProps> = ({
   onSelectFile,
   onContextMenu,
 }) => {
+  const { t } = useTranslation();
   const isDir = entry.kind === 'directory';
   const isExpanded = isDir && expandedFolders.has(entry.relativePath);
   const isActive = entry.relativePath === activeFile;
@@ -144,7 +145,7 @@ const TreeItem: React.FC<TreeItemProps> = ({
               paddingBottom: '3px',
             }}
           >
-            Đang tải...
+            {t('common.loading')}
           </div>
         )
       )}
