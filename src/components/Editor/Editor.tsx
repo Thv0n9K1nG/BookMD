@@ -12,7 +12,7 @@ import {
   getCachedImageWidth,
   getImageNaturalWidth,
 } from '../../utils/imagePath';
-import { Theme, Settings, KeybindingAction } from '../../types';
+import { Theme, Settings, KeybindingAction, ViewMode } from '../../types';
 import {
   getKeybinding,
   matchKeybinding,
@@ -24,6 +24,11 @@ import {
   extractSvgFromClipboard,
   convertSvgXmlToPngBase64,
 } from '../../utils/svgPaste';
+import {
+  getFileSessionState,
+  saveEditorSessionState,
+  clampSelectionToDoc,
+} from '../../utils/editorSession';
 import { useTranslation } from '../../i18n';
 
 interface EditorProps {
@@ -33,6 +38,8 @@ interface EditorProps {
   theme: Theme;
   settings: Settings;
   targetLine?: number;
+  targetLineKey?: number;
+  viewMode?: ViewMode;
   isVisible?: boolean;
   onChange: (value: string) => void;
   onSave: () => void;
@@ -48,6 +55,8 @@ export const Editor: React.FC<EditorProps> = ({
   theme,
   settings,
   targetLine,
+  targetLineKey,
+  viewMode,
   isVisible = true,
   onChange,
   onSave,
@@ -63,6 +72,10 @@ export const Editor: React.FC<EditorProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const savedScrollTopRef = useRef<number>(0);
+  const isVisibleRef = useRef<boolean>(isVisible);
+  isVisibleRef.current = isVisible;
+  const wasVisibleRef = useRef<boolean>(isVisible);
+  const isRestoringScrollRef = useRef<boolean>(false);
   const contentRef = useRef(content);
   contentRef.current = content;
 
@@ -72,6 +85,12 @@ export const Editor: React.FC<EditorProps> = ({
 
   const workspacePathRef = useRef(workspacePath);
   workspacePathRef.current = workspacePath;
+
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const onCursorChangeRef = useRef(onCursorChange);
+  onCursorChangeRef.current = onCursorChange;
 
   const onToastRef = useRef(onToast);
   onToastRef.current = onToast;
@@ -358,8 +377,14 @@ export const Editor: React.FC<EditorProps> = ({
       return false;
     });
 
+    const savedSession = getFileSessionState(relativePath, workspacePath);
+    const initialSelection = savedSession
+      ? clampSelectionToDoc(content.length, savedSession.anchor, savedSession.head)
+      : { anchor: 0, head: 0 };
+
     const startState = EditorState.create({
       doc: content,
+      selection: initialSelection,
       extensions: [
         lineNumbersCompartment.current.of(settings.lineNumbers ? lineNumbers() : []),
         highlightActiveLineGutter(),
@@ -464,12 +489,22 @@ export const Editor: React.FC<EditorProps> = ({
           if (update.docChanged) {
             const newDoc = update.state.doc.toString();
             contentRef.current = newDoc;
-            onChange(newDoc);
+            onChangeRef.current(newDoc);
           }
           if (update.selectionSet || update.docChanged) {
-            const pos = update.state.selection.main.head;
-            const line = update.state.doc.lineAt(pos);
-            onCursorChange?.(line.number, pos - line.from + 1);
+            const sel = update.state.selection.main;
+            const line = update.state.doc.lineAt(sel.head);
+            const col = sel.head - line.from + 1;
+            onCursorChangeRef.current?.(line.number, col);
+            saveEditorSessionState(relativePath, workspacePath, {
+              anchor: sel.anchor,
+              head: sel.head,
+              line: line.number,
+              col,
+              editorScrollTop: isVisibleRef.current
+                ? update.view.scrollDOM.scrollTop
+                : savedScrollTopRef.current,
+            });
           }
         }),
       ],
@@ -482,36 +517,120 @@ export const Editor: React.FC<EditorProps> = ({
 
     viewRef.current = view;
 
+    // Sync initial/restored cursor position immediately with StatusBar and Preview
+    const restoredLine = startState.doc.lineAt(initialSelection.head);
+    onCursorChangeRef.current?.(
+      restoredLine.number,
+      initialSelection.head - restoredLine.from + 1
+    );
+
+    const restoredScroll = savedSession?.editorScrollTop || 0;
+    savedScrollTopRef.current = restoredScroll;
+
     const scroller = view.scrollDOM;
     const handleScroll = () => {
-      if (scroller.scrollTop > 0) {
-        savedScrollTopRef.current = scroller.scrollTop;
-      }
+      if (!isVisibleRef.current || isRestoringScrollRef.current) return;
+      savedScrollTopRef.current = scroller.scrollTop;
+      saveEditorSessionState(relativePath, workspacePath, {
+        editorScrollTop: scroller.scrollTop,
+      });
     };
     scroller.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
+      const sel = view.state.selection.main;
+      const line = view.state.doc.lineAt(sel.head);
+      saveEditorSessionState(relativePath, workspacePath, {
+        anchor: sel.anchor,
+        head: sel.head,
+        line: line.number,
+        col: sel.head - line.from + 1,
+        editorScrollTop: isVisibleRef.current ? scroller.scrollTop : savedScrollTopRef.current,
+      });
       scroller.removeEventListener('scroll', handleScroll);
       view.destroy();
       viewRef.current = null;
     };
   }, [relativePath, workspacePath]);
 
-  // Restore measurements and scroll position when view becomes visible (mode switch)
+  // Preserve & restore scroll/cursor measurements across file open and mode transitions (Editor <-> Split <-> Preview)
   useEffect(() => {
-    if (viewRef.current && isVisible) {
-      const view = viewRef.current;
-      view.requestMeasure();
-      const prevScroll = savedScrollTopRef.current;
-      if (prevScroll > 0) {
-        requestAnimationFrame(() => {
-          if (view.scrollDOM) {
-            view.scrollDOM.scrollTop = prevScroll;
-          }
+    const view = viewRef.current;
+    const wasVisible = wasVisibleRef.current;
+    wasVisibleRef.current = isVisible;
+
+    if (!view) return;
+
+    if (!isVisible) {
+      // Snapshot latest scrollTop before hiding & release focus cleanly
+      if (view.scrollDOM.scrollTop > 0) {
+        savedScrollTopRef.current = view.scrollDOM.scrollTop;
+        saveEditorSessionState(relativePath, workspacePath, {
+          editorScrollTop: view.scrollDOM.scrollTop,
         });
       }
+      if (view.hasFocus) {
+        view.contentDOM.blur();
+      }
+      return;
     }
-  }, [isVisible]);
+
+    const targetScroll = savedScrollTopRef.current;
+    const cursorHead = view.state.selection.main.head;
+    const shouldFocus = !wasVisible && isVisible;
+
+    if (targetScroll <= 0 && cursorHead <= 0) {
+      if (shouldFocus) {
+        view.contentDOM.focus({ preventScroll: true });
+      }
+      return;
+    }
+
+    let cancelled = false;
+    isRestoringScrollRef.current = true;
+
+    const applyScrollOrCursor = () => {
+      if (cancelled || viewRef.current !== view || !view.scrollDOM) return;
+      if (targetScroll > 0 && view.scrollDOM.clientHeight > 0) {
+        view.scrollDOM.scrollTop = targetScroll;
+      } else if (cursorHead > 0 && !targetLine) {
+        view.dispatch({
+          effects: EditorView.scrollIntoView(cursorHead, { y: 'center' }),
+        });
+      }
+    };
+
+    view.requestMeasure({
+      read: () => view.scrollDOM?.clientHeight || 0,
+      write: () => {
+        applyScrollOrCursor();
+      },
+    });
+
+    requestAnimationFrame(() => {
+      if (cancelled || viewRef.current !== view || !view.scrollDOM) {
+        isRestoringScrollRef.current = false;
+        return;
+      }
+      applyScrollOrCursor();
+      if (shouldFocus) {
+        view.contentDOM.focus({ preventScroll: true });
+      }
+      requestAnimationFrame(() => {
+        if (!cancelled && viewRef.current === view && view.scrollDOM && targetScroll > 0 && view.scrollDOM.clientHeight > 0) {
+          if (Math.abs(view.scrollDOM.scrollTop - targetScroll) > 2) {
+            view.scrollDOM.scrollTop = targetScroll;
+          }
+        }
+        isRestoringScrollRef.current = false;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      isRestoringScrollRef.current = false;
+    };
+  }, [isVisible, viewMode, relativePath, workspacePath]);
 
   // Dynamically reconfigure theme and font size without recreating EditorView
   useEffect(() => {
@@ -534,17 +653,20 @@ export const Editor: React.FC<EditorProps> = ({
     }
   }, [settings.lineNumbers, settings.wordWrap]);
 
-  // Sync external content update if doc changed from outside (e.g. file switched)
+  // Sync external content update if doc changed from outside (e.g. image consolidation), preserving cursor
   useEffect(() => {
     const view = viewRef.current;
     if (view && content !== view.state.doc.toString()) {
+      const prevSel = view.state.selection.main;
+      const nextSel = clampSelectionToDoc(content.length, prevSel.anchor, prevSel.head);
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: content },
+        selection: nextSel,
       });
     }
   }, [content]);
 
-  // Jump to target line if provided (e.g. from search navigation)
+  // Jump to target line if provided (e.g. from search navigation or TOC)
   useEffect(() => {
     if (targetLine && targetLine > 0 && viewRef.current) {
       const view = viewRef.current;
@@ -553,17 +675,31 @@ export const Editor: React.FC<EditorProps> = ({
       const line = view.state.doc.line(validLine);
       view.dispatch({
         selection: { anchor: line.from },
-        scrollIntoView: true,
+        effects: EditorView.scrollIntoView(line.from, { y: 'center' }),
       });
-      view.focus();
+      if (isVisibleRef.current) {
+        view.focus();
+      }
+      requestAnimationFrame(() => {
+        if (viewRef.current === view && view.scrollDOM && isVisibleRef.current) {
+          savedScrollTopRef.current = view.scrollDOM.scrollTop;
+          saveEditorSessionState(relativePath, workspacePath, {
+            anchor: line.from,
+            head: line.from,
+            line: validLine,
+            col: 1,
+            editorScrollTop: view.scrollDOM.scrollTop,
+          });
+        }
+      });
     }
-  }, [targetLine]);
+  }, [targetLine, targetLineKey, relativePath, workspacePath]);
 
   return (
     <div
-      className="editor-pane"
+      className={`editor-pane${isVisible ? '' : ' pane-hidden'}`}
+      aria-hidden={!isVisible}
       ref={containerRef}
-      style={{ display: isVisible ? 'flex' : 'none' }}
     />
   );
 };

@@ -494,10 +494,20 @@ body {
 /* ─── Editor Area ────────────────────────────────────────────── */
 
 .editor-area {
+  position: relative;
   flex: 1;
   display: flex;
   overflow: hidden;
   min-height: 0;
+}
+
+.pane-hidden {
+  position: absolute !important;
+  inset: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  z-index: -1 !important;
 }
 
 .editor-pane {
@@ -2310,6 +2320,11 @@ body {
   }
 
   .preview-pane {
+    position: static !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: auto !important;
     display: block !important;
     overflow: visible !important;
     padding: 0 !important;

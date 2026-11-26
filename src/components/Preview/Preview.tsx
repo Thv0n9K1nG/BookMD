@@ -12,6 +12,7 @@ import { markdownMathPlugin } from '../../utils/markdownMath';
 import { markdownMermaidPlugin } from '../../utils/markdownMermaid';
 import footnote from 'markdown-it-footnote';
 import mermaid from 'mermaid';
+import { getFileSessionState, saveEditorSessionState } from '../../utils/editorSession';
 import { useTranslation } from '../../i18n';
 
 interface PreviewProps {
@@ -48,7 +49,10 @@ export const Preview: React.FC<PreviewProps> = ({
   const prevDocPathRef = useRef<string>(`${workspacePath || ''}::${relativePath}`);
   const prevThemeRef = useRef<string | undefined>(theme);
   const savedScrollTopRef = useRef<number>(0);
+  const lastFocusDocLineRef = useRef<string>('');
   const isEffectiveVisible = isVisible ?? (viewMode === 'preview' || viewMode === 'split');
+  const isEffectiveVisibleRef = useRef<boolean>(isEffectiveVisible);
+  isEffectiveVisibleRef.current = isEffectiveVisible;
   const [copyMenu, setCopyMenu] = useState<{
     x: number;
     y: number;
@@ -198,6 +202,16 @@ export const Preview: React.FC<PreviewProps> = ({
     if (prevDocPathRef.current !== docIdentity || !container.hasChildNodes()) {
       prevDocPathRef.current = docIdentity;
       container.innerHTML = renderedHtml;
+      const savedScroll = getFileSessionState(relativePath, workspacePath)?.previewScrollTop || 0;
+      savedScrollTopRef.current = savedScroll;
+      if (savedScroll > 0 && typeof activeLine === 'number') {
+        lastFocusDocLineRef.current = `${workspacePath || ''}::${relativePath}::${activeLine}`;
+      }
+      requestAnimationFrame(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollTop = savedScroll;
+        }
+      });
       return;
     }
 
@@ -407,15 +421,21 @@ export const Preview: React.FC<PreviewProps> = ({
         targetEl.classList.add('preview-active-focus');
         activeFocusElRef.current = targetEl;
 
-        // Smoothly center the element in preview pane if not already comfortably visible
-        const containerRect = container.getBoundingClientRect();
-        const targetRect = targetEl.getBoundingClientRect();
-        const isComfortablyVisible =
-          targetRect.top >= containerRect.top + 40 &&
-          targetRect.bottom <= containerRect.bottom - 40;
+        const focusKey = `${workspacePath || ''}::${relativePath}::${activeLine}`;
+        const lineChanged = lastFocusDocLineRef.current !== focusKey;
+        lastFocusDocLineRef.current = focusKey;
 
-        if (!isComfortablyVisible) {
-          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Scroll into view when active cursor line actually moved
+        if (lineChanged) {
+          const containerRect = container.getBoundingClientRect();
+          const targetRect = targetEl.getBoundingClientRect();
+          const isComfortablyVisible =
+            targetRect.top >= containerRect.top + 40 &&
+            targetRect.bottom <= containerRect.bottom - 40;
+
+          if (!isComfortablyVisible) {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
         }
       } else {
         // Keep focus class attached even if DOM re-rendered from typing
@@ -430,7 +450,7 @@ export const Preview: React.FC<PreviewProps> = ({
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, [activeLine, viewMode, renderedHtml]);
+  }, [activeLine, viewMode, renderedHtml, relativePath, workspacePath]);
 
   // 1. Add copy buttons to code blocks in the rendered markdown
   useEffect(() => {
@@ -657,18 +677,20 @@ export const Preview: React.FC<PreviewProps> = ({
     };
   }, [copyMenu]);
 
-  // Track scroll position in preview
+  // Track scroll position in preview per file
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const onScroll = () => {
-      if (el.scrollTop > 0) {
-        savedScrollTopRef.current = el.scrollTop;
-      }
+      if (!isEffectiveVisibleRef.current) return;
+      savedScrollTopRef.current = el.scrollTop;
+      saveEditorSessionState(relativePath, workspacePath, {
+        previewScrollTop: el.scrollTop,
+      });
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [relativePath, workspacePath]);
 
   // Restore scroll position when becoming visible (e.g. switching back from editor mode)
   useEffect(() => {
@@ -680,15 +702,15 @@ export const Preview: React.FC<PreviewProps> = ({
         }
       });
     }
-  }, [isEffectiveVisible]);
+  }, [isEffectiveVisible, viewMode]);
 
   return (
     <>
       <div
-        className="preview-pane"
+        className={`preview-pane${isEffectiveVisible ? '' : ' pane-hidden'}`}
         id="bookmd-preview"
+        aria-hidden={!isEffectiveVisible}
         ref={containerRef}
-        style={{ display: isEffectiveVisible ? undefined : 'none' }}
       />
 
       {copyMenu && (

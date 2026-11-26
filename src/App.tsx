@@ -34,6 +34,7 @@ import {
   isPathInsideWorkspace,
   findTabForWorkspace,
 } from './utils/tabUtils';
+import { renameFileSessionState } from './utils/editorSession';
 import { Header } from './components/Header/Header';
 import { FileTree } from './components/Sidebar/FileTree';
 import { TabBar } from './components/Tabs/TabBar';
@@ -140,6 +141,7 @@ export const App: React.FC = () => {
   const [activePath, setActivePath] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [targetLine, setTargetLine] = useState<number | undefined>(undefined);
+  const [targetLineKey, setTargetLineKey] = useState<number>(0);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [pendingWorkspaceSwitch, setPendingWorkspaceSwitch] = useState<{
     targetPath: string;
@@ -468,7 +470,12 @@ export const App: React.FC = () => {
     if (existing) {
       activePathRef.current = entry.relativePath;
       setActivePath(entry.relativePath);
-      if (line) setTargetLine(line);
+      if (line && line > 0) {
+        setTargetLine(line);
+        setTargetLineKey((k) => k + 1);
+      } else {
+        setTargetLine(undefined);
+      }
       return;
     }
 
@@ -493,7 +500,12 @@ export const App: React.FC = () => {
       });
       activePathRef.current = entry.relativePath;
       setActivePath(entry.relativePath);
-      if (line) setTargetLine(line);
+      if (line && line > 0) {
+        setTargetLine(line);
+        setTargetLineKey((k) => k + 1);
+      } else {
+        setTargetLine(undefined);
+      }
     } catch (err: any) {
       console.error('Read file error:', err);
       addToast(t('toasts.fileReadError', { error: err?.message || err }), 'error');
@@ -618,6 +630,8 @@ export const App: React.FC = () => {
             .catch((err) => console.error('Failed to auto-save tab on switch:', err));
         }
       }
+      setTargetLine(undefined);
+      activePathRef.current = path;
       setActivePath(path);
     },
     [settings.autoSave, activePath, tabs]
@@ -803,6 +817,9 @@ export const App: React.FC = () => {
               }
             }
 
+            // Preserve remembered session cursor/scroll state across file rename
+            renameFileSessionState(sourcePath, destinationPath, workspaceRef.current?.path);
+
             // Update tabs if opened
             setTabs((prev) =>
               prev.map((tab) => {
@@ -817,6 +834,7 @@ export const App: React.FC = () => {
               })
             );
             if (activePath === sourcePath) {
+              activePathRef.current = destinationPath;
               setActivePath(destinationPath);
             }
 
@@ -1185,6 +1203,7 @@ export const App: React.FC = () => {
           onRefresh={handleRefreshTree}
           onNavigateToLine={(line) => {
             setTargetLine(line);
+            setTargetLineKey((k) => k + 1);
             setCursorPos((prev) => ({ ...prev, line }));
           }}
           onContextMenu={handleContextMenu}
@@ -1231,6 +1250,8 @@ export const App: React.FC = () => {
                 theme={settings.theme}
                 settings={settings}
                 targetLine={targetLine}
+                targetLineKey={targetLineKey}
+                viewMode={viewMode}
                 isVisible={viewMode === 'editor' || viewMode === 'split'}
                 onChange={handleContentChange}
                 onSave={handleSaveActiveFile}

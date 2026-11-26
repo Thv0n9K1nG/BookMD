@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-11-26
+
+### Fixed & Improved
+- **Session-Wide Cursor & Scroll Persistence in Editor (`src/utils/editorSession.ts`, `src/components/Editor/Editor.tsx`, `src/components/Preview/Preview.tsx`, `src/styles/index.css`)**:
+  - Fixed a regression where only the Preview pane (in Preview mode and the render side of Split mode) retained position across mode transitions, while the CodeMirror Editor pane reset to the top or lost per-file cursor locations when switching files/tabs or toggling Editor/Split/Preview modes.
+  - Replaced `display: none` pane hiding with `.pane-hidden` (`position: absolute; inset: 0; visibility: hidden; pointer-events: none`) so `.editor-pane` and `.preview-pane` retain valid layout geometry in Chromium/WebView2 without collapsing `.cm-scroller.scrollTop` to `0` or invalidating CodeMirror 6 measurements.
+  - Added CodeMirror `view.requestMeasure({ write })` + post-layout verification across `[isVisible, viewMode]` transitions to keep exact scrollTop and restore editor focus cleanly (`preventScroll: true`) even when word-wrapping reflows between Split (50%) and Editor (100%) widths.
+  - Added an in-memory per-file session store (`editorSession.ts`) keyed by canonical `workspacePath::relativePath` to remember exact CodeMirror selection (`anchor`, `head`, `line`, `col`), `editorScrollTop`, and `previewScrollTop` when switching tabs or reopening files during the session, automatically updating across file renames (`renameFileSessionState`).
+  - Prevented stale `targetLine` props from hijacking restored positions on file/tab switches (`targetLineKey` tracking in `App.tsx`) and safely preserves cursor offset on external document content updates.
+- **Automated Tests**:
+  - Added `test/editorSession.test.ts` (5 unit tests) verifying per-file persistence, cross-workspace isolation, partial updates, file rename transfer, and safe selection bounds clamping.
+
 ## [0.2.1] - 2026-11-26
 
 ### Fixed & Improved

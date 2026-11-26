@@ -1,3 +1,21 @@
+# Release Notes — BookMD v0.2.2
+
+**BookMD v0.2.2** resolves a frustrating editor navigation bug where cursor location and scroll position were only preserved reliably in the Preview pane (Preview mode & Split render side) and lost in the CodeMirror Editor across view mode transitions, tab switches, or reopening files within a session.
+
+---
+
+## 🎯 Key Fixes & Improvements
+
+### 1. True Editor + Preview Cursor & Scroll Persistence Across Modes
+- **Preserved CodeMirror Geometry While Hidden**: Replaced `display: none` on inactive `.editor-pane` and `.preview-pane` elements with off-flow `.pane-hidden` visibility styling. Because Chromium no longer collapses `.cm-scroller` to `0×0`, CodeMirror keeps its measured height map and exact scroll offset intact when switching between **Editor**, **Split**, and **Preview**.
+- **Measurement-Synchronized Restoration**: Integrated CodeMirror 6 `view.requestMeasure({ write })` restoration across both visibility and `viewMode` (`Editor` ↔ `Split` word-wrap width changes) transitions, restoring exact pixel scroll offset and editor caret focus (`preventScroll: true`).
+
+### 2. Per-File Session Memory (`editorSession.ts`)
+- **Remember Last Position for Every File in Session**: Closing a file or switching between tabs (`File A` → `File B` → `File A`) no longer resets CodeMirror to Line 1, Col 1. BookMD now remembers each document's exact cursor selection (`anchor`/`head`), line/column, `editorScrollTop`, and `previewScrollTop` for the entire session (keyed safely per `workspacePath::relativePath` and preserved across renames).
+- **Clean Sync with StatusBar & Outline**: Restored cursor positions immediately update the StatusBar and Preview highlight, while stale `targetLine` jumps are isolated so switching tabs never snaps back to an old search/TOC target.
+
+---
+
 # Release Notes — BookMD v0.2.1
 
 **BookMD v0.2.1** is a quality & stability release resolving crisp HiDPI SVG rasterization, cross-workspace tab isolation when opening workspaces with identical folder names/structures, and completing 100% end-to-end localization coverage alongside a restart prompt when switching languages.
